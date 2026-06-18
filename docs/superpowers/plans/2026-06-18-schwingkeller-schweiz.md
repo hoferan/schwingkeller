@@ -12,6 +12,42 @@
 
 ---
 
+## Execution Progress (updated 2026-06-18)
+
+**Completed:** Tasks 1–9, on branch `feat/schwingkeller-app`.
+
+| Task | Commit(s) | Notes |
+|---|---|---|
+| 1 Scaffold | `311875e` | — |
+| 2 Tooling | `cad2b70` | — |
+| 3 Cantons | `21da71d` | — |
+| 4 PLZ→canton | `a6ddb90` | — |
+| 5 Types | `3998b91` | — |
+| 6 Grouping | `ed4b212` | — |
+| 7 Import/export | `9b4babc`, `0a31732`, `7b96b00` | type-fix + BOM round-trip fix (see below) |
+| 8 Geocoding | `9bf1124` | — |
+| 9 i18n | `f07f143` | de/fr/it copied verbatim from prototype; key-parity test passes |
+
+Gate after Task 9: **27 tests pass**, `npm run lint` and `npm run typecheck` clean.
+
+### Amendments discovered during execution (apply to remaining tasks)
+
+1. **Toolchain versions differ from the plan's assumptions.** The Vite scaffold installed **React 19, Vite 8, TypeScript 6, ESLint 10** (current as of 2026-06). React 19 is API-compatible with the plan's `createRoot`/`StrictMode` usage. No action needed beyond the ESLint note below.
+2. **ESLint 10 uses flat config only.** The scaffold ships `eslint.config.js` (flat) wiring `typescript-eslint` + react-hooks. ESLint 10 has **removed** the legacy `.eslintrc` format. Therefore **Task 2 was implemented WITHOUT creating `.eslintrc.cjs`** and WITHOUT the separate `@typescript-eslint/*` install — those steps in the original Task 2 text are obsolete (see corrected Task 2 below). The lint script is `eslint .` (the `--ext` flag errors under flat config).
+3. **Task 7 fixes applied:** `normalizeVenue`'s `id` uses a type-safe expression (still falls back to `import_${i}`); `parseCSV` now strips a leading `U+FEFF` BOM so a CSV `export → re-import` round-trip preserves the first column/ids (regression test added).
+4. **For Task 16:** `leaflet.markercluster` ships no types — install `@types/leaflet.markercluster` as a dev dependency when building the map.
+
+### Known limitations — intentionally carried over from the prototype (do NOT "fix" during the 1:1 port)
+
+These were flagged in review but are faithful to the prototype/spec. Leave them as-is for v1; they are documented here so reviewers don't re-flag them. Revisit only as post-v1 enhancements:
+
+- **No Glarus (GL) PLZ range.** Postcodes 8750–8775 fall under `[8600,8799,'ZH']`, so a GL venue geocoded *without* an ISO-3166-2 code is assigned to ZH. In practice Nominatim returns `ISO3166-2-lvl4` (`CH-GL`), which takes precedence, so this only bites postcode-only fallbacks.
+- **PLZ range ordering matters.** A few ranges overlap (e.g. `6390 OW` vs `6350–6399 NW`); correctness depends on array order. Keep the order from the prototype; do not sort the table.
+- **`groupByCanton` drops venues with unknown canton codes** from the grouped sidebar view (they still appear in search). Acceptable since the edit form constrains canton to a valid `<select>`.
+- **Falsy-zero coords:** `parseFloat(...) || 46.8/8.2` treats lat/lng of exactly `0` as missing. Swiss venues are ~46–48°N / 6–10°E, so `0` never occurs in real data.
+
+---
+
 ## File Structure
 
 ```
@@ -191,21 +227,12 @@ import '@testing-library/jest-dom/vitest';
 { "singleQuote": true, "semi": true, "printWidth": 100 }
 ```
 
-- [ ] **Step 4: Create `.eslintrc.cjs`**
+- [ ] **Step 4: ESLint — keep the scaffold's flat config (CORRECTED)**
 
-```js
-module.exports = {
-  root: true,
-  env: { browser: true, es2022: true },
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
-  parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint'],
-  ignorePatterns: ['dist', 'coverage', '.tmp'],
-  rules: {},
-};
-```
-
-Run: `npm install -D @typescript-eslint/parser @typescript-eslint/eslint-plugin`
+> ⚠️ The original plan said to create `.eslintrc.cjs` and install `@typescript-eslint/*`. This is **obsolete**: the Vite scaffold installed ESLint 10, which only supports flat config and already ships `eslint.config.js` wiring `typescript-eslint` + react-hooks. As implemented:
+> - Do **not** create `.eslintrc.cjs` and do **not** install `@typescript-eslint/*` separately.
+> - Fix the lint script to drop the `--ext` flag (it errors under flat config): `"lint": "eslint ."`.
+> - Verify `npm run lint` exits 0.
 
 - [ ] **Step 5: Add a smoke test `src/smoke.test.ts`**
 
@@ -1440,6 +1467,7 @@ interface MapViewProps {
 }
 ```
 Implementation notes:
+- First install the missing types: `npm install -D @types/leaflet.markercluster` (the runtime pkg ships none).
 - `import L from 'leaflet'; import 'leaflet/dist/leaflet.css'; import 'leaflet.markercluster'; import 'leaflet.markercluster/dist/MarkerCluster.css';`
 - Create the map once in a `useEffect` keyed on mount; store `map`, `markerGroup`, layers in refs.
 - Fetch `/cantons.geojson` (served from `public/`) for the mask + borders (lines 375–382).
