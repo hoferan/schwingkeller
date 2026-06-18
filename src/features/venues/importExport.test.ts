@@ -17,6 +17,15 @@ describe('toCSV', () => {
   });
 });
 
+describe('CSV round-trip', () => {
+  it('survives the BOM toCSV prepends (first column key not corrupted)', () => {
+    const csv = toCSV([normalizeVenue({ id: 'v1', name: 'Emmental', canton: 'BE', lat: '46.9', lng: '7.8' }, 0)]);
+    const rows = parseCSV(csv);
+    expect(Object.keys(rows[0])).toContain('id');
+    expect(rows[0].id).toBe('v1');
+  });
+});
+
 describe('normalizeVenue', () => {
   it('coerces types and uppercases canton', () => {
     const n = normalizeVenue({ name: 'X', canton: 'be', lat: '46.9', lng: '7.8', indoor: 'ja' }, 0);

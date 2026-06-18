@@ -55,7 +55,9 @@ const splitLine = (line: string): string[] => {
 };
 
 export const parseCSV = (txt: string): Record<string, string>[] => {
-  const lines = txt.replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
+  // Strip a leading UTF-8 BOM (toCSV prepends one for Excel) so the first
+  // header key isn't corrupted on an export -> re-import round-trip.
+  const lines = txt.replace(/^﻿/, '').replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
   if (!lines.length) return [];
   const head = splitLine(lines[0]).map((h) => h.trim());
   return lines.slice(1).map((l) => {
