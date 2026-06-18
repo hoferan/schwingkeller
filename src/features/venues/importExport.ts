@@ -4,7 +4,7 @@ const truthy = (v: unknown) =>
   v === true || /^(true|1|ja|yes|x)$/i.test(String(v ?? ''));
 
 export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => ({
-  id: (v.id && String(v.id)) || `import_${i}`,
+  id: (v.id != null && v.id !== '' ? String(v.id) : '') || `import_${i}`,
   name: String(v.name ?? ''),
   canton: String(v.canton ?? 'BE').toUpperCase(),
   address: String(v.address ?? ''),
