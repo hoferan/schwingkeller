@@ -138,7 +138,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
           </a>
         )}
         {venue.website && (
-          <a href={websiteUrl} target="_blank" rel="noopener" style={contactRow}>
+          <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={contactRow}>
             <span style={{ ...contactIcon, fontSize: '14px' }}>⊕</span>
             <div>
               <div style={contactLabel}>{t.website}</div>
