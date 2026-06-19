@@ -189,7 +189,7 @@ services:
       retries: 3
     environment:
       PGRST_DB_URI: postgres://authenticator:your-super-secret-and-long-postgres-password@db:5432/postgres
-      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_MAX_ROWS: "1000"
       PGRST_DB_EXTRA_SEARCH_PATH: public
       PGRST_DB_ANON_ROLE: anon
@@ -358,7 +358,7 @@ services:
       POSTGRES_PASSWORD: your-super-secret-and-long-postgres-password
       POSTGRES_USER_READ_WRITE: postgres
       PG_META_CRYPTO_KEY: your-encryption-key-32-chars-min
-      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_MAX_ROWS: "1000"
       PGRST_DB_EXTRA_SEARCH_PATH: public
       DEFAULT_ORGANIZATION_NAME: Schwingkeller
