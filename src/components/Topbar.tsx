@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
-import type { Lang } from '../i18n/translations';
+import { LANGS, type Lang } from '../i18n/translations';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -8,6 +9,8 @@ interface TopbarProps {
   onOpenLogin: () => void;
   isMobile: boolean;
 }
+
+const LANG_FLAGS: Record<Lang, string> = { de: '🇩🇪', fr: '🇫🇷', it: '🇮🇹' };
 
 const langStyle = (active: boolean): React.CSSProperties => ({
   background: active ? '#e0b25f' : 'transparent',
@@ -37,6 +40,22 @@ const unlockIcon = (
 export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }: TopbarProps) => {
   const { isAdmin, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+
+  const adminPill = isAdmin && (
+    <div
+      title={t.adminMode}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: 'none',
+        background: '#1faa55', color: '#ffffff', fontSize: '11px', fontWeight: 700,
+        letterSpacing: '0.05em', textTransform: 'uppercase', padding: '5px 12px',
+        borderRadius: '999px', whiteSpace: 'nowrap', boxShadow: '0 2px 10px rgba(31,170,85,.5)',
+      }}
+    >
+      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#eafff1', flex: 'none' }}></span>
+      {isMobile ? 'Admin' : t.adminMode}
+    </div>
+  );
 
   return (
     <div
@@ -90,32 +109,79 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
           </div>
         </div>
       )}
+
+      {/* Centered admin pill: flanked by two flex spacers so it sits mid-bar. */}
       <div style={{ flex: 1 }}></div>
-      {/* Admin-mode indicator — visible cue that editing is unlocked. */}
       {isAdmin && (
+        <>
+          {adminPill}
+          <div style={{ flex: 1 }}></div>
+        </>
+      )}
+
+      {/* Language switcher: compact menu on mobile, inline flags on desktop. */}
+      {isMobile ? (
+        <div style={{ position: 'relative', flex: 'none' }}>
+          <button
+            onClick={() => setLangMenuOpen((o) => !o)}
+            aria-label="Sprache / langue / lingua"
+            aria-expanded={langMenuOpen}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,.07)',
+              border: 'none', borderRadius: '9px', padding: '6px 8px', cursor: 'pointer',
+              fontSize: '15px', lineHeight: 1, color: '#f4ead4',
+            }}
+          >
+            {LANG_FLAGS[lang]}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          {langMenuOpen && (
+            <>
+              <div
+                onClick={() => setLangMenuOpen(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 1190 }}
+              />
+              <div
+                style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1200,
+                  background: '#2a1d10', border: '1px solid #6b5634', borderRadius: '10px',
+                  padding: '4px', boxShadow: '0 14px 32px rgba(0,0,0,.5)', minWidth: '92px',
+                }}
+              >
+                {LANGS.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => { setLang(l); setLangMenuOpen(false); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                      background: l === lang ? 'rgba(224,178,95,.22)' : 'transparent', border: 'none',
+                      color: '#f4ead4', fontSize: '13px', fontWeight: 600, padding: '8px 10px',
+                      borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: '15px' }}>{LANG_FLAGS[l]}</span>
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
         <div
-          title={t.adminMode}
           style={{
-            display: 'flex', alignItems: 'center', gap: '6px', flex: 'none',
-            background: 'rgba(125,223,134,.12)', border: '1px solid rgba(125,223,134,.4)',
-            color: '#cfe9bf', fontSize: '11px', fontWeight: 600, padding: '5px 9px',
-            borderRadius: '999px', whiteSpace: 'nowrap',
+            display: 'flex', gap: '2px', background: 'rgba(255,255,255,.07)',
+            padding: '4px', borderRadius: '9px', flex: 'none',
           }}
         >
-          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#7ddf86', flex: 'none' }}></span>
-          {t.adminMode}
+          <button onClick={() => setLang('de')} aria-label="Deutsch" style={langStyle(lang === 'de')}>🇩🇪</button>
+          <button onClick={() => setLang('fr')} aria-label="Français" style={langStyle(lang === 'fr')}>🇫🇷</button>
+          <button onClick={() => setLang('it')} aria-label="Italiano" style={langStyle(lang === 'it')}>🇮🇹</button>
         </div>
       )}
-      <div
-        style={{
-          display: 'flex', gap: '2px', background: 'rgba(255,255,255,.07)',
-          padding: '4px', borderRadius: '9px', flex: 'none',
-        }}
-      >
-        <button onClick={() => setLang('de' as Lang)} aria-label="Deutsch" style={langStyle(lang === 'de')}>🇩🇪</button>
-        <button onClick={() => setLang('fr' as Lang)} aria-label="Français" style={langStyle(lang === 'fr')}>🇫🇷</button>
-        <button onClick={() => setLang('it' as Lang)} aria-label="Italiano" style={langStyle(lang === 'it')}>🇮🇹</button>
-      </div>
+
       {isAdmin ? (
         <button
           onClick={signOut}
