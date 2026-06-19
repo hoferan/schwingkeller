@@ -10,8 +10,8 @@
 # Adapted from the official Supabase self-hosting docker setup
 # (github.com/supabase/supabase, docker/ tree) pinned at commit
 # 6cf174b92534e4f3eb2288da8720c26e8314fa06. Slimmed: dropped functions,
-# analytics, vector and the supavisor pooler. Postgres is exposed directly
-# (no pooler); Realtime is kept because kong.yml routes reference it.
+# analytics, vector, realtime, and the supavisor pooler (none used by the app).
+# Postgres is exposed directly (no pooler).
 #
 # Host ports: Kong 54321, Postgres 54322, Studio 54323, Vite app 5173.
 #
@@ -37,7 +37,6 @@ services:
     ports:
       - "54322:5432"
     volumes:
-      - ./docker/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to alter reserved roles
       - ./docker/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       # Initialize the database settings with JWT_SECRET and JWT_EXP
@@ -200,45 +199,6 @@ services:
       PGRST_APP_SETTINGS_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
       PGRST_APP_SETTINGS_JWT_EXP: "3600"
     command: ["postgrest"]
-
-  # ---------------------------------------------------------------------------
-  # Realtime (kept because kong.yml routes reference it)
-  # ---------------------------------------------------------------------------
-  realtime:
-    # Container name is parsed by Realtime to construct the tenant id — keep it.
-    container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.102.3
-    restart: unless-stopped
-    env_file:
-      - ./docker/supabase.env
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE\" http://localhost:4000/api/tenants/realtime-dev/health"]
-      timeout: 5s
-      interval: 30s
-      retries: 3
-      start_period: 10s
-    environment:
-      PORT: "4000"
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_USER: supabase_admin
-      DB_PASSWORD: your-super-secret-and-long-postgres-password
-      DB_NAME: postgres
-      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
-      DB_ENC_KEY: supabaserealtime
-      API_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
-      SECRET_KEY_BASE: UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq
-      METRICS_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
-      ERL_AFLAGS: -proto_dist inet_tcp
-      DNS_NODES: "''"
-      RLIMIT_NOFILE: "10000"
-      APP_NAME: realtime
-      SEED_SELF_HOST: "true"
-      RUN_JANITOR: "true"
-      DISABLE_HEALTHCHECK_LOGGING: "true"
 
   # ---------------------------------------------------------------------------
   # Storage
