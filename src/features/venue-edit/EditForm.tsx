@@ -61,9 +61,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
 
   // Debounce timer for forward geocoding (prototype `_geoT`).
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guard against the reverse->forward geocode loop (prototype `_syncSkip`):
-  // when address is set programmatically from a reverse geocode, skip the next forward geocode.
-  const syncSkip = useRef(false);
   // Track which picked-coords payload we've already consumed.
   const lastPicked = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -71,11 +68,10 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     if (geoTimer.current) clearTimeout(geoTimer.current);
   }, []);
 
-  // Apply a reverse-geocode result, setting syncSkip so the address change does not re-trigger forward geocode.
+  // Apply a reverse-geocode result, backfilling the address and canton from the picked coordinates.
   const applyReverse = async (lat: number, lng: number) => {
     const res = await reverseGeocode(lat, lng);
     if (!res) return;
-    syncSkip.current = true;
     setDraft((d) => ({
       ...d,
       address: res.address,
@@ -96,7 +92,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   }, [pickedCoords]);
 
   const runForwardGeocode = async (address: string) => {
-    if (syncSkip.current) { syncSkip.current = false; return; }
     const res = await forwardGeocode(address);
     if (!res) return;
     setDraft((d) => {
