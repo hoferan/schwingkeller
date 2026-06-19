@@ -190,7 +190,10 @@ function AppShell() {
     r.readAsText(file);
   };
 
-  const showEditForm = editOpen && !placing;
+  // Keep EditForm mounted whenever editOpen, even while placing, so its internal
+  // draft (pre-pick edits) survives. While placing we visually hide it and remove
+  // it from layout (display:none) so the map underneath is clickable for the pick.
+  const showEditForm = editOpen;
 
   return (
     <div
@@ -252,13 +255,15 @@ function AppShell() {
       )}
 
       {showEditForm && (
-        <EditForm
-          initial={editInitial}
-          onClose={closeEdit}
-          onSaved={onSaved}
-          onStartPlacing={startPlacing}
-          pickedCoords={pickedCoords}
-        />
+        <div style={{ display: placing ? 'none' : 'contents' }}>
+          <EditForm
+            initial={editInitial}
+            onClose={closeEdit}
+            onSaved={onSaved}
+            onStartPlacing={startPlacing}
+            pickedCoords={pickedCoords}
+          />
+        </div>
       )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
