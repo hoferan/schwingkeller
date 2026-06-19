@@ -67,6 +67,10 @@ function AppShell() {
   // is true the form is hidden but its state is preserved (editOpen stays true).
   const [editOpen, setEditOpen] = useState(false);
   const [editInitial, setEditInitial] = useState<Venue | null>(null);
+  // Bumped at the start of every NEW edit session so the <EditForm> remounts and
+  // re-initializes its draft from `initial`. NOT bumped on the placing flow, which
+  // must preserve the draft across a map pick.
+  const [editSession, setEditSession] = useState(0);
   const [placing, setPlacing] = useState(false);
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -97,6 +101,7 @@ function AppShell() {
     if (!detailVenue) return;
     setEditInitial(detailVenue);
     setEditOpen(true);
+    setEditSession((n) => n + 1);
     setPickedCoords(null);
     setPlacing(false);
     setDetailId(null);
@@ -104,6 +109,7 @@ function AppShell() {
   const openAdd = () => {
     setEditInitial(null);
     setEditOpen(true);
+    setEditSession((n) => n + 1);
     setPickedCoords(null);
     setPlacing(false);
     setDetailId(null);
@@ -122,6 +128,7 @@ function AppShell() {
       // Re-open a fresh blank form.
       setEditInitial(null);
       setEditOpen(true);
+      setEditSession((n) => n + 1);
       setPickedCoords(null);
       setPlacing(false);
     } else {
@@ -144,12 +151,14 @@ function AppShell() {
     if (!confirmId) return;
     try {
       await m.remove.mutateAsync(confirmId);
+      // Success: clear the selection/detail for the now-deleted venue.
+      setDetailId(null);
+      setSelectedId(null);
     } catch (err) {
+      // Failure: keep the venue selected/open; only report and close the dialog.
       alert('Löschen fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setConfirmId(null);
-      setDetailId(null);
-      setSelectedId(null);
     }
   };
 
@@ -257,6 +266,7 @@ function AppShell() {
       {showEditForm && (
         <div style={{ display: placing ? 'none' : 'contents' }}>
           <EditForm
+            key={editSession}
             initial={editInitial}
             onClose={closeEdit}
             onSaved={onSaved}
