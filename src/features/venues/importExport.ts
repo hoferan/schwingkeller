@@ -32,7 +32,7 @@ export const toCSV = (venues: Venue[]): string => {
   const rows = [CSV_COLS.join(',')].concat(
     venues.map((v) => CSV_COLS.map((c) => esc(v[c])).join(',')),
   );
-  return '﻿' + rows.join('\n');
+  return '\uFEFF' + rows.join('\n');
 };
 
 export const toJSON = (venues: Venue[]): string => JSON.stringify(venues, null, 2);
@@ -57,7 +57,7 @@ const splitLine = (line: string): string[] => {
 export const parseCSV = (txt: string): Record<string, string>[] => {
   // Strip a leading UTF-8 BOM (toCSV prepends one for Excel) so the first
   // header key isn't corrupted on an export -> re-import round-trip.
-  const lines = txt.replace(/^﻿/, '').replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
+  const lines = txt.replace(/^\uFEFF/, '').replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
   if (!lines.length) return [];
   const head = splitLine(lines[0]).map((h) => h.trim());
   return lines.slice(1).map((l) => {
