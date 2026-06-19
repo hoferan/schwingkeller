@@ -83,9 +83,12 @@ Supabase schema and seed data live under `supabase/`:
 
 ## Prerequisites
 
-- **[Docker](https://docs.docker.com/get-docker/)** — required to run the local Supabase stack.
-- **[Node.js 20](https://nodejs.org/)**.
-- **[Supabase CLI](https://supabase.com/docs/guides/cli)**.
+- **[Docker](https://docs.docker.com/get-docker/)** (with Compose v2) — the only requirement for the
+  recommended one-command local setup.
+- **[Node.js 20](https://nodejs.org/)** — optional, for running the app and tests on the host
+  (non-Docker / Supabase CLI path).
+- **[Supabase CLI](https://supabase.com/docs/guides/cli)** — optional, only for the alternative CLI
+  path below.
 - Free accounts for production: **[Supabase](https://supabase.com/)**,
   **[Netlify](https://www.netlify.com/)**, **[Codecov](https://codecov.io/)** and
   **[Sentry](https://sentry.io/)**.
@@ -108,35 +111,87 @@ secrets, never in the frontend env.
 
 ## Local development
 
-1. **Create your local env file** from the template:
+The recommended way to run everything locally is a single command. From the repo root:
+
+```bash
+docker compose up
+```
+
+This brings up the **entire stack** with no `.env` setup and no Supabase CLI:
+
+- a full self-hosted Supabase backend (Postgres, Auth/GoTrue, PostgREST, Storage + imgproxy,
+  Realtime, postgres-meta, the Kong API gateway and Studio);
+- a one-shot init step that applies `supabase/migrations/0001_init.sql` and `supabase/seed.sql`
+  (creates the `venues` table, its RLS policies, the `venue-photos` Storage bucket, and seeds
+  8 example venues);
+- a one-shot init step that creates a local admin user;
+- the Vite app (`web` service).
+
+Once everything is up:
+
+| Service | URL |
+|---|---|
+| App | <http://localhost:5173> |
+| Supabase API gateway (Kong) | <http://localhost:54321> |
+| Supabase Studio | <http://localhost:54323> |
+| Postgres | `localhost:54322` |
+
+Open <http://localhost:5173> and sign in with the pre-created local admin:
+
+- **Email:** `admin@schwingkeller.local`
+- **Password:** `schwingadmin`
+
+Use **Studio** at <http://localhost:54323> to inspect the database, auth users and storage.
+
+> **First run is slow** — it pulls the Supabase images and builds the app image. Subsequent runs
+> reuse the cached images and volumes, so they start quickly.
+
+The init steps are **idempotent**: re-running `docker compose up` will not re-seed the database or
+fail on the existing admin user. To start completely fresh — wiping the database volume so the
+schema, seed and admin are re-created — reset the stack:
+
+```bash
+docker compose down -v   # remove containers and named volumes
+docker compose up        # rebuild a clean, seeded stack
+```
+
+The local stack uses Supabase's well-known **public demo keys**, baked into `docker/supabase.env`
+and `docker-compose.yml` and clearly marked as local-dev-only. You therefore do **not** need to
+create `.env.local` or copy any keys for local development — `docker compose up` is self-contained.
+
+### Running the tests
+
+The test suite runs on the **host** with Node (no Docker needed):
+
+```bash
+npm install       # once
+npm test          # run the test suite once
+npm run coverage  # run with a coverage report
+```
+
+Other useful scripts: `npm run lint` (ESLint), `npm run typecheck` (TypeScript), `npm run build`
+(production build), `npm run preview` (preview the production build).
+
+### Alternative: Supabase CLI
+
+Prefer to run the app on your host (outside Docker) and/or use the [Supabase
+CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous manual flow:
+
+1. **Create your local env file** and start the CLI stack:
 
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env.local   # gitignored, never committed
+   supabase start               # boots Postgres, Auth, Storage and Studio; prints API URL + keys
    ```
 
-   `.env.local` is gitignored and never committed.
-
-2. **Start the local Supabase stack** (requires Docker):
-
-   ```bash
-   supabase start
-   ```
-
-   This boots Postgres, Auth, Storage and Studio in Docker and prints the local **API URL** and
-   **keys**. By default the API is at `http://localhost:54321` and Studio at
-   `http://localhost:54323`. Copy the printed API URL and the publishable (anon) key into
-   `.env.local`:
+   Copy the printed API URL and publishable (anon) key into `.env.local`:
 
    ```dotenv
    VITE_SUPABASE_URL=http://localhost:54321
    VITE_SUPABASE_PUBLISHABLE_KEY=<key printed by supabase start>
    ```
 
-   > When running the app **inside Docker Compose**, use
-   > `VITE_SUPABASE_URL=http://host.docker.internal:54321` so the container can reach the Supabase
-   > stack on the host.
-
-3. **Apply migrations and seed data**:
+2. **Apply migrations and seed data:**
 
    ```bash
    supabase db reset
@@ -145,49 +200,18 @@ secrets, never in the frontend env.
    This re-applies `supabase/migrations/0001_init.sql` (table, RLS, `venue-photos` bucket and
    storage policies) and runs `supabase/seed.sql` (8 example venues).
 
-4. **Create an admin user.** Since the app only allows authenticated users to write, create a user
-   to log in with. Either:
+3. **Create an admin user** (the app only allows authenticated users to write). The simplest way is
+   via Studio at <http://localhost:54323> → **Authentication** → **Add user**, entering an email and
+   password and auto-confirming so it can sign in immediately. (The local service-role key printed by
+   `supabase start` is only valid against your local stack — it is not a production secret.)
 
-   - **Via Studio:** open `http://localhost:54323` → **Authentication** → **Add user**, enter an
-     email and password (and confirm the user / auto-confirm so it can sign in immediately); or
-   - **Via the CLI / Auth admin API:** create a confirmed user against the local Auth endpoint, for
-     example with `curl` against `http://localhost:54321/auth/v1/admin/users` using the local
-     service-role key printed by `supabase start`:
-
-     ```bash
-     curl -X POST 'http://localhost:54321/auth/v1/admin/users' \
-       -H "apikey: <service_role key from supabase start>" \
-       -H "Authorization: Bearer <service_role key from supabase start>" \
-       -H 'Content-Type: application/json' \
-       -d '{"email":"admin@example.com","password":"changeme","email_confirm":true}'
-     ```
-
-     The local service-role key is only valid against your local stack — it is not a production
-     secret.
-
-5. **Run the app.** Either run it directly on your host:
+4. **Run the app on your host:**
 
    ```bash
    npm install && npm run dev
    ```
 
-   …or run it in a container:
-
-   ```bash
-   docker compose up --build
-   ```
-
-   The dev server is served on `http://localhost:5173`.
-
-6. **Run the tests** and check coverage:
-
-   ```bash
-   npm test          # run the test suite once
-   npm run coverage  # run with a coverage report
-   ```
-
-   Other useful scripts: `npm run lint` (ESLint), `npm run typecheck` (TypeScript), `npm run build`
-   (production build), `npm run preview` (preview the production build).
+   The dev server is served on <http://localhost:5173>.
 
 ## Supabase (cloud) setup
 
@@ -248,7 +272,9 @@ secrets, never in the frontend env.
   tokens (`CODECOV_TOKEN`, `SENTRY_AUTH_TOKEN`, etc.) live exclusively in Netlify and GitHub
   Actions secret stores.
 - **Nothing sensitive is committed.** Only `.env.example` (with placeholders) is tracked;
-  `.env.local` and every real secret are gitignored.
+  `.env.local` and every real secret are gitignored. The keys committed in `docker/supabase.env`
+  and `docker-compose.yml` are Supabase's well-known public demo values for local development only
+  and are never used in production.
 
 ## License
 
