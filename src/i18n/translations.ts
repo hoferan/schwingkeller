@@ -54,6 +54,15 @@ export const STR = {
     saveNew: 'Speichern & neu',
     locSync: 'Koordinaten & Adresse werden automatisch synchronisiert.',
     noResults: 'Keine Schwingkeller gefunden.',
+    adminMode: 'Admin-Modus',
+    importTitle: 'Import bestätigen',
+    importBody:
+      'Der Import ersetzt ALLE bestehenden Einträge durch den Inhalt der Datei. Dies kann nicht rückgängig gemacht werden.',
+    importExisting: 'Bestehend',
+    importReplace: 'Alle ersetzen',
+    importDone: 'Import erfolgreich',
+    importEmpty: 'Keine gültigen Einträge in der Datei gefunden.',
+    importFailed: 'Import fehlgeschlagen',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -107,6 +116,15 @@ export const STR = {
     saveNew: 'Enregistrer & nouveau',
     locSync: 'Coordonnées et adresse synchronisées automatiquement.',
     noResults: 'Aucun lieu trouvé.',
+    adminMode: 'Mode admin',
+    importTitle: 'Confirmer l’import',
+    importBody:
+      'L’import remplace TOUTES les entrées existantes par le contenu du fichier. Cette action est irréversible.',
+    importExisting: 'Existant',
+    importReplace: 'Tout remplacer',
+    importDone: 'Import réussi',
+    importEmpty: 'Aucune entrée valide trouvée dans le fichier.',
+    importFailed: 'Échec de l’import',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -160,6 +178,15 @@ export const STR = {
     saveNew: 'Salva & nuovo',
     locSync: 'Coordinate e indirizzo sincronizzati automaticamente.',
     noResults: 'Nessuna sede trovata.',
+    adminMode: 'Modalità admin',
+    importTitle: 'Conferma importazione',
+    importBody:
+      'L’importazione sostituisce TUTTE le voci esistenti con il contenuto del file. Questa azione è irreversibile.',
+    importExisting: 'Esistenti',
+    importReplace: 'Sostituisci tutto',
+    importDone: 'Importazione riuscita',
+    importEmpty: 'Nessuna voce valida trovata nel file.',
+    importFailed: 'Importazione non riuscita',
   },
 } as const;
 

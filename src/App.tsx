@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Topbar } from './components/Topbar';
 import { Modal } from './components/Modal';
 import { Sidebar } from './features/sidebar/Sidebar';
@@ -73,6 +73,17 @@ function AppShell() {
   const [editSession, setEditSession] = useState(0);
   const [placing, setPlacing] = useState(false);
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Import confirmation (staged file) + transient status toast.
+  const [pendingImport, setPendingImport] = useState<{ count: number; inputs: VenueInput[] } | null>(null);
+  const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const flashTimer = useRef<number | null>(null);
+  const showFlash = (kind: 'ok' | 'err', text: string) => {
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    setFlash({ kind, text });
+    flashTimer.current = window.setTimeout(() => setFlash(null), 4500);
+  };
+  useEffect(() => () => { if (flashTimer.current) window.clearTimeout(flashTimer.current); }, []);
 
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
 
@@ -169,6 +180,8 @@ function AppShell() {
   const onExportJSON = () => download('schwingkeller.json', 'application/json', toJSON(venues));
   const onExportCSV = () => download('schwingkeller.csv', 'text/csv;charset=utf-8', toCSV(venues));
 
+  // Parse + validate the file, then STAGE it for an explicit confirmation
+  // (the import replaces all venues, so it must not run silently).
   const onImport = (file: File) => {
     const r = new FileReader();
     r.onload = () => {
@@ -184,19 +197,33 @@ function AppShell() {
           rows = Array.isArray(j) ? j : (j.venues ?? []);
         }
         if (!Array.isArray(rows) || rows.length === 0) {
-          alert('Keine gültigen Einträge gefunden.');
+          showFlash('err', t.importEmpty);
           return;
         }
         const inputs = rows.map((row, i) => toInput(normalizeVenue(row, i)));
-        void m.replaceAll.mutateAsync(inputs)
-          .then(() => { setDetailId(null); setSelectedId(null); setSearch(''); })
-          .catch((err) => { alert('Import fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err))); });
+        setPendingImport({ count: inputs.length, inputs });
       } catch (err) {
-        console.warn('import failed', err);
-        alert('Import fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+        console.warn('import parse failed', err);
+        showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
       }
     };
     r.readAsText(file);
+  };
+
+  const cancelImport = () => setPendingImport(null);
+  const runImport = async () => {
+    if (!pendingImport) return;
+    const { count, inputs } = pendingImport;
+    setPendingImport(null);
+    try {
+      await m.replaceAll.mutateAsync(inputs);
+      setDetailId(null);
+      setSelectedId(null);
+      setSearch('');
+      showFlash('ok', t.importDone + ' (' + count + ')');
+    } catch (err) {
+      showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   // Keep EditForm mounted whenever editOpen, even while placing, so its internal
@@ -211,7 +238,7 @@ function AppShell() {
         overflow: 'hidden', fontFamily: "'Work Sans',sans-serif",
       }}
     >
-      <Topbar onToggleSidebar={() => setSidebarOpen((o) => !o)} showHamburger={mode !== 'd'} onOpenLogin={() => setShowLogin(true)} />
+      <Topbar onToggleSidebar={() => setSidebarOpen((o) => !o)} showHamburger={mode !== 'd'} onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
 
       <div style={mainStyle}>
         <Sidebar
@@ -333,6 +360,67 @@ function AppShell() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Import confirm — import replaces ALL venues, so require explicit confirmation. */}
+      {pendingImport && (
+        <Modal onClose={cancelImport} width={360} zIndex={1600}>
+          <div style={{ padding: '22px' }}>
+            <div style={{ fontFamily: "'Bitter',serif", fontSize: '18px', fontWeight: 800, color: '#2e2013' }}>
+              {t.importTitle}
+            </div>
+            <div style={{ fontSize: '13.5px', color: '#7a6342', marginTop: '8px', lineHeight: 1.5 }}>
+              {t.importBody}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '14px', alignItems: 'center', fontSize: '12px' }}>
+              <div style={{ flex: 1, background: '#f3ead4', borderRadius: '9px', padding: '9px 11px', color: '#5a4527' }}>
+                <div style={{ opacity: 0.7 }}>{t.importExisting}</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'Bitter',serif" }}>{venues.length}</div>
+              </div>
+              <div style={{ color: '#b08a3c', fontSize: '18px', flex: 'none' }}>→</div>
+              <div style={{ flex: 1, background: '#f3ead4', borderRadius: '9px', padding: '9px 11px', color: '#5a4527' }}>
+                <div style={{ opacity: 0.7 }}>{t.import}</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'Bitter',serif" }}>{pendingImport.count}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
+              <button
+                onClick={cancelImport}
+                style={{
+                  flex: 1, border: '1.5px solid #c9a85e', background: 'transparent', color: '#5a4527',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                }}
+              >
+                {t.cancel}
+              </button>
+              <button
+                onClick={() => { void runImport(); }}
+                style={{
+                  flex: 1, border: 'none', background: '#a3402c', color: '#f8ece8',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                }}
+              >
+                {t.importReplace}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Transient status toast (import result, etc.) */}
+      {flash && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed', bottom: '22px', left: '50%', transform: 'translateX(-50%)', zIndex: 1800,
+            background: flash.kind === 'ok' ? '#2e5a2e' : '#7a2b22', color: '#f6efe2',
+            padding: '12px 18px', borderRadius: '12px', boxShadow: '0 12px 30px rgba(0,0,0,.4)',
+            fontSize: '13.5px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center',
+            animation: 'popIn .24s ease',
+          }}
+        >
+          {flash.text}
+        </div>
       )}
     </div>
   );

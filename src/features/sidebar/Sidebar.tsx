@@ -24,6 +24,39 @@ interface SidebarProps {
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: '#f6edd9' };
 
+const downloadIcon = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v12" />
+    <path d="m7 11 5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+);
+
+const uploadIcon = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 21V9" />
+    <path d="m7 13 5-5 5 5" />
+    <path d="M5 3h14" />
+  </svg>
+);
+
+const exportBtnStyle: CSSProperties = {
+  flex: 1,
+  border: '1px solid #d8c089',
+  background: '#fbf6ea',
+  color: '#5a4527',
+  fontWeight: 600,
+  fontSize: '11.5px',
+  padding: '8px 6px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '5px',
+};
+
 const rowStyle = (sel: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
@@ -186,59 +219,14 @@ export const Sidebar = ({
             {t.add}
           </button>
           <div style={{ display: 'flex', gap: '7px' }}>
-            <button
-              onClick={onExportJSON}
-              style={{
-                flex: 1,
-                border: '1px solid #d8c089',
-                background: '#fbf6ea',
-                color: '#5a4527',
-                fontWeight: 600,
-                fontSize: '11.5px',
-                padding: '8px 6px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              ⤓ JSON
+            <button onClick={onExportJSON} style={exportBtnStyle}>
+              {downloadIcon} JSON
             </button>
-            <button
-              onClick={onExportCSV}
-              style={{
-                flex: 1,
-                border: '1px solid #d8c089',
-                background: '#fbf6ea',
-                color: '#5a4527',
-                fontWeight: 600,
-                fontSize: '11.5px',
-                padding: '8px 6px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              ⤓ CSV
+            <button onClick={onExportCSV} style={exportBtnStyle}>
+              {downloadIcon} CSV
             </button>
-            <label
-              style={{
-                flex: 1,
-                border: '1px solid #d8c089',
-                background: '#fbf6ea',
-                color: '#5a4527',
-                fontWeight: 600,
-                fontSize: '11.5px',
-                padding: '8px 6px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-              }}
-            >
-              ⤒ {t.import}
+            <label style={exportBtnStyle}>
+              {uploadIcon} {t.import}
               <input
                 ref={fileRef}
                 type="file"

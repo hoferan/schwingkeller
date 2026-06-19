@@ -22,7 +22,7 @@ const renderTopbar = () =>
   render(
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
-        <Topbar onToggleSidebar={() => {}} showHamburger={false} onOpenLogin={() => {}} />
+        <Topbar onToggleSidebar={() => {}} showHamburger={false} onOpenLogin={() => {}} isMobile={false} />
       </I18nContext.Provider>
     </AuthProvider>,
   );
