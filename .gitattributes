@@ -1,0 +1,8 @@
+# Files consumed inside Linux containers must keep LF line endings, otherwise
+# CRLF breaks shell shebangs and psql \set meta-commands on Windows checkouts.
+docker/api/kong-entrypoint.sh text eol=lf
+docker/db/*.sql               text eol=lf
+docker/api/kong.yml           text eol=lf
+docker/supabase.env           text eol=lf
+docker-compose.yml            text eol=lf
+supabase/**/*.sql             text eol=lf

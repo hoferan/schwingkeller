@@ -1,13 +1,471 @@
+# One-command local dev stack for "Schwingkeller Schweiz".
+#
+#   docker compose up
+#
+# Brings up a self-hosted Supabase backend (Postgres + Auth + REST + Storage +
+# Studio behind the Kong gateway), applies the venues schema + seed, creates an
+# admin user, and serves the Vite app — with no manual .env setup and no
+# Supabase CLI required.
+#
+# Adapted from the official Supabase self-hosting docker setup
+# (github.com/supabase/supabase, docker/ tree) pinned at commit
+# 6cf174b92534e4f3eb2288da8720c26e8314fa06. Slimmed: dropped functions,
+# analytics, vector and the supavisor pooler. Postgres is exposed directly
+# (no pooler); Realtime is kept because kong.yml routes reference it.
+#
+# Host ports: Kong 54321, Postgres 54322, Studio 54323, Vite app 5173.
+#
+# Shared backend config is in ./docker/supabase.env (injected into containers
+# via env_file). Values used for Compose *interpolation* (connection URLs,
+# healthchecks, ports) are inlined as literals below so that a plain
+# `docker compose up` works WITHOUT a root .env file. Every value is a PUBLIC
+# Supabase demo secret for LOCAL DEV ONLY — never use these in production.
+
+name: schwingkeller
+
 services:
+
+  # ---------------------------------------------------------------------------
+  # Postgres
+  # ---------------------------------------------------------------------------
+  db:
+    container_name: schwingkeller-db
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    ports:
+      - "54322:5432"
+    volumes:
+      - ./docker/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      # Must be superuser to alter reserved roles
+      - ./docker/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      # Initialize the database settings with JWT_SECRET and JWT_EXP
+      - ./docker/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # Changes required for internal supabase data such as _analytics
+      - ./docker/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      # PGDATA directory is persisted between restarts
+      - db-data:/var/lib/postgresql/data:Z
+      # Persist pgsodium decryption key between restarts
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: your-super-secret-and-long-postgres-password
+      POSTGRES_PASSWORD: your-super-secret-and-long-postgres-password
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      JWT_EXP: "3600"
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal
+
+  # ---------------------------------------------------------------------------
+  # API gateway (Kong)
+  # ---------------------------------------------------------------------------
+  kong:
+    container_name: schwingkeller-kong
+    image: kong/kong:3.9.1
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    networks:
+      default:
+        aliases:
+          - api-gw
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      studio:
+        condition: service_healthy
+    ports:
+      - "54321:8000/tcp"
+      - "8443:8443/tcp"
+    volumes:
+      - ./docker/api/kong.yml:/home/kong/temp.yml:ro,z
+      - ./docker/api/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro,z
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_DNS_NOT_FOUND_TTL: 1
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,request-termination,ip-restriction,post-function
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_PROXY_ACCESS_LOG: /dev/stdout combined
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+      SUPABASE_PUBLISHABLE_KEY: ""
+      SUPABASE_SECRET_KEY: ""
+      ANON_KEY_ASYMMETRIC: ""
+      SERVICE_ROLE_KEY_ASYMMETRIC: ""
+      DASHBOARD_USERNAME: supabase
+      DASHBOARD_PASSWORD: this_password_is_insecure_and_should_be_updated
+    entrypoint: ["/bin/sh", "/home/kong/kong-entrypoint.sh"]
+
+  # ---------------------------------------------------------------------------
+  # Auth (GoTrue)
+  # ---------------------------------------------------------------------------
+  auth:
+    container_name: schwingkeller-auth
+    image: supabase/gotrue:v2.189.0
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:54321
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:your-super-secret-and-long-postgres-password@db:5432/postgres
+
+      GOTRUE_SITE_URL: http://localhost:5173
+      GOTRUE_URI_ALLOW_LIST: http://localhost:5173
+      GOTRUE_DISABLE_SIGNUP: "true"
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      GOTRUE_JWT_ISSUER: http://localhost:54321/auth/v1
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@example.com
+      GOTRUE_SMTP_HOST: supabase-mail
+      GOTRUE_SMTP_PORT: "2500"
+      GOTRUE_SMTP_USER: fake_mail_user
+      GOTRUE_SMTP_PASS: fake_mail_password
+      GOTRUE_SMTP_SENDER_NAME: fake_sender
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
+
+  # ---------------------------------------------------------------------------
+  # REST (PostgREST)
+  # ---------------------------------------------------------------------------
+  rest:
+    container_name: schwingkeller-rest
+    image: postgrest/postgrest:v14.12
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "postgrest", "--ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      PGRST_DB_URI: postgres://authenticator:your-super-secret-and-long-postgres-password@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_MAX_ROWS: "1000"
+      PGRST_DB_EXTRA_SEARCH_PATH: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_ADMIN_SERVER_PORT: "3001"
+      PGRST_ADMIN_SERVER_HOST: localhost
+      PGRST_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      PGRST_APP_SETTINGS_JWT_EXP: "3600"
+    command: ["postgrest"]
+
+  # ---------------------------------------------------------------------------
+  # Realtime (kept because kong.yml routes reference it)
+  # ---------------------------------------------------------------------------
+  realtime:
+    # Container name is parsed by Realtime to construct the tenant id — keep it.
+    container_name: realtime-dev.supabase-realtime
+    image: supabase/realtime:v2.102.3
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE\" http://localhost:4000/api/tenants/realtime-dev/health"]
+      timeout: 5s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+    environment:
+      PORT: "4000"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: supabase_admin
+      DB_PASSWORD: your-super-secret-and-long-postgres-password
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      SECRET_KEY_BASE: UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq
+      METRICS_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DISABLE_HEALTHCHECK_LOGGING: "true"
+
+  # ---------------------------------------------------------------------------
+  # Storage
+  # ---------------------------------------------------------------------------
+  storage:
+    container_name: schwingkeller-storage
+    image: supabase/storage-api:v1.60.4
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      imgproxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://storage:5000/status"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      DATABASE_URL: postgres://supabase_storage_admin:your-super-secret-and-long-postgres-password@db:5432/postgres
+      STORAGE_PUBLIC_URL: http://localhost:54321
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: stub
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      ENABLE_IMAGE_TRANSFORMATION: "true"
+      IMGPROXY_URL: http://imgproxy:5001
+      S3_PROTOCOL_ACCESS_KEY_ID: 625729a08b95bf1b7ff351a663f3a23c
+      S3_PROTOCOL_ACCESS_KEY_SECRET: 850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907
+    volumes:
+      - storage-data:/var/lib/storage:z
+
+  # ---------------------------------------------------------------------------
+  # imgproxy (image transformation backing Storage)
+  # ---------------------------------------------------------------------------
+  imgproxy:
+    container_name: schwingkeller-imgproxy
+    image: darthsim/imgproxy:v3.30.1
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    volumes:
+      - storage-data:/var/lib/storage:z
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_AUTO_WEBP: "true"
+      IMGPROXY_MAX_SRC_RESOLUTION: "16.8"
+
+  # ---------------------------------------------------------------------------
+  # postgres-meta (powers Studio's database UI)
+  # ---------------------------------------------------------------------------
+  meta:
+    container_name: schwingkeller-meta
+    image: supabase/postgres-meta:v0.96.6
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: "8080"
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: "5432"
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: your-super-secret-and-long-postgres-password
+      CRYPTO_KEY: your-encryption-key-32-chars-min
+
+  # ---------------------------------------------------------------------------
+  # Studio (Supabase dashboard)
+  # ---------------------------------------------------------------------------
+  studio:
+    container_name: schwingkeller-studio
+    image: supabase/studio:2026.06.03-sha-0bca601
+    restart: unless-stopped
+    env_file:
+      - ./docker/supabase.env
+    ports:
+      - "54323:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})\""]
+      timeout: 10s
+      interval: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      meta:
+        condition: service_started
+    environment:
+      HOSTNAME: "0.0.0.0"
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PORT: "5432"
+      POSTGRES_HOST: db
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: your-super-secret-and-long-postgres-password
+      POSTGRES_USER_READ_WRITE: postgres
+      PG_META_CRYPTO_KEY: your-encryption-key-32-chars-min
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_MAX_ROWS: "1000"
+      PGRST_DB_EXTRA_SEARCH_PATH: public
+      DEFAULT_ORGANIZATION_NAME: Schwingkeller
+      DEFAULT_PROJECT_NAME: Schwingkeller Schweiz
+      OPENAI_API_KEY: ""
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+      AUTH_JWT_SECRET: your-super-secret-jwt-token-with-at-least-32-characters-long
+      ENABLED_FEATURES_LOGS_ALL: "false"
+
+  # ---------------------------------------------------------------------------
+  # One-shot: apply schema + seed (idempotent)
+  # ---------------------------------------------------------------------------
+  db-init:
+    container_name: schwingkeller-db-init
+    image: postgres:15-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+      # Wait for Storage so storage.objects exists before we add policies on it.
+      storage:
+        condition: service_healthy
+    volumes:
+      - ./supabase:/supabase:ro
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: your-super-secret-and-long-postgres-password
+      PGDATABASE: postgres
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        existing=$$(psql -tA -c "select to_regclass('public.venues');")
+        if [ "$$existing" = "venues" ]; then
+          echo "[db-init] public.venues already exists — skipping migrate + seed."
+          exit 0
+        fi
+        echo "[db-init] applying migration 0001_init.sql"
+        psql -v ON_ERROR_STOP=1 -f /supabase/migrations/0001_init.sql
+        echo "[db-init] applying seed.sql"
+        psql -v ON_ERROR_STOP=1 -f /supabase/seed.sql
+        echo "[db-init] done."
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # One-shot: create admin user via GoTrue admin API (idempotent)
+  # ---------------------------------------------------------------------------
+  admin-init:
+    container_name: schwingkeller-admin-init
+    image: curlimages/curl:8.11.1
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[admin-init] creating admin@schwingkeller.local (idempotent)"
+        code=$$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+          -X POST "http://auth:9999/admin/users" \
+          -H "Authorization: Bearer $${SERVICE_ROLE_KEY}" \
+          -H "apikey: $${SERVICE_ROLE_KEY}" \
+          -H "Content-Type: application/json" \
+          -d '{"email":"admin@schwingkeller.local","password":"schwingadmin","email_confirm":true}')
+        echo "[admin-init] HTTP $$code"
+        cat /tmp/resp.json || true
+        echo ""
+        if [ "$$code" = "200" ] || [ "$$code" = "201" ]; then
+          echo "[admin-init] admin user created."
+        elif [ "$$code" = "422" ]; then
+          echo "[admin-init] admin user already exists — ok."
+        else
+          echo "[admin-init] unexpected status $$code" >&2
+          exit 1
+        fi
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # The Vite app (browser client). Talks to Supabase via Kong on host:54321.
+  # ---------------------------------------------------------------------------
   web:
+    container_name: schwingkeller-web
     build: .
+    restart: unless-stopped
     ports:
       - "5173:5173"
     volumes:
       - ./:/app
       - /app/node_modules
-    env_file:
-      - .env.local
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    environment:
+      VITE_SUPABASE_URL: http://localhost:54321
+      VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      admin-init:
+        condition: service_completed_successfully
+      kong:
+        condition: service_healthy
     command: npm run dev
+
+volumes:
+  db-data:
+  db-config:
+  storage-data:
