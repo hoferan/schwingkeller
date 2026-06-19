@@ -179,9 +179,13 @@ export function MapView({
     L.control.attribution({ prefix: '<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>' }).addTo(map);
     setTile(baseKind);
 
+    let cancelled = false;
     const init = async () => {
       try {
-        const gj = (await fetch('/cantons.geojson').then((r) => r.json())) as GeoJSONFeatureCollection;
+        const res = await fetch('/cantons.geojson');
+        if (cancelled) return;
+        const gj = (await res.json()) as GeoJSONFeatureCollection;
+        if (cancelled) return;
         const holes: number[][][] = [];
         gj.features.forEach((f) => {
           if (!f.geometry) return;
@@ -223,6 +227,7 @@ export function MapView({
     });
 
     return () => {
+      cancelled = true;
       map.remove();
       mapRef.current = null;
       markerGroupRef.current = null;
