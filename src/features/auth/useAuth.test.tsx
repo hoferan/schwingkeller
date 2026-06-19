@@ -1,4 +1,3 @@
-/// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
