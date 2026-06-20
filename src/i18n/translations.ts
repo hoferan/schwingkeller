@@ -63,6 +63,8 @@ export const STR = {
     importDone: 'Import erfolgreich',
     importEmpty: 'Keine gültigen Einträge in der Datei gefunden.',
     importFailed: 'Import fehlgeschlagen',
+    saveError: 'Speichern fehlgeschlagen',
+    uploadError: 'Foto-Upload fehlgeschlagen',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -125,6 +127,8 @@ export const STR = {
     importDone: 'Import réussi',
     importEmpty: 'Aucune entrée valide trouvée dans le fichier.',
     importFailed: 'Échec de l’import',
+    saveError: 'Échec de l’enregistrement',
+    uploadError: 'Échec du téléchargement de la photo',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -187,6 +191,8 @@ export const STR = {
     importDone: 'Importazione riuscita',
     importEmpty: 'Nessuna voce valida trovata nel file.',
     importFailed: 'Importazione non riuscita',
+    saveError: 'Salvataggio fallito',
+    uploadError: 'Caricamento foto fallito',
   },
 } as const;
 

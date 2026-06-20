@@ -300,6 +300,7 @@ function AppShell() {
             onSaved={onSaved}
             onStartPlacing={startPlacing}
             pickedCoords={pickedCoords}
+            onError={(msg) => showFlash('err', msg)}
           />
         </div>
       )}

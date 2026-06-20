@@ -7,6 +7,7 @@ import { forwardGeocode, reverseGeocode } from '../venues/geocoding';
 import { uploadPhoto } from '../venues/api';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
+import { captureAndFormat } from '../../lib/sentry';
 
 interface EditFormProps {
   initial: Venue | null;
@@ -14,6 +15,7 @@ interface EditFormProps {
   onSaved: (v: Venue, andNew: boolean) => void;
   onStartPlacing: () => void;
   pickedCoords: { lat: number; lng: number } | null;
+  onError?: (msg: string) => void;
 }
 
 // Editable copy of a Venue plus a transient UI flag mirroring the prototype's `cantonAuto`.
@@ -52,7 +54,7 @@ const spOff: React.CSSProperties = {
   borderRadius: '9px', border: '1.5px solid #e0cfa6', background: '#fff', color: '#a8916c',
 };
 
-export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords }: EditFormProps) => {
+export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
   const { t } = useTranslation();
   const { create, update } = useVenueMutations();
 
@@ -121,7 +123,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       setDraft((d) => ({ ...d, photo_url: url }));
     } catch (err) {
       // Keep prior value; surface the failure non-fatally.
-      alert('Upload fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+      onError?.(captureAndFormat(err, t.uploadError));
     } finally {
       e.target.value = '';
     }
@@ -150,7 +152,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         : await create.mutateAsync(input);
       onSaved(saved, andNew);
     } catch (err) {
-      alert('Speichern fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+      onError?.(captureAndFormat(err, t.saveError));
     }
   };
 
