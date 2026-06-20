@@ -22,9 +22,9 @@ describe('listVenues', () => {
     expect(order).toHaveBeenCalledWith('name');
     expect(result).toEqual([{ id: '1', name: 'A' }]);
   });
-  it('throws on error', async () => {
-    order.mockResolvedValue({ data: null, error: { message: 'boom' } });
-    await expect(listVenues()).rejects.toThrow('boom');
+  it('throws with error code prefix when Supabase returns an error', async () => {
+    order.mockResolvedValue({ data: null, error: { message: 'relation not found', code: '42P01' } });
+    await expect(listVenues()).rejects.toThrow('[42P01] relation not found');
   });
 });
 
@@ -44,8 +44,8 @@ describe('replaceAllVenues', () => {
     await replaceAllVenues([]);
     expect(rpc).toHaveBeenCalledWith('replace_venues', { rows: [] });
   });
-  it('throws on RPC error', async () => {
-    rpc.mockResolvedValue({ error: { message: 'rpc boom' } });
-    await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('rpc boom');
+  it('throws with error code prefix on RPC error', async () => {
+    rpc.mockResolvedValue({ error: { message: 'function does not exist', code: '42883' } });
+    await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[42883] function does not exist');
   });
 });
