@@ -11,6 +11,7 @@ import { parseCSV, toCSV, toJSON, normalizeVenue } from './features/venues/impor
 import type { Venue, VenueInput } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
+import { captureAndFormat } from './lib/sentry';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -204,7 +205,7 @@ function AppShell() {
         setPendingImport({ count: inputs.length, inputs });
       } catch (err) {
         console.warn('import parse failed', err);
-        showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
+        showFlash('err', captureAndFormat(err, t.importFailed));
       }
     };
     r.readAsText(file);
@@ -222,7 +223,7 @@ function AppShell() {
       setSearch('');
       showFlash('ok', t.importDone + ' (' + count + ')');
     } catch (err) {
-      showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
+      showFlash('err', captureAndFormat(err, t.importFailed));
     }
   };
 
