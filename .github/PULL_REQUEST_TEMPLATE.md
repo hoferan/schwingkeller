@@ -1,3 +1,7 @@
+<!-- PR title format: <type>: <short description>
+     Types: feat | fix | chore | docs | refactor | test | ci | perf | style
+     Example: feat: add canton filter to sidebar -->
+
 ## Summary
 
 <!-- What does this PR do? Why? -->
