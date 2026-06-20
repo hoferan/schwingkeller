@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/hoferan/schwingkeller/actions/workflows/ci.yml/badge.svg)](https://github.com/hoferan/schwingkeller/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/hoferan/schwingkeller/branch/main/graph/badge.svg)](https://codecov.io/gh/hoferan/schwingkeller)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/FILL_IN_NETLIFY_SITE_ID/deploy-status)](https://app.netlify.com/sites/FILL_IN_SITE_NAME/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/161aa043-440b-4e41-b715-f0cfe278171d/deploy-status)](https://app.netlify.com/sites/FILL_IN_SITE_NAME/deploys)
 
 An interactive map of Swiss **Schwingkeller** — the training cellars and venues of Swiss wrestling
 (*Schwingen*). Browse venues clustered on a Leaflet map, filter and search by canton, read venue
