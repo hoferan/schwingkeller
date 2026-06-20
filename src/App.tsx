@@ -168,7 +168,7 @@ function AppShell() {
       setSelectedId(null);
     } catch (err) {
       // Failure: keep the venue selected/open; only report and close the dialog.
-      alert('Löschen fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+      showFlash('err', captureAndFormat(err, t.deleteError));
     } finally {
       setConfirmId(null);
     }
@@ -204,7 +204,6 @@ function AppShell() {
         const inputs = rows.map((row, i) => toInput(normalizeVenue(row, i)));
         setPendingImport({ count: inputs.length, inputs });
       } catch (err) {
-        console.warn('import parse failed', err);
         showFlash('err', captureAndFormat(err, t.importFailed));
       }
     };

@@ -4,6 +4,7 @@
 create or replace function public.replace_venues(rows jsonb)
 returns void
 language plpgsql
+security invoker
 as $$
 begin
   delete from public.venues;
