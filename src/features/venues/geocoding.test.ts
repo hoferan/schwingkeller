@@ -4,6 +4,13 @@ import { reverseGeocode, forwardGeocode } from './geocoding';
 beforeEach(() => { vi.restoreAllMocks(); });
 
 describe('reverseGeocode', () => {
+  it('sends a User-Agent header', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false });
+    vi.stubGlobal('fetch', mockFetch);
+    await reverseGeocode(46.9, 7.7);
+    const headers = (mockFetch.mock.calls[0] as [string, RequestInit])[1]?.headers as Record<string, string>;
+    expect(headers['User-Agent']).toMatch(/Schwingkeller/);
+  });
   it('maps address + canton from a Nominatim reverse response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

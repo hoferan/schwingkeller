@@ -25,12 +25,8 @@ export const removeVenue = async (id: string): Promise<void> => {
 };
 
 export const replaceAllVenues = async (venues: VenueInput[]): Promise<void> => {
-  const del = await supabase.from('venues').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  if (del.error) throw new Error(del.error.message);
-  if (venues.length) {
-    const ins = await supabase.from('venues').insert(venues);
-    if (ins.error) throw new Error(ins.error.message);
-  }
+  const { error } = await supabase.rpc('replace_venues', { rows: venues });
+  if (error) throw new Error(error.message);
 };
 
 export const uploadPhoto = async (file: File): Promise<string> => {
