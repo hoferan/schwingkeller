@@ -204,7 +204,7 @@ function AppShell() {
         const inputs = rows.map((row, i) => toInput(normalizeVenue(row, i)));
         setPendingImport({ count: inputs.length, inputs });
       } catch (err) {
-        showFlash('err', captureAndFormat(err, t.importFailed));
+        showFlash('err', t.importFailed);
       }
     };
     r.readAsText(file);
