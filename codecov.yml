@@ -7,6 +7,55 @@ coverage:
     patch:
       default:
         target: 60%
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+        branches:
+          - "!main"
+  individual_components:
+    - component_id: auth
+      name: auth
+      paths:
+        - src/features/auth/**
+    - component_id: map
+      name: map
+      paths:
+        - src/features/map/**
+    - component_id: sidebar
+      name: sidebar
+      paths:
+        - src/features/sidebar/**
+    - component_id: venue_detail
+      name: venue-detail
+      paths:
+        - src/features/venue-detail/**
+    - component_id: venue_edit
+      name: venue-edit
+      paths:
+        - src/features/venue-edit/**
+    - component_id: venues
+      name: venues
+      paths:
+        - src/features/venues/**
+    - component_id: components
+      name: components
+      paths:
+        - src/components/**
+    - component_id: i18n
+      name: i18n
+      paths:
+        - src/i18n/**
+    - component_id: data
+      name: data
+      paths:
+        - src/data/**
+    - component_id: lib
+      name: lib
+      paths:
+        - src/lib/**
+
 comment:
   layout: "reach,diff,flags,tree"
   behavior: default
