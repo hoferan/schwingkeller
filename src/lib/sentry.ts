@@ -3,7 +3,11 @@ import * as Sentry from '@sentry/react';
 export const initSentry = (): void => {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   if (!dsn) return;
-  Sentry.init({ dsn, tracesSampleRate: 0.1 });
+  Sentry.init({
+    dsn,
+    environment: import.meta.env.VITE_APP_ENV || 'development',
+    tracesSampleRate: 0.1,
+  });
 };
 
 export const extractCode = (err: unknown): string | null => {
