@@ -11,6 +11,7 @@ import { parseCSV, toCSV, toJSON, normalizeVenue } from './features/venues/impor
 import type { Venue, VenueInput } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
+import { captureAndFormat } from './lib/sentry';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -167,7 +168,7 @@ function AppShell() {
       setSelectedId(null);
     } catch (err) {
       // Failure: keep the venue selected/open; only report and close the dialog.
-      alert('Löschen fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+      showFlash('err', captureAndFormat(err, t.deleteError));
     } finally {
       setConfirmId(null);
     }
@@ -202,9 +203,8 @@ function AppShell() {
         }
         const inputs = rows.map((row, i) => toInput(normalizeVenue(row, i)));
         setPendingImport({ count: inputs.length, inputs });
-      } catch (err) {
-        console.warn('import parse failed', err);
-        showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
+      } catch {
+        showFlash('err', t.importFailed);
       }
     };
     r.readAsText(file);
@@ -222,7 +222,7 @@ function AppShell() {
       setSearch('');
       showFlash('ok', t.importDone + ' (' + count + ')');
     } catch (err) {
-      showFlash('err', t.importFailed + ': ' + (err instanceof Error ? err.message : String(err)));
+      showFlash('err', captureAndFormat(err, t.importFailed));
     }
   };
 
@@ -299,6 +299,7 @@ function AppShell() {
             onSaved={onSaved}
             onStartPlacing={startPlacing}
             pickedCoords={pickedCoords}
+            onError={(msg) => showFlash('err', msg)}
           />
         </div>
       )}

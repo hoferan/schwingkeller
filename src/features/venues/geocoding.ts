@@ -1,6 +1,9 @@
 import { cantonFromGeo } from '../../data/plzRanges';
 
-const HEADERS = { 'Accept-Language': 'de' };
+const HEADERS = {
+  'Accept-Language': 'de',
+  'User-Agent': 'Schwingkeller-Schweiz/1.0 (https://github.com/hoferan/schwingkeller)',
+};
 
 export interface ReverseResult { address: string; canton: string | null }
 export interface ForwardResult { lat: number; lng: number; canton: string | null }
