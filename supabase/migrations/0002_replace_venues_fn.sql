@@ -26,3 +26,5 @@ begin
   end if;
 end;
 $$;
+
+grant execute on function public.replace_venues(jsonb) to authenticated;
