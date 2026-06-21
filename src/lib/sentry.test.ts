@@ -1,11 +1,36 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+vi.mock('@sentry/react', () => ({ init: vi.fn(), captureException: vi.fn() }));
 
 import * as SentryMod from '@sentry/react';
-import { extractCode, captureAndFormat } from './sentry';
+import { extractCode, captureAndFormat, initSentry } from './sentry';
 
 beforeEach(() => { vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllEnvs(); });
+
+describe('initSentry', () => {
+  it('does not call init when DSN is missing', () => {
+    initSentry();
+    expect(SentryMod.init).not.toHaveBeenCalled();
+  });
+
+  it('passes VITE_APP_ENV as environment when set', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://test@sentry.io/1');
+    vi.stubEnv('VITE_APP_ENV', 'stage');
+    initSentry();
+    expect(SentryMod.init).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: 'stage' }),
+    );
+  });
+
+  it('defaults environment to "development" when VITE_APP_ENV is unset', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://test@sentry.io/1');
+    initSentry();
+    expect(SentryMod.init).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: 'development' }),
+    );
+  });
+});
 
 describe('extractCode', () => {
   it('extracts the code from a [CODE] prefixed message', () => {

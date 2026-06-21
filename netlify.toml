@@ -5,6 +5,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[context.production.environment]
+  VITE_APP_ENV = "production"
+
+[context.deploy-preview.environment]
+  VITE_APP_ENV = "stage"
+
+[context.branch-deploy.environment]
+  VITE_APP_ENV = "stage"
+
 # SPA fallback
 [[redirects]]
   from = "/*"
