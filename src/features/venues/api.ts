@@ -1,8 +1,11 @@
 import { supabase } from '../../lib/supabase';
 import type { Venue, VenueInput } from './types';
 
-const toError = (e: { message: string; code?: string }): Error =>
-  new Error(e.code ? `[${e.code}] ${e.message}` : e.message);
+const toError = (e: { message: string; code?: string; hint?: string; details?: string }): Error => {
+  const err = new Error(e.code ? `[${e.code}] ${e.message}` : e.message);
+  err.cause = e;
+  return err;
+};
 
 export const listVenues = async (): Promise<Venue[]> => {
   const { data, error } = await supabase.from('venues').select('*').order('name');

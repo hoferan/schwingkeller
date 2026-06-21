@@ -26,6 +26,12 @@ describe('listVenues', () => {
     order.mockResolvedValue({ data: null, error: { message: 'relation not found', code: '42P01' } });
     await expect(listVenues()).rejects.toThrow('[42P01] relation not found');
   });
+  it('sets err.cause to the raw Supabase error so Sentry receives hint and details', async () => {
+    const raw = { message: 'relation not found', code: '42P01', hint: 'Check schema', details: 'Table missing' };
+    order.mockResolvedValue({ data: null, error: raw });
+    const err = await listVenues().catch((e: unknown) => e);
+    expect((err as Error).cause).toBe(raw);
+  });
 });
 
 const SAMPLE_VENUE: VenueInput = {
