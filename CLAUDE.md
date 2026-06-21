@@ -45,6 +45,7 @@ Available skills:
 - Use TanStack Query for all Supabase data fetching; never fetch directly in components
 - Use RLS policies on the Supabase side; never rely on client-side auth guards alone
 - Geocoding goes through Nominatim — respect rate limits (1 req/s, User-Agent header required)
+- Use Conventional Commits format for PR titles (e.g. `feat: add Codecov integration`, `fix: supabase db push flag`) — matching the existing commit history
 - Commit on a feature branch; push to `claude/new-session-eeiygh` for this session
 
 ## Don'ts
