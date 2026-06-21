@@ -5,7 +5,7 @@ export const initSentry = (): void => {
   if (!dsn) return;
   Sentry.init({
     dsn,
-    environment: import.meta.env.VITE_APP_ENV ?? 'development',
+    environment: import.meta.env.VITE_APP_ENV || 'development',
     tracesSampleRate: 0.1,
   });
 };

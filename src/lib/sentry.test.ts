@@ -30,6 +30,15 @@ describe('initSentry', () => {
       expect.objectContaining({ environment: 'development' }),
     );
   });
+
+  it('defaults environment to "development" when VITE_APP_ENV is empty string', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://test@sentry.io/1');
+    vi.stubEnv('VITE_APP_ENV', '');
+    initSentry();
+    expect(SentryMod.init).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: 'development' }),
+    );
+  });
 });
 
 describe('extractCode', () => {
