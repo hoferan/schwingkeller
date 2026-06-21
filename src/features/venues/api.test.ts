@@ -54,4 +54,8 @@ describe('replaceAllVenues', () => {
     rpc.mockResolvedValue({ error: { message: 'function does not exist', code: '42883' } });
     await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[42883] function does not exist');
   });
+  it('propagates pg_safeupdate 21000 error when DELETE lacks WHERE clause', async () => {
+    rpc.mockResolvedValue({ error: { message: 'DELETE requires a WHERE clause', code: '21000' } });
+    await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[21000] DELETE requires a WHERE clause');
+  });
 });
