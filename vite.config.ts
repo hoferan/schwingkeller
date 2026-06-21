@@ -33,6 +33,8 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    reporters: ['default', 'junit'],
+    outputFile: { junit: 'test-report.junit.xml' },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
