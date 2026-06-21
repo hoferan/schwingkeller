@@ -29,15 +29,19 @@ create trigger trg_venues_updated_at
 -- Row Level Security: public read, authenticated write
 alter table public.venues enable row level security;
 
+drop policy if exists "venues_public_read" on public.venues;
 create policy "venues_public_read" on public.venues
   for select using (true);
 
+drop policy if exists "venues_auth_insert" on public.venues;
 create policy "venues_auth_insert" on public.venues
   for insert to authenticated with check (true);
 
+drop policy if exists "venues_auth_update" on public.venues;
 create policy "venues_auth_update" on public.venues
   for update to authenticated using (true) with check (true);
 
+drop policy if exists "venues_auth_delete" on public.venues;
 create policy "venues_auth_delete" on public.venues
   for delete to authenticated using (true);
 
@@ -46,14 +50,18 @@ insert into storage.buckets (id, name, public)
 values ('venue-photos', 'venue-photos', true)
 on conflict (id) do nothing;
 
+drop policy if exists "venue_photos_public_read" on storage.objects;
 create policy "venue_photos_public_read" on storage.objects
   for select using (bucket_id = 'venue-photos');
 
+drop policy if exists "venue_photos_auth_write" on storage.objects;
 create policy "venue_photos_auth_write" on storage.objects
   for insert to authenticated with check (bucket_id = 'venue-photos');
 
+drop policy if exists "venue_photos_auth_update" on storage.objects;
 create policy "venue_photos_auth_update" on storage.objects
   for update to authenticated using (bucket_id = 'venue-photos');
 
+drop policy if exists "venue_photos_auth_delete" on storage.objects;
 create policy "venue_photos_auth_delete" on storage.objects
   for delete to authenticated using (bucket_id = 'venue-photos');
