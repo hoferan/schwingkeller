@@ -14,6 +14,10 @@ component_management:
         target: auto
         branches:
           - "!main"
+      - type: patch
+        target: 60%
+        branches:
+          - "!main"
   individual_components:
     - component_id: auth
       name: auth
@@ -55,6 +59,11 @@ component_management:
       name: lib
       paths:
         - src/lib/**
+    - component_id: app
+      name: app
+      paths:
+        - src/App.tsx
+        - src/*.ts
 
 comment:
   layout: "reach,diff,flags,tree"
