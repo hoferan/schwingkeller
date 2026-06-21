@@ -1,5 +1,9 @@
 -- pg_safeupdate (enabled by default on Supabase) blocks DELETE without a WHERE clause
 -- (error 21000). Add WHERE true to satisfy the safety check while still deleting all rows.
+--
+-- SECURITY INVOKER is safe here: the "venues_auth_delete" RLS policy uses USING (true),
+-- so any authenticated caller can delete all rows. TRUNCATE would require granting
+-- TRUNCATE privilege to the authenticated role, which we deliberately avoid.
 create or replace function public.replace_venues(rows jsonb)
 returns void
 language plpgsql
@@ -25,3 +29,7 @@ begin
   end if;
 end;
 $$;
+
+-- Repeated for idempotency: CREATE OR REPLACE preserves grants but a fresh db reset
+-- replays all migrations in order, so the grant from 0002 still covers this run.
+grant execute on function public.replace_venues(jsonb) to authenticated;
