@@ -6,7 +6,7 @@ import { theme } from '../../theme';
 type T = typeof STR.de;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const pinHtml = (sel: boolean): string =>
+export const pinHtml = (_sel: boolean): string =>
   '<div style="position:relative;width:32px;height:40px;">'
   + '<div style="position:absolute;left:1px;top:0;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';"></div>'
   + '<div style="position:absolute;left:11px;top:9px;width:10px;height:10px;border-radius:50%;background:' + theme.color.bg + ';border:2px solid ' + theme.color.accent + ';"></div>'
