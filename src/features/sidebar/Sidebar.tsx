@@ -271,7 +271,7 @@ export const Sidebar = ({
         {groups.map((group) => {
           const exp = searching || !!expanded[group.code];
           return (
-            <div key={group.code} style={{ borderBottom: '1px solid #e6d3a3' }}>
+            <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
               <div
                 onClick={() => onToggleCanton(group.code)}
                 style={{
