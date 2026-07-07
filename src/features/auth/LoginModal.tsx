@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from './useAuth';
+import { theme } from '../../theme';
 import { useTranslation } from '../../i18n/useTranslation';
 
 interface LoginModalProps {
@@ -7,12 +8,12 @@ interface LoginModalProps {
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid #e0cfa6', borderRadius: '9px', padding: '11px 13px',
-  fontSize: '14px', color: '#3a2a18', background: '#fff', outline: 'none',
+  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius, padding: '11px 13px',
+  fontSize: '14px', color: theme.color.ink, background: theme.color.bg, outline: 'none',
 };
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em',
-  textTransform: 'uppercase', color: '#9a7c45', marginBottom: '6px',
+  textTransform: 'uppercase', color: theme.color.muted, marginBottom: '6px',
 };
 
 export const LoginModal = ({ onClose }: LoginModalProps) => {
@@ -46,7 +47,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(30,20,10,.52)', zIndex: 1500,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1500,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
         animation: 'fadeIn .2s ease',
       }}
@@ -54,26 +55,26 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#f6edd9', borderRadius: '16px', width: '360px', maxWidth: '100%',
-          boxShadow: '0 26px 64px rgba(30,20,10,.5)', animation: 'popIn .26s ease', overflow: 'hidden',
+          background: theme.color.bg, border: '2px solid ' + theme.color.line, borderRadius: theme.radius,
+          width: '360px', maxWidth: '100%', animation: 'popIn .26s ease', overflow: 'hidden',
         }}
       >
         <div
           style={{
-            background: 'linear-gradient(#352716,#2a1d10)', padding: '18px 20px',
+            background: theme.color.ink, padding: '18px 20px',
             display: 'flex', alignItems: 'center', gap: '11px',
           }}
         >
           <div
             style={{
-              width: '30px', height: '30px', borderRadius: '7px', background: '#c0851d',
+              width: '30px', height: '30px', borderRadius: theme.radius, background: theme.color.accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'Bitter',serif", fontWeight: 800, color: '#2a1d10', fontSize: '17px',
+              fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, fontSize: '17px',
             }}
           >
             S
           </div>
-          <span style={{ fontFamily: "'Bitter',serif", fontSize: '16px', fontWeight: 800, color: '#f4ead4' }}>
+          <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '16px', fontWeight: 700, color: theme.color.bg }}>
             {t.loginTitle}
           </span>
         </div>
@@ -94,17 +95,17 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
             style={inputStyle}
           />
           {err && (
-            <div style={{ marginTop: '10px', color: '#a3402c', fontSize: '12.5px' }}>{err}</div>
+            <div style={{ marginTop: '10px', color: theme.color.accent, fontSize: '12.5px' }}>{err}</div>
           )}
-          <div style={{ marginTop: '10px', fontSize: '11.5px', color: '#a08a64', fontStyle: 'italic' }}>
+          <div style={{ marginTop: '10px', fontSize: '11.5px', color: theme.color.muted, fontStyle: 'italic' }}>
             {t.loginHintReal}
           </div>
           <div style={{ display: 'flex', gap: '11px', marginTop: '18px' }}>
             <button
               onClick={onClose}
               style={{
-                flex: 1, border: '1.5px solid #c9a85e', background: 'transparent', color: '#5a4527',
-                fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
+                fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
               }}
             >
               {t.cancel}
@@ -113,8 +114,8 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
               onClick={() => { void doLogin(); }}
               disabled={busy}
               style={{
-                flex: 1, border: 'none', background: '#c0851d', color: '#2a1d10',
-                fontWeight: 700, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
+                fontWeight: 700, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
               }}
             >
               {t.login}
