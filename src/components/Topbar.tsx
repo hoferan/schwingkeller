@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
 import { LANGS, type Lang } from '../i18n/translations';
+import { theme } from '../theme';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -13,14 +14,14 @@ interface TopbarProps {
 const LANG_FLAGS: Record<Lang, string> = { de: '🇩🇪', fr: '🇫🇷', it: '🇮🇹' };
 
 const langStyle = (active: boolean): React.CSSProperties => ({
-  background: active ? '#e0b25f' : 'transparent',
+  background: active ? theme.color.accent : 'transparent',
+  color: active ? theme.color.accentInk : theme.color.muted,
   border: 'none',
   cursor: 'pointer',
   fontSize: '15px',
   lineHeight: '1',
   padding: '6px 8px',
-  borderRadius: '7px',
-  filter: active ? 'none' : 'grayscale(.45) opacity(.65)',
+  borderRadius: theme.radius,
 });
 
 const lockIcon = (
@@ -47,12 +48,12 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
       title={t.adminMode}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: 'none',
-        background: '#1faa55', color: '#ffffff', fontSize: '11px', fontWeight: 700,
+        background: theme.color.accent, color: theme.color.accentInk, fontSize: '11px', fontWeight: 700,
         letterSpacing: '0.05em', textTransform: 'uppercase', padding: '5px 12px',
-        borderRadius: '999px', whiteSpace: 'nowrap', boxShadow: '0 2px 10px rgba(31,170,85,.5)',
+        borderRadius: theme.radius, whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#eafff1', flex: 'none' }}></span>
+      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: theme.color.accentInk, flex: 'none' }}></span>
       {isMobile ? 'Admin' : t.adminMode}
     </div>
   );
@@ -60,9 +61,9 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
   return (
     <div
       style={{
-        height: '60px', flex: 'none', background: 'linear-gradient(#352716,#2a1d10)',
+        height: '60px', flex: 'none', background: theme.color.ink,
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: '9px',
-        borderBottom: '3px solid #c0851d', position: 'relative', zIndex: 1100,
+        borderBottom: '3px solid ' + theme.color.accent, position: 'relative', zIndex: 1100,
       }}
     >
       {showHamburger && (
@@ -70,8 +71,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
           onClick={onToggleSidebar}
           aria-label="Menu"
           style={{
-            border: 'none', background: 'rgba(255,255,255,.09)', color: '#f4ead4',
-            width: '38px', height: '38px', borderRadius: '9px', cursor: 'pointer',
+            border: 'none', background: 'rgba(255,255,255,.09)', color: theme.color.bg,
+            width: '38px', height: '38px', borderRadius: theme.radius, cursor: 'pointer',
             fontSize: '17px', flex: 'none',
           }}
         >
@@ -80,9 +81,9 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
       )}
       <div
         style={{
-          width: '32px', height: '32px', borderRadius: '7px', background: '#c0851d',
+          width: '32px', height: '32px', borderRadius: theme.radius, background: theme.color.accent,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'Bitter',serif", fontWeight: 800, color: '#2a1d10',
+          fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk,
           fontSize: '19px', flex: 'none',
         }}
       >
@@ -93,15 +94,16 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontFamily: "'Bitter',serif", fontWeight: 800, letterSpacing: '0.04em',
-              color: '#f4ead4', fontSize: '15px', lineHeight: 1.1, whiteSpace: 'nowrap',
+              fontFamily: theme.font.display, fontWeight: 700, letterSpacing: '0.04em',
+              textTransform: 'uppercase', color: theme.color.bg, fontSize: '15px', lineHeight: 1.1,
+              whiteSpace: 'nowrap',
             }}
           >
-            SCHWINGKELLER <span style={{ color: '#e0b25f' }}>SCHWEIZ</span>
+            SCHWINGKELLER <span style={{ color: theme.color.accent }}>SCHWEIZ</span>
           </div>
           <div
             style={{
-              fontSize: '10.5px', color: '#b69a6b', lineHeight: 1.1, marginTop: '1px',
+              fontSize: '10.5px', color: theme.color.muted, lineHeight: 1.1, marginTop: '1px',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
@@ -128,8 +130,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
             aria-expanded={langMenuOpen}
             style={{
               display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,.07)',
-              border: 'none', borderRadius: '9px', padding: '6px 8px', cursor: 'pointer',
-              fontSize: '15px', lineHeight: 1, color: '#f4ead4',
+              border: 'none', borderRadius: theme.radius, padding: '6px 8px', cursor: 'pointer',
+              fontSize: '15px', lineHeight: 1, color: theme.color.bg,
             }}
           >
             {LANG_FLAGS[lang]}
@@ -146,8 +148,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
               <div
                 style={{
                   position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1200,
-                  background: '#2a1d10', border: '1px solid #6b5634', borderRadius: '10px',
-                  padding: '4px', boxShadow: '0 14px 32px rgba(0,0,0,.5)', minWidth: '92px',
+                  background: theme.color.ink, border: '1px solid ' + theme.color.bg, borderRadius: theme.radius,
+                  padding: '4px', minWidth: '92px',
                 }}
               >
                 {LANGS.map((l) => (
@@ -156,9 +158,9 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
                     onClick={() => { setLang(l); setLangMenuOpen(false); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                      background: l === lang ? 'rgba(224,178,95,.22)' : 'transparent', border: 'none',
-                      color: '#f4ead4', fontSize: '13px', fontWeight: 600, padding: '8px 10px',
-                      borderRadius: '7px', cursor: 'pointer', textAlign: 'left',
+                      background: l === lang ? theme.color.accent : 'transparent', border: 'none',
+                      color: theme.color.bg, fontSize: '13px', fontWeight: 600, padding: '8px 10px',
+                      borderRadius: theme.radius, cursor: 'pointer', textAlign: 'left',
                     }}
                   >
                     <span style={{ fontSize: '15px' }}>{LANG_FLAGS[l]}</span>
@@ -173,7 +175,7 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
         <div
           style={{
             display: 'flex', gap: '2px', background: 'rgba(255,255,255,.07)',
-            padding: '4px', borderRadius: '9px', flex: 'none',
+            padding: '4px', borderRadius: theme.radius, flex: 'none',
           }}
         >
           <button onClick={() => setLang('de')} aria-label="Deutsch" style={langStyle(lang === 'de')}>🇩🇪</button>
@@ -189,8 +191,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
           title={t.logout}
           aria-label={t.logout}
           style={{
-            fontSize: '12.5px', fontWeight: 600, color: '#e8d6ab', background: 'transparent',
-            border: '1.5px solid #6b5634', borderRadius: '8px', cursor: 'pointer', flex: 'none',
+            fontSize: '12.5px', fontWeight: 600, color: theme.color.bg, background: 'transparent',
+            border: '1.5px solid ' + theme.color.bg, borderRadius: theme.radius, cursor: 'pointer', flex: 'none',
             whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '6px', padding: isMobile ? '0' : '7px 13px', width: isMobile ? '38px' : 'auto',
             height: isMobile ? '38px' : 'auto',
@@ -206,8 +208,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
           title={t.login}
           aria-label={t.login}
           style={{
-            fontSize: '12.5px', fontWeight: 600, color: '#2a1d10', background: '#c0851d',
-            border: 'none', borderRadius: '8px', cursor: 'pointer', flex: 'none',
+            fontSize: '12.5px', fontWeight: 600, color: theme.color.accentInk, background: theme.color.accent,
+            border: 'none', borderRadius: theme.radius, cursor: 'pointer', flex: 'none',
             whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '6px', padding: isMobile ? '0' : '8px 14px', width: isMobile ? '38px' : 'auto',
             height: isMobile ? '38px' : 'auto',
