@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { pinHtml, popupHtml, clusterIcon } from './markers';
+import { theme } from '../../theme';
 
 interface MapViewProps {
   venues: Venue[];
@@ -33,22 +34,21 @@ const overlayStyle: CSSProperties = {
   display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
 };
 const toggleWrapStyle: CSSProperties = {
-  display: 'flex', background: '#f6edd9', border: '1px solid #cbb077',
-  borderRadius: '9px', overflow: 'hidden', boxShadow: '0 3px 10px rgba(60,40,15,.25)',
+  display: 'flex', background: theme.color.bg, border: '1px solid ' + theme.color.line,
+  borderRadius: theme.radius, overflow: 'hidden',
 };
 const fitAllBtnStyle: CSSProperties = {
-  width: '38px', height: '38px', border: '1px solid #cbb077', background: '#f6edd9',
-  color: '#5a4527', borderRadius: '9px', cursor: 'pointer',
-  boxShadow: '0 3px 10px rgba(60,40,15,.25)',
+  width: '38px', height: '38px', border: '1px solid ' + theme.color.line, background: theme.color.bg,
+  color: theme.color.ink, borderRadius: theme.radius, cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 const layerBtnStyle = (active: boolean): CSSProperties => ({
-  border: 'none', cursor: 'pointer', fontFamily: "'Work Sans',sans-serif", fontSize: '12px',
+  border: 'none', cursor: 'pointer', fontFamily: theme.font.body, fontSize: '12px',
   fontWeight: 600, padding: '7px 13px',
-  background: active ? '#c0851d' : 'transparent', color: active ? '#2a1d10' : '#7a6342',
+  background: active ? theme.color.accent : 'transparent', color: active ? theme.color.accentInk : theme.color.ink,
 });
 
-const cantonStyle = (): L.PathOptions => ({ color: '#9a7c45', weight: 1, fill: false, fillOpacity: 0 });
+const cantonStyle = (): L.PathOptions => ({ color: theme.color.ink, weight: 1, fill: false, fillOpacity: 0 });
 
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
@@ -104,8 +104,8 @@ export function MapView({
   };
 
   const applyMaskTint = (kind: 'map' | 'sat') => {
-    if (maskLayerRef.current) maskLayerRef.current.setStyle({ fillColor: kind === 'sat' ? '#0e1c12' : '#6f6553', fillOpacity: kind === 'sat' ? 0.5 : 0.6 });
-    if (cantonLayerRef.current) cantonLayerRef.current.setStyle({ color: kind === 'sat' ? '#f4ead4' : '#9a7c45', weight: kind === 'sat' ? 1.2 : 1 });
+    if (maskLayerRef.current) maskLayerRef.current.setStyle({ fillColor: kind === 'sat' ? '#1a1a1a' : '#3a3a3a', fillOpacity: kind === 'sat' ? 0.5 : 0.6 });
+    if (cantonLayerRef.current) cantonLayerRef.current.setStyle({ color: kind === 'sat' ? theme.color.bg : theme.color.ink, weight: kind === 'sat' ? 1.2 : 1 });
   };
 
   const refreshMarkers = () => {
@@ -196,7 +196,7 @@ export function MapView({
           }
         });
         const world: number[][] = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
-        maskLayerRef.current = L.polygon([world as L.LatLngExpression[], ...(holes as unknown as L.LatLngExpression[][])], { stroke: false, fillColor: '#6f6553', fillOpacity: 0.6, interactive: false }).addTo(map);
+        maskLayerRef.current = L.polygon([world as L.LatLngExpression[], ...(holes as unknown as L.LatLngExpression[][])], { stroke: false, fillColor: '#3a3a3a', fillOpacity: 0.6, interactive: false }).addTo(map);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         cantonLayerRef.current = L.geoJSON(gj as any, { style: cantonStyle, interactive: false }).addTo(map);
         applyMaskTint(baseKind);
