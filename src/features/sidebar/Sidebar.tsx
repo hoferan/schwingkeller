@@ -4,6 +4,7 @@ import { filterVenues, groupByCanton } from '../venues/grouping';
 import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
+import { theme } from '../../theme';
 
 interface SidebarProps {
   venues: Venue[];
@@ -22,7 +23,7 @@ interface SidebarProps {
   onImport: (file: File) => void;
 }
 
-const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: '#f6edd9' };
+const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
 
 const downloadIcon = (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
@@ -42,13 +43,13 @@ const uploadIcon = (
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
-  border: '1px solid #d8c089',
-  background: '#fbf6ea',
-  color: '#5a4527',
+  border: '1px solid ' + theme.color.line,
+  background: theme.color.bg,
+  color: theme.color.ink,
   fontWeight: 600,
   fontSize: '11.5px',
   padding: '8px 6px',
-  borderRadius: '8px',
+  borderRadius: theme.radius,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   display: 'flex',
@@ -63,10 +64,10 @@ const rowStyle = (sel: boolean): CSSProperties => ({
   gap: '8px',
   padding: '9px 10px 9px 12px',
   margin: '3px 0',
-  borderRadius: '0 8px 8px 0',
+  borderRadius: theme.radius,
   cursor: 'pointer',
-  borderLeft: sel ? '2px solid #c0851d' : '2px solid #e6d3a3',
-  background: sel ? '#fbf6ea' : 'transparent',
+  borderLeft: sel ? '2px solid ' + theme.color.accent : '2px solid ' + theme.color.line,
+  background: sel ? theme.color.paper : 'transparent',
 });
 
 // "town" line: drop the street part of the address, fall back to full address.
@@ -110,12 +111,11 @@ export const Sidebar = ({
         bottom: 0,
         height: sidebarOpen ? '80vh' : '108px',
         zIndex: 1200,
-        borderTop: '1px solid #ddc9a0',
-        borderRadius: '18px 18px 0 0',
-        boxShadow: '0 -8px 30px rgba(40,26,10,.28)',
+        borderTop: '1px solid ' + theme.color.line,
+        borderRadius: theme.radius,
         transition: 'height .32s cubic-bezier(.4,0,.2,1)',
       }
-    : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid #ddc9a0' };
+    : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
   return (
     <div style={sidebarStyle}>
@@ -130,7 +130,7 @@ export const Sidebar = ({
             flex: 'none',
           }}
         >
-          <div style={{ width: '44px', height: '5px', borderRadius: '3px', background: '#d3bd8c' }} />
+          <div style={{ width: '44px', height: '5px', borderRadius: theme.radius, background: theme.color.ink }} />
         </div>
       )}
 
@@ -140,13 +140,13 @@ export const Sidebar = ({
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            background: '#fff',
-            border: '1px solid #e0cfa6',
-            borderRadius: '24px',
+            background: theme.color.bg,
+            border: '1px solid ' + theme.color.line,
+            borderRadius: theme.radius,
             padding: '11px 16px',
           }}
         >
-          <span style={{ color: '#bca673', fontSize: '15px' }}>⌕</span>
+          <span style={{ color: theme.color.muted, fontSize: '15px' }}>⌕</span>
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
@@ -156,7 +156,7 @@ export const Sidebar = ({
               outline: 'none',
               background: 'transparent',
               fontSize: '14px',
-              color: '#3a2a18',
+              color: theme.color.ink,
               width: '100%',
               minWidth: 0,
             }}
@@ -166,9 +166,9 @@ export const Sidebar = ({
               onClick={() => onSearch('')}
               aria-label="clear"
               style={{
-                border: 'none',
-                background: '#ece0c6',
-                color: '#7a6342',
+                border: '1px solid ' + theme.color.line,
+                background: theme.color.bg,
+                color: theme.color.ink,
                 width: '22px',
                 height: '22px',
                 borderRadius: '50%',
@@ -202,12 +202,12 @@ export const Sidebar = ({
             style={{
               width: '100%',
               border: 'none',
-              background: '#2e2013',
-              color: '#f4ead4',
+              background: theme.color.accent,
+              color: theme.color.accentInk,
               fontWeight: 600,
               fontSize: '13px',
               padding: '10px',
-              borderRadius: '9px',
+              borderRadius: theme.radius,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -254,17 +254,17 @@ export const Sidebar = ({
       >
         <span
           style={{
-            fontFamily: "'Bitter',serif",
+            fontFamily: theme.font.display,
             fontSize: '11px',
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            color: '#9a7c45',
+            color: theme.color.muted,
             fontWeight: 700,
           }}
         >
           {t.byCanton}
         </span>
-        <span style={{ fontSize: '11px', color: '#b09a6e' }}>{totalText}</span>
+        <span style={{ fontSize: '11px', color: theme.color.muted }}>{totalText}</span>
       </div>
 
       <div className="sk-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}>
@@ -295,9 +295,10 @@ export const Sidebar = ({
                 />
                 <span
                   style={{
-                    fontFamily: "'Bitter',serif",
+                    fontFamily: theme.font.display,
+                    textTransform: 'uppercase',
                     fontWeight: 700,
-                    color: '#2e2013',
+                    color: theme.color.ink,
                     fontSize: '15.5px',
                     flex: 1,
                   }}
@@ -308,15 +309,15 @@ export const Sidebar = ({
                   style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    color: '#7a5618',
-                    background: '#ecd7a0',
+                    color: theme.color.accentInk,
+                    background: theme.color.ink,
                     padding: '2px 9px',
-                    borderRadius: '20px',
+                    borderRadius: theme.radius,
                   }}
                 >
                   {group.count}
                 </span>
-                <span style={{ color: '#b59a63', fontSize: '11px', width: '12px', textAlign: 'center' }}>
+                <span style={{ color: theme.color.ink, fontSize: '11px', width: '12px', textAlign: 'center' }}>
                   {exp ? '▾' : '▸'}
                 </span>
               </div>
@@ -329,7 +330,7 @@ export const Sidebar = ({
                           style={{
                             fontSize: '13px',
                             fontWeight: 600,
-                            color: '#3a2a18',
+                            color: theme.color.ink,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -340,7 +341,7 @@ export const Sidebar = ({
                         <div
                           style={{
                             fontSize: '11.5px',
-                            color: '#a08a64',
+                            color: theme.color.muted,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -349,7 +350,7 @@ export const Sidebar = ({
                           {townOf(v.address)}
                         </div>
                       </div>
-                      <span style={{ fontSize: '14px', color: '#c0851d', flex: 'none' }}>›</span>
+                      <span style={{ fontSize: '14px', color: theme.color.accent, flex: 'none' }}>›</span>
                     </div>
                   ))}
                 </div>
@@ -358,7 +359,7 @@ export const Sidebar = ({
           );
         })}
         {noResults && (
-          <div style={{ padding: '34px 12px', textAlign: 'center', color: '#a08a64', fontSize: '13px' }}>
+          <div style={{ padding: '34px 12px', textAlign: 'center', color: theme.color.muted, fontSize: '13px' }}>
             {t.noResults}
           </div>
         )}
