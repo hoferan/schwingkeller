@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => {
@@ -32,7 +32,19 @@ const venues = [
   v({ id: '3', name: 'Allmend', canton: 'LU' }),
 ];
 
-const Harness = () => {
+interface HarnessProps {
+  isMobile?: boolean;
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  onSetSidebarOpen?: (open: boolean) => void;
+}
+
+const Harness = ({
+  isMobile = false,
+  sidebarOpen = true,
+  onToggleSidebar = () => {},
+  onSetSidebarOpen = () => {},
+}: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,9 +57,10 @@ const Harness = () => {
       onToggleCanton={(code) => setExpanded((e) => ({ ...e, [code]: !e[code] }))}
       selectedId={selectedId}
       onSelect={setSelectedId}
-      isMobile={false}
-      sidebarOpen={true}
-      onToggleSidebar={vi.fn()}
+      isMobile={isMobile}
+      sidebarOpen={sidebarOpen}
+      onToggleSidebar={onToggleSidebar}
+      onSetSidebarOpen={onSetSidebarOpen}
       onAdd={vi.fn()}
       onExportJSON={vi.fn()}
       onExportCSV={vi.fn()}
@@ -56,11 +69,11 @@ const Harness = () => {
   );
 };
 
-const renderSidebar = () =>
+const renderSidebar = (props: HarnessProps = {}) =>
   render(
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
-        <Harness />
+        <Harness {...props} />
       </I18nContext.Provider>
     </AuthProvider>,
   );
@@ -91,5 +104,77 @@ describe('Sidebar', () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
     expect(screen.queryByText(STR.de.add)).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile drawer on tap outside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('does not close the mobile drawer on tap inside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
+    const bern = await screen.findByText('Bern');
+
+    fireEvent.pointerDown(bern);
+
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('treats a small header touch as a tap toggle', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 104 }] });
+
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('opens the drawer on an upward swipe past the threshold', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 200 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 150 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('closes the drawer on a downward swipe past the threshold', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 160 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('does nothing in the dead zone between tap and swipe thresholds', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 118 }] });
+
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react';
+import { useRef, useEffect, type CSSProperties } from 'react';
 import { Search, X, ChevronRight, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton } from '../venues/grouping';
@@ -18,6 +18,7 @@ interface SidebarProps {
   isMobile: boolean;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onSetSidebarOpen: (open: boolean) => void;
   onAdd: () => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
@@ -84,6 +85,7 @@ export const Sidebar = ({
   isMobile,
   sidebarOpen,
   onToggleSidebar,
+  onSetSidebarOpen,
   onAdd,
   onExportJSON,
   onExportCSV,
@@ -92,6 +94,38 @@ export const Sidebar = ({
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleHeaderTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeaderTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartYRef.current;
+    touchStartYRef.current = null;
+    if (startY === null) return;
+    e.preventDefault();
+    const deltaY = e.changedTouches[0].clientY - startY;
+    if (Math.abs(deltaY) < 10) {
+      onToggleSidebar();
+    } else if (deltaY <= -30) {
+      onSetSidebarOpen(true);
+    } else if (deltaY >= 30) {
+      onSetSidebarOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMobile || !sidebarOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        onSetSidebarOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [isMobile, sidebarOpen, onSetSidebarOpen]);
 
   const list = filterVenues(venues, search);
   const groups = groupByCanton(list);
@@ -118,45 +152,51 @@ export const Sidebar = ({
     : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
   return (
-    <div style={sidebarStyle}>
-      {isMobile && (
-        <div
-          onClick={onToggleSidebar}
-          style={{
-            padding: '14px 0 12px',
-            display: 'flex',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            flex: 'none',
-          }}
-        >
-          <div style={{ width: '56px', height: '6px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
-        </div>
-      )}
-
+    <div ref={rootRef} style={sidebarStyle}>
       <div
-        style={{
-          background: theme.color.ink, padding: '18px 15px', display: 'flex',
-          flexDirection: 'column', gap: '10px', flex: 'none',
-        }}
+        data-testid="sidebar-header"
+        onClick={isMobile ? onToggleSidebar : undefined}
+        onTouchStart={isMobile ? handleHeaderTouchStart : undefined}
+        onTouchEnd={isMobile ? handleHeaderTouchEnd : undefined}
+        style={{ cursor: isMobile ? 'pointer' : 'default' }}
       >
-        <span
+        {isMobile && (
+          <div
+            style={{
+              padding: '14px 0 12px',
+              display: 'flex',
+              justifyContent: 'center',
+              flex: 'none',
+            }}
+          >
+            <div style={{ width: '56px', height: '6px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
+          </div>
+        )}
+
+        <div
           style={{
-            fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700,
-            color: theme.color.bg, fontSize: '19px', lineHeight: 1.15,
+            background: theme.color.ink, padding: '18px 15px', display: 'flex',
+            flexDirection: 'column', gap: '10px', flex: 'none',
           }}
         >
-          {t.searchTitle}
-        </span>
-        <span
-          style={{
-            display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.accent,
-            color: theme.color.accentInk, fontFamily: theme.font.display, textTransform: 'uppercase',
-            fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: theme.radius.pill,
-          }}
-        >
-          {totalText}
-        </span>
+          <span
+            style={{
+              fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700,
+              color: theme.color.bg, fontSize: '19px', lineHeight: 1.15,
+            }}
+          >
+            {t.searchTitle}
+          </span>
+          <span
+            style={{
+              display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.accent,
+              color: theme.color.accentInk, fontFamily: theme.font.display, textTransform: 'uppercase',
+              fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: theme.radius.pill,
+            }}
+          >
+            {totalText}
+          </span>
+        </div>
       </div>
 
       <div style={{ padding: '15px 15px 11px', flex: 'none' }}>

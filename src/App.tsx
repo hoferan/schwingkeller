@@ -250,6 +250,7 @@ function AppShell() {
           isMobile={isMobile}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onSetSidebarOpen={setSidebarOpen}
           onAdd={openAdd}
           onExportJSON={onExportJSON}
           onExportCSV={onExportCSV}
