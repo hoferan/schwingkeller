@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -24,7 +24,6 @@ const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%'
 const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
 const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
-  display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
 };
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
 // soft-card theme tokens — the goal here is to blend in with the native zoom control.
@@ -40,10 +39,15 @@ const radioRowStyle = (withDivider: boolean): CSSProperties => ({
 const radioInputStyle: CSSProperties = {
   accentColor: theme.color.accent, width: '16px', height: '16px', cursor: 'pointer', flex: 'none',
 };
+// Default top offset before the real zoom-control height is measured (see the mount effect):
+// 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
+const FIT_ALL_DEFAULT_TOP = 46;
+const fitAllWrapStyle = (top: number): CSSProperties => ({
+  ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`, zIndex: 1000,
+});
 const fitAllBtnStyle: CSSProperties = {
-  width: '38px', height: '38px', border: '1px solid ' + theme.color.line, background: theme.color.bg,
-  color: theme.color.ink, borderRadius: theme.radius.sm, boxShadow: theme.shadow, cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: '30px', height: '30px', border: 'none', background: 'transparent',
+  color: theme.color.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
 export function MapView({
@@ -57,6 +61,7 @@ export function MapView({
   const markerGroupRef = useRef<any>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
   const tileRef = useRef<L.TileLayer | null>(null);
+  const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -173,6 +178,8 @@ export function MapView({
     map.whenReady(() => {
       if (!mapRef.current) return;
       map.invalidateSize();
+      const zoomEl = map.zoomControl.getContainer();
+      if (zoomEl) setFitAllTop(10 + zoomEl.offsetHeight + 10);
       window.setTimeout(() => {
         if (!mapRef.current || !markerGroupRef.current) return;
         map.invalidateSize();
@@ -253,7 +260,10 @@ export function MapView({
             {t.satView}
           </label>
         </div>
+      </div>
+      <div style={fitAllWrapStyle(fitAllTop)}>
         <button
+          className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
           title={t.fitAll}
           style={fitAllBtnStyle}
