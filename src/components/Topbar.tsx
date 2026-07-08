@@ -1,26 +1,24 @@
-import { useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
 import { LANGS, type Lang } from '../i18n/translations';
 import { theme } from '../theme';
 
 interface TopbarProps {
-  onToggleSidebar: () => void;
-  showHamburger: boolean;
   onOpenLogin: () => void;
   isMobile: boolean;
 }
 
-const LANG_FLAGS: Record<Lang, string> = { de: '🇩🇪', fr: '🇫🇷', it: '🇮🇹' };
+const LANG_NAMES: Record<Lang, string> = { de: 'Deutsch', fr: 'Français', it: 'Italiano' };
 
 const langStyle = (active: boolean): React.CSSProperties => ({
   background: active ? theme.color.accent : 'transparent',
   color: active ? theme.color.accentInk : theme.color.muted,
   border: 'none',
   cursor: 'pointer',
-  fontSize: '15px',
+  fontSize: '13px',
+  fontWeight: 700,
   lineHeight: '1',
-  padding: '6px 8px',
+  padding: '6px 10px',
   borderRadius: theme.radius.pill,
 });
 
@@ -38,10 +36,9 @@ const unlockIcon = (
   </svg>
 );
 
-export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }: TopbarProps) => {
+export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
   const { isAdmin, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   const adminPill = isAdmin && (
     <div
@@ -66,31 +63,18 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
         borderBottom: '2px solid ' + theme.color.accent, position: 'relative', zIndex: 1100,
       }}
     >
-      {showHamburger && (
-        <button
-          onClick={onToggleSidebar}
-          aria-label="Menu"
+      {/* Wordmark: always visible, matching the AFLS reference. Tagline stays mobile-hidden to save vertical space. */}
+      <div style={{ minWidth: 0 }}>
+        <div
           style={{
-            border: 'none', background: theme.color.paper, color: theme.color.ink,
-            width: '38px', height: '38px', borderRadius: theme.radius.sm, cursor: 'pointer',
-            fontSize: '17px', flex: 'none',
+            fontFamily: theme.font.display, fontWeight: 700, letterSpacing: '0.04em',
+            textTransform: 'uppercase', color: theme.color.accent, fontSize: '15px', lineHeight: 1.1,
+            whiteSpace: 'nowrap',
           }}
         >
-          ☰
-        </button>
-      )}
-      {/* Wordmark + tagline — hidden on mobile to keep the bar from overflowing. */}
-      {!isMobile && (
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: theme.font.display, fontWeight: 700, letterSpacing: '0.04em',
-              textTransform: 'uppercase', color: theme.color.accent, fontSize: '15px', lineHeight: 1.1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            SCHWINGKELLER SCHWEIZ
-          </div>
+          SCHWINGKELLER
+        </div>
+        {!isMobile && (
           <div
             style={{
               fontSize: '10.5px', color: theme.color.muted, lineHeight: 1.1, marginTop: '1px',
@@ -99,8 +83,8 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
           >
             {t.tagline}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Centered admin pill: flanked by two flex spacers so it sits mid-bar. */}
       <div style={{ flex: 1 }}></div>
@@ -111,68 +95,19 @@ export const Topbar = ({ onToggleSidebar, showHamburger, onOpenLogin, isMobile }
         </>
       )}
 
-      {/* Language switcher: compact menu on mobile, inline flags on desktop. */}
-      {isMobile ? (
-        <div style={{ position: 'relative', flex: 'none' }}>
-          <button
-            onClick={() => setLangMenuOpen((o) => !o)}
-            aria-label="Sprache / langue / lingua"
-            aria-expanded={langMenuOpen}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px', background: theme.color.paper,
-              border: 'none', borderRadius: theme.radius.pill, padding: '6px 8px', cursor: 'pointer',
-              fontSize: '15px', lineHeight: 1, color: theme.color.ink,
-            }}
-          >
-            {LANG_FLAGS[lang]}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+      {/* Language switcher: one text-pill row at every width, matching the AFLS reference. */}
+      <div
+        style={{
+          display: 'flex', gap: '2px', background: theme.color.paper,
+          padding: '4px', borderRadius: theme.radius.pill, flex: 'none',
+        }}
+      >
+        {LANGS.map((l) => (
+          <button key={l} onClick={() => setLang(l)} aria-label={LANG_NAMES[l]} style={langStyle(lang === l)}>
+            {l.toUpperCase()}
           </button>
-          {langMenuOpen && (
-            <>
-              <div
-                onClick={() => setLangMenuOpen(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 1190 }}
-              />
-              <div
-                style={{
-                  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1200,
-                  background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
-                  boxShadow: theme.shadow, padding: '4px', minWidth: '92px',
-                }}
-              >
-                {LANGS.map((l) => (
-                  <button
-                    key={l}
-                    onClick={() => { setLang(l); setLangMenuOpen(false); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                      background: l === lang ? theme.color.accent : 'transparent', border: 'none',
-                      color: l === lang ? theme.color.accentInk : theme.color.ink, fontSize: '13px', fontWeight: 600, padding: '8px 10px',
-                      borderRadius: theme.radius.sm, cursor: 'pointer', textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontSize: '15px' }}>{LANG_FLAGS[l]}</span>
-                    {l.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'flex', gap: '2px', background: theme.color.paper,
-            padding: '4px', borderRadius: theme.radius.pill, flex: 'none',
-          }}
-        >
-          <button onClick={() => setLang('de')} aria-label="Deutsch" style={langStyle(lang === 'de')}>🇩🇪</button>
-          <button onClick={() => setLang('fr')} aria-label="Français" style={langStyle(lang === 'fr')}>🇫🇷</button>
-          <button onClick={() => setLang('it')} aria-label="Italiano" style={langStyle(lang === 'it')}>🇮🇹</button>
-        </div>
-      )}
+        ))}
+      </div>
 
       {isAdmin ? (
         <button
