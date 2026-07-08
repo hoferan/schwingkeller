@@ -39,7 +39,7 @@ const blankDraft = (): Draft => ({
 });
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius, padding: '11px 13px',
+  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '11px 13px',
   fontSize: '14px', color: theme.color.ink, background: theme.color.bg, outline: 'none',
 };
 const labelStyle: React.CSSProperties = {
@@ -48,11 +48,11 @@ const labelStyle: React.CSSProperties = {
 };
 const spOn: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: theme.radius, border: '1.5px solid ' + theme.color.accent, background: theme.color.accent, color: theme.color.accentInk,
+  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.accent, background: theme.color.accent, color: theme.color.accentInk,
 };
 const spOff: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: theme.radius, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.muted,
+  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.muted,
 };
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
@@ -185,7 +185,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <label style={{ ...labelStyle, marginBottom: '7px' }}>{t.photo}</label>
         <label
           style={{
-            display: 'block', height: '128px', overflow: 'hidden', cursor: 'pointer',
+            display: 'block', height: '128px', overflow: 'hidden', cursor: 'pointer', borderRadius: theme.radius.sm,
             border: '1.5px dashed ' + theme.color.line, position: 'relative', marginBottom: '16px',
           }}
         >
@@ -267,7 +267,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div
             style={{
-              flex: 1, background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius,
+              flex: 1, background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
               padding: '11px 13px', fontSize: '13px', color: theme.color.ink, fontFamily: 'monospace',
             }}
           >
@@ -277,7 +277,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             onClick={onStartPlacing}
             style={{
               border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink, fontWeight: 600,
-              fontSize: '13px', padding: '11px 14px', borderRadius: theme.radius, cursor: 'pointer', whiteSpace: 'nowrap',
+              fontSize: '13px', padding: '11px 14px', borderRadius: theme.radius.sm, cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
             ⌖ {t.pickOnMap}
@@ -320,7 +320,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           disabled={saving}
           style={{
             width: '100%', border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600,
-            fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+            fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
           }}
         >
           {t.saveClose}
@@ -330,7 +330,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             onClick={onClose}
             style={{
               flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius, cursor: 'pointer',
+              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
             }}
           >
             {t.cancel}
@@ -340,7 +340,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             disabled={saving}
             style={{
               flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius, cursor: 'pointer',
+              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
             }}
           >
             {t.saveNew}
