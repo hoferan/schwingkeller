@@ -312,8 +312,8 @@ function AppShell() {
         <div
           style={{
             position: 'fixed', top: '74px', left: '50%', transform: 'translateX(-50%)', zIndex: 1700,
-            background: theme.color.ink, color: theme.color.bg, padding: '12px 16px', borderRadius: theme.radius,
-            display: 'flex', gap: '14px', alignItems: 'center',
+            background: theme.color.ink, color: theme.color.bg, padding: '12px 16px', borderRadius: theme.radius.sm,
+            boxShadow: theme.shadow, display: 'flex', gap: '14px', alignItems: 'center',
             maxWidth: 'calc(100% - 32px)', animation: 'popIn .24s ease',
           }}
         >
@@ -322,7 +322,7 @@ function AppShell() {
             onClick={cancelPlacing}
             style={{
               border: '1px solid ' + theme.color.bg, background: 'transparent', color: theme.color.bg, fontWeight: 600,
-              fontSize: '12.5px', padding: '6px 12px', borderRadius: theme.radius, cursor: 'pointer', whiteSpace: 'nowrap',
+              fontSize: '12.5px', padding: '6px 12px', borderRadius: theme.radius.sm, cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
             {t.cancel}
@@ -345,7 +345,7 @@ function AppShell() {
                 onClick={cancelDelete}
                 style={{
                   flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.cancel}
@@ -354,7 +354,7 @@ function AppShell() {
                 onClick={() => { void confirmDelete(); }}
                 style={{
                   flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.confirmDelete}
@@ -375,12 +375,12 @@ function AppShell() {
               {t.importBody}
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', alignItems: 'center', fontSize: '12px' }}>
-              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, padding: '9px 11px', color: theme.color.ink }}>
+              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
                 <div style={{ opacity: 0.7 }}>{t.importExisting}</div>
                 <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{venues.length}</div>
               </div>
               <div style={{ color: theme.color.accent, fontSize: '18px', flex: 'none' }}>→</div>
-              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, padding: '9px 11px', color: theme.color.ink }}>
+              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
                 <div style={{ opacity: 0.7 }}>{t.import}</div>
                 <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{pendingImport.count}</div>
               </div>
@@ -390,7 +390,7 @@ function AppShell() {
                 onClick={cancelImport}
                 style={{
                   flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.cancel}
@@ -399,7 +399,7 @@ function AppShell() {
                 onClick={() => { void runImport(); }}
                 style={{
                   flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.importReplace}
@@ -416,7 +416,7 @@ function AppShell() {
           style={{
             position: 'fixed', bottom: '22px', left: '50%', transform: 'translateX(-50%)', zIndex: 1800,
             background: flash.kind === 'ok' ? theme.color.ink : theme.color.accent, color: theme.color.bg,
-            padding: '12px 18px', borderRadius: theme.radius,
+            padding: '12px 18px', borderRadius: theme.radius.sm, boxShadow: theme.shadow,
             fontSize: '13.5px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center',
             animation: 'popIn .24s ease',
           }}
