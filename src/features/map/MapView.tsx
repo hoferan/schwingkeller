@@ -26,15 +26,17 @@ const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
   display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
 };
-const layerCardStyle: CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: '8px', background: theme.color.bg,
-  border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, boxShadow: theme.shadow,
-  padding: '10px 14px',
+// Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
+// soft-card theme tokens — the goal here is to blend in with the native zoom control.
+const nativeCtrlStyle: CSSProperties = {
+  background: '#fff', borderRadius: '4px', boxShadow: '0 1px 5px rgba(0,0,0,.65)', overflow: 'hidden',
 };
-const radioRowStyle: CSSProperties = {
+const layerCardStyle: CSSProperties = { ...nativeCtrlStyle, display: 'flex', flexDirection: 'column' };
+const radioRowStyle = (withDivider: boolean): CSSProperties => ({
   display: 'flex', alignItems: 'center', gap: '8px', fontFamily: theme.font.body,
   fontSize: '13px', fontWeight: 600, color: theme.color.ink, cursor: 'pointer', whiteSpace: 'nowrap',
-};
+  padding: '8px 12px', borderBottom: withDivider ? '1px solid ' + theme.color.line : 'none',
+});
 const radioInputStyle: CSSProperties = {
   accentColor: theme.color.accent, width: '16px', height: '16px', cursor: 'pointer', flex: 'none',
 };
@@ -230,7 +232,7 @@ export function MapView({
       <div ref={mapElRef} style={mapElStyle} />
       <div style={overlayStyle}>
         <div style={layerCardStyle}>
-          <label style={radioRowStyle}>
+          <label className="sk-native-ctrl-btn" style={radioRowStyle(true)}>
             <input
               type="radio"
               name="base-layer"
@@ -240,7 +242,7 @@ export function MapView({
             />
             {t.mapView}
           </label>
-          <label style={radioRowStyle}>
+          <label className="sk-native-ctrl-btn" style={radioRowStyle(false)}>
             <input
               type="radio"
               name="base-layer"
