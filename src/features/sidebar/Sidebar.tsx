@@ -49,7 +49,7 @@ const exportBtnStyle: CSSProperties = {
   fontWeight: 600,
   fontSize: '11.5px',
   padding: '8px 6px',
-  borderRadius: theme.radius,
+  borderRadius: theme.radius.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   display: 'flex',
@@ -64,7 +64,7 @@ const rowStyle = (sel: boolean): CSSProperties => ({
   gap: '8px',
   padding: '9px 10px 9px 12px',
   margin: '3px 0',
-  borderRadius: theme.radius,
+  borderRadius: theme.radius.sm,
   cursor: 'pointer',
   borderLeft: sel ? '2px solid ' + theme.color.accent : '2px solid ' + theme.color.line,
   background: sel ? theme.color.paper : 'transparent',
@@ -112,7 +112,8 @@ export const Sidebar = ({
         height: sidebarOpen ? '80vh' : '108px',
         zIndex: 1200,
         borderTop: '1px solid ' + theme.color.line,
-        borderRadius: theme.radius,
+        borderRadius: theme.radius.sm + ' ' + theme.radius.sm + ' 0 0',
+        boxShadow: theme.shadow,
         transition: 'height .32s cubic-bezier(.4,0,.2,1)',
       }
     : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
@@ -130,9 +131,34 @@ export const Sidebar = ({
             flex: 'none',
           }}
         >
-          <div style={{ width: '44px', height: '5px', borderRadius: theme.radius, background: theme.color.ink }} />
+          <div style={{ width: '44px', height: '5px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
         </div>
       )}
+
+      <div
+        style={{
+          background: theme.color.ink, padding: '18px 15px', display: 'flex',
+          flexDirection: 'column', gap: '10px', flex: 'none',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700,
+            color: theme.color.bg, fontSize: '19px', lineHeight: 1.15,
+          }}
+        >
+          {t.searchTitle}
+        </span>
+        <span
+          style={{
+            display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.accent,
+            color: theme.color.accentInk, fontFamily: theme.font.display, textTransform: 'uppercase',
+            fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: theme.radius.pill,
+          }}
+        >
+          {totalText}
+        </span>
+      </div>
 
       <div style={{ padding: '15px 15px 11px', flex: 'none' }}>
         <div
@@ -142,7 +168,7 @@ export const Sidebar = ({
             gap: '10px',
             background: theme.color.bg,
             border: '1px solid ' + theme.color.line,
-            borderRadius: theme.radius,
+            borderRadius: theme.radius.sm,
             padding: '11px 16px',
           }}
         >
@@ -207,7 +233,7 @@ export const Sidebar = ({
               fontWeight: 600,
               fontSize: '13px',
               padding: '10px',
-              borderRadius: theme.radius,
+              borderRadius: theme.radius.sm,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -312,7 +338,7 @@ export const Sidebar = ({
                     color: theme.color.accentInk,
                     background: theme.color.ink,
                     padding: '2px 9px',
-                    borderRadius: theme.radius,
+                    borderRadius: theme.radius.pill,
                   }}
                 >
                   {group.count}

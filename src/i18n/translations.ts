@@ -5,6 +5,7 @@ export const STR = {
   de: {
     tagline: 'Schwinghallen & -keller der Schweiz',
     search: 'Schwingkeller suchen …',
+    searchTitle: 'Schwingkeller suchen',
     byCanton: 'Nach Kanton',
     unitTotal: 'Schwingkeller',
     login: 'Bearbeiten freischalten',
@@ -70,6 +71,7 @@ export const STR = {
   fr: {
     tagline: 'Halles et caves de lutte suisse',
     search: 'Rechercher un lieu …',
+    searchTitle: 'Rechercher un lieu',
     byCanton: 'Par canton',
     unitTotal: 'lieux',
     login: 'Activer l’édition',
@@ -135,6 +137,7 @@ export const STR = {
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
     search: 'Cerca una sede …',
+    searchTitle: 'Cerca una sede',
     byCanton: 'Per cantone',
     unitTotal: 'sedi',
     login: 'Abilita modifica',
