@@ -8,7 +8,7 @@ interface LoginModalProps {
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius, padding: '11px 13px',
+  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '11px 13px',
   fontSize: '14px', color: theme.color.ink, background: theme.color.bg, outline: 'none',
 };
 const labelStyle: React.CSSProperties = {
@@ -55,8 +55,8 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: theme.color.bg, border: '2px solid ' + theme.color.line, borderRadius: theme.radius,
-          width: '360px', maxWidth: '100%', animation: 'popIn .26s ease', overflow: 'hidden',
+          background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
+          boxShadow: theme.shadow, width: '360px', maxWidth: '100%', animation: 'popIn .26s ease', overflow: 'hidden',
         }}
       >
         <div
@@ -65,15 +65,6 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
             display: 'flex', alignItems: 'center', gap: '11px',
           }}
         >
-          <div
-            style={{
-              width: '30px', height: '30px', borderRadius: theme.radius, background: theme.color.accent,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, fontSize: '17px',
-            }}
-          >
-            S
-          </div>
           <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '16px', fontWeight: 700, color: theme.color.bg }}>
             {t.loginTitle}
           </span>
@@ -105,7 +96,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
               onClick={onClose}
               style={{
                 flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-                fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
               }}
             >
               {t.cancel}
@@ -115,7 +106,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
               disabled={busy}
               style={{
                 flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
-                fontWeight: 700, fontSize: '14px', padding: '12px', borderRadius: theme.radius, cursor: 'pointer',
+                fontWeight: 700, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
               }}
             >
               {t.login}
