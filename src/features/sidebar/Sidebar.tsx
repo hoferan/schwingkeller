@@ -63,7 +63,6 @@ const chevronBadgeStyle = (sel: boolean): CSSProperties => ({
   borderRadius: '50%',
   background: sel ? theme.color.bg : theme.color.paper,
   color: theme.color.accent,
-  fontSize: '14px',
   flex: 'none',
   display: 'flex',
   alignItems: 'center',

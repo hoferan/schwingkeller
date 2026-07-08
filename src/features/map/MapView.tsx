@@ -44,13 +44,14 @@ const radioInputStyle: CSSProperties = {
 // 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
 const FIT_ALL_DEFAULT_TOP = 46;
 const FIT_ALL_DEFAULT_SIZE = 30;
-const fitAllWrapStyle = (top: number): CSSProperties => ({
-  ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`, zIndex: 1000,
+const fitAllWrapStyle = (top: number, size: number): CSSProperties => ({
+  ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
+  width: `${size}px`, height: `${size}px`, zIndex: 1000,
 });
-const fitAllBtnStyle = (size: number): CSSProperties => ({
-  width: `${size}px`, height: `${size}px`, border: 'none', background: 'transparent',
+const fitAllBtnStyle: CSSProperties = {
+  width: '100%', height: '100%', border: 'none', background: 'transparent',
   color: theme.color.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-});
+};
 
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
@@ -267,12 +268,12 @@ export function MapView({
           </label>
         </div>
       </div>
-      <div style={fitAllWrapStyle(fitAllTop)}>
+      <div style={fitAllWrapStyle(fitAllTop, fitAllSize)}>
         <button
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
           title={t.fitAll}
-          style={fitAllBtnStyle(fitAllSize)}
+          style={fitAllBtnStyle}
         >
           <Maximize size={18} />
         </button>
