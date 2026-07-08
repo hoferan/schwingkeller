@@ -31,15 +31,17 @@ const overlayStyle: CSSProperties = {
 const nativeCtrlStyle: CSSProperties = {
   background: '#fff', borderRadius: '4px', border: '1px solid rgba(0,0,0,.15)', overflow: 'hidden',
 };
-const layerCardStyle: CSSProperties = { ...nativeCtrlStyle, display: 'flex', flexDirection: 'column' };
-const radioRowStyle = (withDivider: boolean): CSSProperties => ({
-  display: 'flex', alignItems: 'center', gap: '8px', fontFamily: theme.font.body,
-  fontSize: '13px', fontWeight: 600, color: theme.color.ink, cursor: 'pointer', whiteSpace: 'nowrap',
-  padding: '8px 12px', borderBottom: withDivider ? '1px solid ' + theme.color.line : 'none',
-});
-const radioInputStyle: CSSProperties = {
-  accentColor: theme.color.accent, width: '16px', height: '16px', cursor: 'pointer', flex: 'none',
+// Matches the Topbar's DE/FR/IT language-switcher pill construction exactly, for visual consistency.
+const baseToggleWrapStyle: CSSProperties = {
+  display: 'flex', gap: '2px', background: theme.color.paper,
+  padding: '4px', borderRadius: theme.radius.pill, flex: 'none',
 };
+const baseToggleBtnStyle = (active: boolean): CSSProperties => ({
+  background: active ? theme.color.accent : 'transparent',
+  color: active ? theme.color.accentInk : theme.color.muted,
+  border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
+  lineHeight: '1', padding: '6px 10px', borderRadius: theme.radius.pill,
+});
 // Default top offset and size before the real zoom-control is measured (see the mount effect):
 // 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
 const FIT_ALL_DEFAULT_TOP = 46;
@@ -245,27 +247,13 @@ export function MapView({
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
       <div style={overlayStyle}>
-        <div style={layerCardStyle}>
-          <label className="sk-native-ctrl-btn" style={radioRowStyle(true)}>
-            <input
-              type="radio"
-              name="base-layer"
-              checked={baseKind === 'map'}
-              onChange={() => onChangeBase('map')}
-              style={radioInputStyle}
-            />
+        <div style={baseToggleWrapStyle}>
+          <button onClick={() => onChangeBase('map')} style={baseToggleBtnStyle(baseKind === 'map')}>
             {t.mapView}
-          </label>
-          <label className="sk-native-ctrl-btn" style={radioRowStyle(false)}>
-            <input
-              type="radio"
-              name="base-layer"
-              checked={baseKind === 'sat'}
-              onChange={() => onChangeBase('sat')}
-              style={radioInputStyle}
-            />
+          </button>
+          <button onClick={() => onChangeBase('sat')} style={baseToggleBtnStyle(baseKind === 'sat')}>
             {t.satView}
-          </label>
+          </button>
         </div>
       </div>
       <div style={fitAllWrapStyle(fitAllTop, fitAllSize)}>
