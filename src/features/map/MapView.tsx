@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
+import { Maximize } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { pinHtml, popupHtml, clusterIcon } from './markers';
@@ -28,7 +29,7 @@ const overlayStyle: CSSProperties = {
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
 // soft-card theme tokens — the goal here is to blend in with the native zoom control.
 const nativeCtrlStyle: CSSProperties = {
-  background: '#fff', borderRadius: '4px', boxShadow: '0 1px 5px rgba(0,0,0,.65)', overflow: 'hidden',
+  background: '#fff', borderRadius: '4px', border: '1px solid rgba(0,0,0,.15)', overflow: 'hidden',
 };
 const layerCardStyle: CSSProperties = { ...nativeCtrlStyle, display: 'flex', flexDirection: 'column' };
 const radioRowStyle = (withDivider: boolean): CSSProperties => ({
@@ -39,16 +40,17 @@ const radioRowStyle = (withDivider: boolean): CSSProperties => ({
 const radioInputStyle: CSSProperties = {
   accentColor: theme.color.accent, width: '16px', height: '16px', cursor: 'pointer', flex: 'none',
 };
-// Default top offset before the real zoom-control height is measured (see the mount effect):
+// Default top offset and size before the real zoom-control is measured (see the mount effect):
 // 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
 const FIT_ALL_DEFAULT_TOP = 46;
+const FIT_ALL_DEFAULT_SIZE = 30;
 const fitAllWrapStyle = (top: number): CSSProperties => ({
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`, zIndex: 1000,
 });
-const fitAllBtnStyle: CSSProperties = {
-  width: '30px', height: '30px', border: 'none', background: 'transparent',
+const fitAllBtnStyle = (size: number): CSSProperties => ({
+  width: `${size}px`, height: `${size}px`, border: 'none', background: 'transparent',
   color: theme.color.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-};
+});
 
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
@@ -62,6 +64,7 @@ export function MapView({
   const markersRef = useRef<Record<string, L.Marker>>({});
   const tileRef = useRef<L.TileLayer | null>(null);
   const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
+  const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -179,7 +182,10 @@ export function MapView({
       if (!mapRef.current) return;
       map.invalidateSize();
       const zoomEl = map.zoomControl.getContainer();
-      if (zoomEl) setFitAllTop(10 + zoomEl.offsetHeight + 10);
+      if (zoomEl) {
+        setFitAllTop(10 + zoomEl.offsetHeight + 10);
+        setFitAllSize(zoomEl.offsetWidth);
+      }
       window.setTimeout(() => {
         if (!mapRef.current || !markerGroupRef.current) return;
         map.invalidateSize();
@@ -266,9 +272,9 @@ export function MapView({
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
           title={t.fitAll}
-          style={fitAllBtnStyle}
+          style={fitAllBtnStyle(fitAllSize)}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9V5a1 1 0 0 1 1-1h4" /><path d="M20 9V5a1 1 0 0 0-1-1h-4" /><path d="M4 15v4a1 1 0 0 0 1 1h4" /><path d="M20 15v4a1 1 0 0 1-1 1h-4" /></svg>
+          <Maximize size={18} />
         </button>
       </div>
     </div>
