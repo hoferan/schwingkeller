@@ -232,7 +232,7 @@ function AppShell() {
   return (
     <div
       style={{
-        height: '100vh', display: 'flex', flexDirection: 'column', background: theme.color.bg,
+        height: '100dvh', display: 'flex', flexDirection: 'column', background: theme.color.bg,
         overflow: 'hidden', fontFamily: theme.font.body,
       }}
     >
