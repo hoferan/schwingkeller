@@ -33,20 +33,23 @@ const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
   display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
 };
-const toggleWrapStyle: CSSProperties = {
-  display: 'flex', background: theme.color.bg, border: '1px solid ' + theme.color.line,
-  borderRadius: theme.radius, overflow: 'hidden',
+const layerCardStyle: CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: '8px', background: theme.color.bg,
+  border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, boxShadow: theme.shadow,
+  padding: '10px 14px',
+};
+const radioRowStyle: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '8px', fontFamily: theme.font.body,
+  fontSize: '13px', fontWeight: 600, color: theme.color.ink, cursor: 'pointer', whiteSpace: 'nowrap',
+};
+const radioInputStyle: CSSProperties = {
+  accentColor: theme.color.accent, width: '16px', height: '16px', cursor: 'pointer', flex: 'none',
 };
 const fitAllBtnStyle: CSSProperties = {
   width: '38px', height: '38px', border: '1px solid ' + theme.color.line, background: theme.color.bg,
-  color: theme.color.ink, borderRadius: theme.radius, cursor: 'pointer',
+  color: theme.color.ink, borderRadius: theme.radius.sm, boxShadow: theme.shadow, cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
-const layerBtnStyle = (active: boolean): CSSProperties => ({
-  border: 'none', cursor: 'pointer', fontFamily: theme.font.body, fontSize: '12px',
-  fontWeight: 600, padding: '7px 13px',
-  background: active ? theme.color.accent : 'transparent', color: active ? theme.color.accentInk : theme.color.ink,
-});
 
 const cantonStyle = (): L.PathOptions => ({ color: theme.color.ink, weight: 1, fill: false, fillOpacity: 0 });
 
@@ -115,7 +118,7 @@ export function MapView({
     if (sz && (sz.x <= 0 || sz.y <= 0)) { window.setTimeout(refreshMarkers, 120); return; }
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -36] });
+      const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] });
       const m = L.marker([v.lat, v.lng], { icon }).addTo(group);
       m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('click', () => onSelectRef.current(v.id));
@@ -125,7 +128,7 @@ export function MapView({
 
   const updatePins = () => {
     Object.keys(markersRef.current).forEach((id) => {
-      markersRef.current[id].setIcon(L.divIcon({ className: '', html: pinHtml(id === selectedIdRef.current), iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -36] }));
+      markersRef.current[id].setIcon(L.divIcon({ className: '', html: pinHtml(id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] }));
     });
   };
 
@@ -281,9 +284,27 @@ export function MapView({
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
       <div style={overlayStyle}>
-        <div style={toggleWrapStyle}>
-          <button onClick={() => onChangeBase('map')} style={layerBtnStyle(baseKind === 'map')}>{t.mapView}</button>
-          <button onClick={() => onChangeBase('sat')} style={layerBtnStyle(baseKind === 'sat')}>{t.satView}</button>
+        <div style={layerCardStyle}>
+          <label style={radioRowStyle}>
+            <input
+              type="radio"
+              name="base-layer"
+              checked={baseKind === 'map'}
+              onChange={() => onChangeBase('map')}
+              style={radioInputStyle}
+            />
+            {t.mapView}
+          </label>
+          <label style={radioRowStyle}>
+            <input
+              type="radio"
+              name="base-layer"
+              checked={baseKind === 'sat'}
+              onChange={() => onChangeBase('sat')}
+              style={radioInputStyle}
+            />
+            {t.satView}
+          </label>
         </div>
         <button
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
