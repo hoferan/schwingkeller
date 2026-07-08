@@ -1,4 +1,4 @@
-/* Hex values below mirror src/theme.ts — update both if the palette changes. */
+/* Hex/shape values below mirror src/theme.ts — update both if the palette or shape system changes. */
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap');
 
 * { box-sizing: border-box; }
@@ -8,17 +8,17 @@ input, select, button, textarea { font-family: inherit; }
 /* Leaflet overrides */
 .leaflet-container { background: #ffffff; font-family: 'Work Sans', sans-serif; }
 .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, .82) !important; color: #111111 !important; }
-.leaflet-popup-content-wrapper { background: #ffffff; border: 1px solid #111111; border-radius: 0; padding: 0; overflow: hidden; }
+.leaflet-popup-content-wrapper { background: #ffffff; border: 1px solid #e2e2e2; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 0; overflow: hidden; }
 .leaflet-popup-content { margin: 0; width: auto !important; }
-.leaflet-popup-tip { background: #ffffff; border: 1px solid #111111; }
+.leaflet-popup-tip { background: #ffffff; border: 1px solid #e2e2e2; }
 .leaflet-popup-close-button { color: #111111 !important; font-size: 20px !important; padding: 6px 8px 0 0 !important; }
-.canton-tip { background: #111111; color: #ffffff; border: none; border-radius: 0; padding: 5px 10px; font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 12px; font-weight: 600; }
+.canton-tip { background: #111111; color: #ffffff; border: none; border-radius: 10px; padding: 5px 10px; font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
 .canton-tip.leaflet-tooltip-top:before { border-top-color: #111111; }
 .canton-tip.leaflet-tooltip-bottom:before { border-bottom-color: #111111; }
 
 /* Custom scrollbar */
 .sk-scroll::-webkit-scrollbar { width: 9px; }
-.sk-scroll::-webkit-scrollbar-thumb { background: #111111; border-radius: 0; border: 2px solid #ffffff; }
+.sk-scroll::-webkit-scrollbar-thumb { background: #111111; border-radius: 999px; border: 2px solid #ffffff; }
 
 /* Modal animations */
 @keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
