@@ -1,4 +1,4 @@
-import { useRef, useEffect, type CSSProperties } from 'react';
+import { useRef, useEffect, useState, type CSSProperties } from 'react';
 import { Search, X, ChevronRight, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton } from '../venues/grouping';
@@ -26,6 +26,7 @@ interface SidebarProps {
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
+const PEEK_HEIGHT = 108;
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
@@ -94,27 +95,96 @@ export const Sidebar = ({
   const { isAdmin } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const dragStartHeightRef = useRef<number | null>(null);
+  const openHeightPxRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const startedOnHeaderRef = useRef(false);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
 
-  const handleHeaderTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
+    openHeightPxRef.current = window.innerHeight * 0.8;
+    dragStartHeightRef.current = sidebarOpen ? openHeightPxRef.current : PEEK_HEIGHT;
+    startedOnHeaderRef.current = !!(headerRef.current && headerRef.current.contains(e.target as Node));
+    isDraggingRef.current = false;
   };
 
-  const handleHeaderTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     const startY = touchStartYRef.current;
+    const wasDragging = isDraggingRef.current;
     touchStartYRef.current = null;
+    isDraggingRef.current = false;
     if (startY === null) return;
-    // Suppress the synthetic compat click that follows a touch tap, which would otherwise double-fire onToggleSidebar via the header's onClick.
-    e.preventDefault();
-    const deltaY = e.changedTouches[0].clientY - startY;
-    if (Math.abs(deltaY) < 10) {
-      onToggleSidebar();
-    } else if (deltaY <= -30) {
+
+    if (!wasDragging) {
+      // Never became a drag — either a pass-through list scroll, or too small to classify.
+      if (startedOnHeaderRef.current) {
+        const deltaY = e.changedTouches[0].clientY - startY;
+        if (Math.abs(deltaY) < 10) {
+          // Suppress the synthetic compat click that follows a touch tap, which would otherwise
+          // double-fire onToggleSidebar via the header's onClick.
+          e.preventDefault();
+          onToggleSidebar();
+        }
+      }
+      return;
+    }
+
+    // Snap relative to how far the drag travelled from its OWN starting point, not the sheet's
+    // absolute midpoint — the peek-to-open range is large (~500px+), so an absolute-midpoint snap
+    // would require a much heavier drag than the old ±30px swipe to ever flip state.
+    const finalHeight = dragHeight ?? dragStartHeightRef.current!;
+    const range = openHeightPxRef.current - PEEK_HEIGHT;
+    const travelled = finalHeight - dragStartHeightRef.current!;
+    setDragHeight(null);
+    if (travelled > range * 0.25) {
       onSetSidebarOpen(true);
-    } else if (deltaY >= 30) {
+    } else if (travelled < -range * 0.25) {
       onSetSidebarOpen(false);
+    } else {
+      onSetSidebarOpen(sidebarOpen);
     }
   };
+
+  // Continuous drag tracking. Attached natively (not as a JSX onTouchMove prop) because React
+  // registers JSX touchmove listeners as passive by default, which silently makes
+  // preventDefault() inside them a no-op — blocking native scroll while dragging requires the
+  // { passive: false } form, which JSX doesn't expose.
+  useEffect(() => {
+    if (!isMobile) return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartYRef.current === null) return;
+      const deltaY = e.touches[0].clientY - touchStartYRef.current;
+
+      if (!isDraggingRef.current) {
+        if (startedOnHeaderRef.current || !sidebarOpen) {
+          isDraggingRef.current = true;
+        } else {
+          const list = listRef.current;
+          const atTop = !list || list.scrollTop <= 0;
+          if (atTop && deltaY > 5) {
+            isDraggingRef.current = true;
+          } else {
+            return;
+          }
+        }
+      }
+
+      e.preventDefault();
+      const newHeight = dragStartHeightRef.current! - deltaY;
+      const clamped = Math.min(openHeightPxRef.current, Math.max(PEEK_HEIGHT, newHeight));
+      setDragHeight(clamped);
+    };
+
+    root.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => root.removeEventListener('touchmove', onTouchMove);
+  }, [isMobile, sidebarOpen]);
 
   useEffect(() => {
     if (!isMobile || !sidebarOpen) return;
@@ -134,7 +204,8 @@ export const Sidebar = ({
   const noResults = list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
 
-  // Mobile: bottom drawer (height toggles). Desktop/tablet: fixed-width column.
+  // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
+  // Desktop/tablet: fixed-width column.
   const sidebarStyle: CSSProperties = isMobile
     ? {
         ...sbBase,
@@ -142,22 +213,26 @@ export const Sidebar = ({
         left: 0,
         right: 0,
         bottom: 0,
-        height: sidebarOpen ? '80vh' : '108px',
+        height: dragHeight !== null ? `${dragHeight}px` : sidebarOpen ? '80vh' : `${PEEK_HEIGHT}px`,
         zIndex: 1200,
         borderTop: '1px solid ' + theme.color.line,
         borderRadius: theme.radius.sm + ' ' + theme.radius.sm + ' 0 0',
         boxShadow: theme.shadow,
-        transition: 'height .32s cubic-bezier(.4,0,.2,1)',
+        transition: dragHeight !== null ? 'none' : 'height .32s cubic-bezier(.4,0,.2,1)',
       }
     : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
   return (
-    <div ref={rootRef} style={sidebarStyle}>
+    <div
+      ref={rootRef}
+      style={sidebarStyle}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
+    >
       <div
+        ref={headerRef}
         data-testid="sidebar-header"
         onClick={isMobile ? onToggleSidebar : undefined}
-        onTouchStart={isMobile ? handleHeaderTouchStart : undefined}
-        onTouchEnd={isMobile ? handleHeaderTouchEnd : undefined}
         style={{ cursor: isMobile ? 'pointer' : 'default' }}
       >
         {isMobile && (
@@ -330,7 +405,12 @@ export const Sidebar = ({
         <span style={{ fontSize: '11px', color: theme.color.muted }}>{totalText}</span>
       </div>
 
-      <div className="sk-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}>
+      <div
+        ref={listRef}
+        data-testid="sidebar-list"
+        className="sk-scroll"
+        style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
+      >
         {groups.map((group) => {
           const exp = searching || !!expanded[group.code];
           return (

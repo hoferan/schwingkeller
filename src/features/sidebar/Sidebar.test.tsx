@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -79,6 +79,10 @@ const renderSidebar = (props: HarnessProps = {}) =>
   );
 
 describe('Sidebar', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('renders canton group names', async () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
@@ -138,34 +142,8 @@ describe('Sidebar', () => {
     expect(onToggleSidebar).toHaveBeenCalledTimes(1);
     expect(onSetSidebarOpen).not.toHaveBeenCalled();
     // fireEvent returns dispatchEvent's result, which is false when preventDefault() was called on
-    // the (cancelable) touchend — proving the compat-click suppression in handleHeaderTouchEnd ran.
+    // the (cancelable) touchend — proving the compat-click suppression ran.
     expect(dispatched).toBe(false);
-  });
-
-  it('opens the drawer on an upward swipe past the threshold', () => {
-    const onToggleSidebar = vi.fn();
-    const onSetSidebarOpen = vi.fn();
-    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
-    const header = screen.getByTestId('sidebar-header');
-
-    fireEvent.touchStart(header, { touches: [{ clientY: 200 }] });
-    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 150 }] });
-
-    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
-    expect(onToggleSidebar).not.toHaveBeenCalled();
-  });
-
-  it('closes the drawer on a downward swipe past the threshold', () => {
-    const onToggleSidebar = vi.fn();
-    const onSetSidebarOpen = vi.fn();
-    renderSidebar({ isMobile: true, sidebarOpen: true, onToggleSidebar, onSetSidebarOpen });
-    const header = screen.getByTestId('sidebar-header');
-
-    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
-    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 160 }] });
-
-    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
-    expect(onToggleSidebar).not.toHaveBeenCalled();
   });
 
   it('does nothing in the dead zone between tap and swipe thresholds', () => {
@@ -194,29 +172,125 @@ describe('Sidebar', () => {
     expect(onSetSidebarOpen).not.toHaveBeenCalled();
   });
 
-  it('treats exactly 30px downward as the swipe-close boundary', () => {
+  it('opens the drawer on a large upward drag from the header', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 200 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 50 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 50 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('closes the drawer on a large downward drag from the header', () => {
     const onToggleSidebar = vi.fn();
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onToggleSidebar, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
 
     fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
-    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 130 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 250 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 250 }] });
 
     expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
     expect(onToggleSidebar).not.toHaveBeenCalled();
   });
 
-  it('treats exactly -30px upward as the swipe-open boundary', () => {
-    const onToggleSidebar = vi.fn();
+  it('commits to closing once dragged just past 25% of the peek-to-open range', () => {
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
     const onSetSidebarOpen = vi.fn();
-    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
 
     fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
-    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 70 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 240 }] }); // 140px down, past 133px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 240 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('snaps back to open when dragged just short of 25% of the range', () => {
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 225 }] }); // 125px down, short of 133px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 225 }] });
 
     expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('commits to opening once dragged just past 25% of the peek-to-open range', () => {
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 300 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 160 }] }); // 140px up, past 133px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 160 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('snaps back to peek when dragged just short of 25% of the range upward', () => {
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 300 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 175 }] }); // 125px up, short of 133px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 175 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('starts dragging from the list body immediately when the sheet is in peek state', () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
+    const list = screen.getByTestId('sidebar-list');
+
+    fireEvent.touchStart(list, { touches: [{ clientY: 200 }] });
+    fireEvent.touchMove(list, { touches: [{ clientY: 50 }] });
+    fireEvent.touchEnd(list, { changedTouches: [{ clientY: 50 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('does not intercept a list-body drag when open and not scrolled to the top', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onToggleSidebar, onSetSidebarOpen });
+    const list = screen.getByTestId('sidebar-list');
+    list.scrollTop = 50;
+
+    fireEvent.touchStart(list, { touches: [{ clientY: 100 }] });
+    const dispatched = fireEvent.touchMove(list, { touches: [{ clientY: 250 }] });
+    fireEvent.touchEnd(list, { changedTouches: [{ clientY: 250 }] });
+
     expect(onToggleSidebar).not.toHaveBeenCalled();
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+    // Not cancelled — the sheet didn't intercept the gesture, so native list scrolling proceeds.
+    expect(dispatched).toBe(true);
+  });
+
+  it('starts a close-drag from the list body once scrolled to the top and dragging down', () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
+    const list = screen.getByTestId('sidebar-list');
+    list.scrollTop = 0;
+
+    fireEvent.touchStart(list, { touches: [{ clientY: 100 }] });
+    fireEvent.touchMove(list, { touches: [{ clientY: 250 }] });
+    fireEvent.touchEnd(list, { changedTouches: [{ clientY: 250 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
   });
 });
