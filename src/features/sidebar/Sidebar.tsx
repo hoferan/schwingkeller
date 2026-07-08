@@ -62,12 +62,26 @@ const rowStyle = (sel: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  padding: '9px 10px 9px 12px',
-  margin: '3px 0',
+  padding: '13px 14px',
+  margin: '7px 0',
   borderRadius: theme.radius.sm,
   cursor: 'pointer',
-  borderLeft: sel ? '2px solid ' + theme.color.accent : '2px solid ' + theme.color.line,
-  background: sel ? theme.color.paper : 'transparent',
+  background: sel ? theme.color.paper : theme.color.bg,
+  border: sel ? '1.5px solid ' + theme.color.accent : '1px solid ' + theme.color.line,
+  boxShadow: sel ? theme.shadow : 'none',
+});
+
+const chevronBadgeStyle = (sel: boolean): CSSProperties => ({
+  width: '22px',
+  height: '22px',
+  borderRadius: '50%',
+  background: sel ? theme.color.bg : theme.color.paper,
+  color: theme.color.accent,
+  fontSize: '14px',
+  flex: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 });
 
 // "town" line: drop the street part of the address, fall back to full address.
@@ -349,36 +363,39 @@ export const Sidebar = ({
               </div>
               {exp && (
                 <div style={{ padding: '1px 0 9px' }}>
-                  {group.venues.map((v) => (
-                    <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(v.id === selectedId)}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: theme.color.ink,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {v.name}
+                  {group.venues.map((v) => {
+                    const sel = v.id === selectedId;
+                    return (
+                      <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              color: theme.color.ink,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {v.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: theme.color.muted,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {townOf(v.address)}
+                          </div>
                         </div>
-                        <div
-                          style={{
-                            fontSize: '11.5px',
-                            color: theme.color.muted,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {townOf(v.address)}
-                        </div>
+                        <span style={chevronBadgeStyle(sel)}>›</span>
                       </div>
-                      <span style={{ fontSize: '14px', color: theme.color.accent, flex: 'none' }}>›</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
