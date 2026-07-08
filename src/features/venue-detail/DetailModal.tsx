@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -70,26 +71,25 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
             </span>
           </div>
         )}
-        <div
-          style={{
-            position: 'absolute', top: '11px', right: '11px', width: '36px', height: '44px',
-            background: theme.color.bg, border: '1px solid ' + theme.color.line, display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          {wappen && (
-            <img src={wappen} alt="" style={{ width: '26px', height: '32px', objectFit: 'contain' }} />
-          )}
-        </div>
+        {wappen && (
+          <img
+            src={wappen}
+            alt=""
+            style={{
+              position: 'absolute', top: '11px', right: '11px', width: '26px', height: '32px',
+              objectFit: 'contain', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))',
+            }}
+          />
+        )}
         <button
           onClick={onClose}
           style={{
             position: 'absolute', top: '11px', left: '11px', width: '32px', height: '32px',
             borderRadius: '50%', border: 'none', background: 'rgba(17,17,17,.7)', color: theme.color.bg,
-            fontSize: '17px', cursor: 'pointer',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          ✕
+          <X size={16} />
         </button>
       </div>
       <div style={{ padding: '18px 20px 20px' }}>
