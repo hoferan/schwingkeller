@@ -90,9 +90,6 @@ function AppShell() {
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
 
   // ---- layout styles (prototype renderVals ~624-631) ----
-  // Sidebar owns its own desktop/mobile layout. The tablet drawer scrim is
-  // rendered here (shown only in tablet mode when the drawer is open).
-  const scrimShow = mode === 't' && sidebarOpen;
   const mainStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', display: 'flex', minHeight: 0 };
   const mapWrapStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', minWidth: 0, minHeight: 0 };
 
@@ -239,7 +236,7 @@ function AppShell() {
         overflow: 'hidden', fontFamily: theme.font.body,
       }}
     >
-      <Topbar onToggleSidebar={() => setSidebarOpen((o) => !o)} showHamburger={mode !== 'd'} onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
+      <Topbar onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
 
       <div style={mainStyle}>
         <Sidebar
@@ -258,14 +255,6 @@ function AppShell() {
           onExportCSV={onExportCSV}
           onImport={onImport}
         />
-
-        {/* Tablet drawer scrim */}
-        {scrimShow && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1150, animation: 'fadeIn .2s ease' }}
-          />
-        )}
 
         <div style={mapWrapStyle}>
           <MapView
