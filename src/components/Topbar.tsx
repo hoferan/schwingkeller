@@ -1,3 +1,4 @@
+import { Lock, Unlock } from 'lucide-react';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
 import { LANGS, type Lang } from '../i18n/translations';
@@ -21,20 +22,6 @@ const langStyle = (active: boolean): React.CSSProperties => ({
   padding: '6px 10px',
   borderRadius: theme.radius.pill,
 });
-
-const lockIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="11" width="14" height="9" rx="2"></rect>
-    <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
-  </svg>
-);
-
-const unlockIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="11" width="14" height="9" rx="2"></rect>
-    <path d="M8 11V7a4 4 0 0 1 7.5-1.4"></path>
-  </svg>
-);
 
 export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
   const { isAdmin, signOut } = useAuth();
@@ -123,7 +110,7 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
             height: isMobile ? '38px' : 'auto',
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center' }}>{unlockIcon}</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}><Unlock size={13} /></span>
           {!isMobile && t.logout}
         </button>
       ) : (
@@ -140,7 +127,7 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
             height: isMobile ? '38px' : 'auto',
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center' }}>{lockIcon}</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}><Lock size={13} /></span>
           {!isMobile && t.login}
         </button>
       )}
