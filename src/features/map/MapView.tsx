@@ -20,13 +20,6 @@ interface MapViewProps {
   registerFitAll?: (fn: () => void) => void;
 }
 
-// GeoJSON ring helpers: leaflet wants [lat,lng], geojson stores [lng,lat].
-interface GeoJSONFeatureCollection {
-  features: Array<{
-    geometry: { type: string; coordinates: number[][][] | number[][][][] } | null;
-  }>;
-}
-
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
 const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
 const overlayStyle: CSSProperties = {
@@ -51,8 +44,6 @@ const fitAllBtnStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
-const cantonStyle = (): L.PathOptions => ({ color: theme.color.ink, weight: 1, fill: false, fillOpacity: 0 });
-
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
   baseKind, onChangeBase, placing, onPickLocation, registerFitAll,
@@ -64,9 +55,6 @@ export function MapView({
   const markerGroupRef = useRef<any>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
   const tileRef = useRef<L.TileLayer | null>(null);
-  const satRefLayers = useRef<L.TileLayer[] | null>(null);
-  const maskLayerRef = useRef<L.Polygon | null>(null);
-  const cantonLayerRef = useRef<L.GeoJSON | null>(null);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -90,25 +78,14 @@ export function MapView({
     const map = mapRef.current;
     if (!map) return;
     if (tileRef.current) { map.removeLayer(tileRef.current); tileRef.current = null; }
-    if (satRefLayers.current) { satRefLayers.current.forEach((l) => map.removeLayer(l)); satRefLayers.current = null; }
     if (kind === 'sat') {
       tileRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 18 });
       tileRef.current.addTo(map); tileRef.current.bringToBack();
-      satRefLayers.current = [
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
-      ];
-      satRefLayers.current.forEach((l) => l.addTo(map));
     } else {
-      tileRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO', maxZoom: 19 });
+      tileRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 });
       tileRef.current.addTo(map); tileRef.current.bringToBack();
     }
     const pane = map.getPane('tilePane'); if (pane) pane.style.filter = 'none';
-  };
-
-  const applyMaskTint = (kind: 'map' | 'sat') => {
-    if (maskLayerRef.current) maskLayerRef.current.setStyle({ fillColor: kind === 'sat' ? '#1a1a1a' : '#3a3a3a', fillOpacity: kind === 'sat' ? 0.5 : 0.6 });
-    if (cantonLayerRef.current) cantonLayerRef.current.setStyle({ color: kind === 'sat' ? theme.color.bg : theme.color.ink, weight: kind === 'sat' ? 1.2 : 1 });
   };
 
   const refreshMarkers = () => {
@@ -182,33 +159,6 @@ export function MapView({
     L.control.attribution({ prefix: '<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>' }).addTo(map);
     setTile(baseKind);
 
-    let cancelled = false;
-    const init = async () => {
-      try {
-        const res = await fetch('/cantons.geojson');
-        if (cancelled) return;
-        const gj = (await res.json()) as GeoJSONFeatureCollection;
-        if (cancelled) return;
-        const holes: number[][][] = [];
-        gj.features.forEach((f) => {
-          if (!f.geometry) return;
-          if (f.geometry.type === 'Polygon') {
-            (f.geometry.coordinates as number[][][]).forEach((ring) => holes.push(ring.map((c) => [c[1], c[0]])));
-          } else if (f.geometry.type === 'MultiPolygon') {
-            (f.geometry.coordinates as number[][][][]).forEach((poly) => poly.forEach((ring) => holes.push(ring.map((c) => [c[1], c[0]]))));
-          }
-        });
-        const world: number[][] = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
-        maskLayerRef.current = L.polygon([world as L.LatLngExpression[], ...(holes as unknown as L.LatLngExpression[][])], { stroke: false, fillColor: '#3a3a3a', fillOpacity: 0.6, interactive: false }).addTo(map);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        cantonLayerRef.current = L.geoJSON(gj as any, { style: cantonStyle, interactive: false }).addTo(map);
-        applyMaskTint(baseKind);
-      } catch (err) {
-        console.warn('cantons load failed', err);
-      }
-    };
-    void init();
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Lany = L as any;
     markerGroupRef.current = Lany.markerClusterGroup
@@ -230,15 +180,11 @@ export function MapView({
     });
 
     return () => {
-      cancelled = true;
       map.remove();
       mapRef.current = null;
       markerGroupRef.current = null;
       markersRef.current = {};
       tileRef.current = null;
-      satRefLayers.current = null;
-      maskLayerRef.current = null;
-      cantonLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -247,7 +193,6 @@ export function MapView({
   useEffect(() => {
     if (!mapRef.current) return;
     setTile(baseKind);
-    applyMaskTint(baseKind);
   }, [baseKind]);
 
   // Venue list change → rebuild markers.
