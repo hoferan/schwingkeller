@@ -1,4 +1,5 @@
 import { useRef, type CSSProperties } from 'react';
+import { Search, X, ChevronRight, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton } from '../venues/grouping';
 import { wappenUrl } from '../../data/cantons';
@@ -24,22 +25,6 @@ interface SidebarProps {
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
-
-const downloadIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3v12" />
-    <path d="m7 11 5 5 5-5" />
-    <path d="M5 21h14" />
-  </svg>
-);
-
-const uploadIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 21V9" />
-    <path d="m7 13 5-5 5 5" />
-    <path d="M5 3h14" />
-  </svg>
-);
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
@@ -186,7 +171,7 @@ export const Sidebar = ({
             padding: '11px 16px',
           }}
         >
-          <span style={{ color: theme.color.muted, fontSize: '15px' }}>⌕</span>
+          <Search size={16} color={theme.color.muted} />
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
@@ -213,15 +198,13 @@ export const Sidebar = ({
                 height: '22px',
                 borderRadius: '50%',
                 cursor: 'pointer',
-                fontSize: '12px',
-                lineHeight: 1,
                 flex: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              ✕
+              <X size={12} />
             </button>
           )}
         </div>
@@ -255,18 +238,18 @@ export const Sidebar = ({
               gap: '7px',
             }}
           >
-            <span style={{ fontSize: '16px', lineHeight: 1 }}>＋</span>
+            <Plus size={16} />
             {t.add}
           </button>
           <div style={{ display: 'flex', gap: '7px' }}>
             <button onClick={onExportJSON} style={exportBtnStyle}>
-              {downloadIcon} JSON
+              <Download size={13} /> JSON
             </button>
             <button onClick={onExportCSV} style={exportBtnStyle}>
-              {downloadIcon} CSV
+              <Download size={13} /> CSV
             </button>
             <label style={exportBtnStyle}>
-              {uploadIcon} {t.import}
+              <Upload size={13} /> {t.import}
               <input
                 ref={fileRef}
                 type="file"
@@ -357,8 +340,11 @@ export const Sidebar = ({
                 >
                   {group.count}
                 </span>
-                <span style={{ color: theme.color.ink, fontSize: '11px', width: '12px', textAlign: 'center' }}>
-                  {exp ? '▾' : '▸'}
+                <span style={{ color: theme.color.ink, width: '12px', display: 'flex', justifyContent: 'center' }}>
+                  <ChevronRight
+                    size={12}
+                    style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform .2s ease' }}
+                  />
                 </span>
               </div>
               {exp && (
@@ -392,7 +378,7 @@ export const Sidebar = ({
                             {townOf(v.address)}
                           </div>
                         </div>
-                        <span style={chevronBadgeStyle(sel)}>›</span>
+                        <span style={chevronBadgeStyle(sel)}><ChevronRight size={14} /></span>
                       </div>
                     );
                   })}
