@@ -104,6 +104,7 @@ export const Sidebar = ({
     const startY = touchStartYRef.current;
     touchStartYRef.current = null;
     if (startY === null) return;
+    // Suppress the synthetic compat click that follows a touch tap, which would otherwise double-fire onToggleSidebar via the header's onClick.
     e.preventDefault();
     const deltaY = e.changedTouches[0].clientY - startY;
     if (Math.abs(deltaY) < 10) {

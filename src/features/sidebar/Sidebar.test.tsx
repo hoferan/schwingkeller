@@ -133,10 +133,13 @@ describe('Sidebar', () => {
     const header = screen.getByTestId('sidebar-header');
 
     fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
-    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 104 }] });
+    const dispatched = fireEvent.touchEnd(header, { changedTouches: [{ clientY: 104 }] });
 
     expect(onToggleSidebar).toHaveBeenCalledTimes(1);
     expect(onSetSidebarOpen).not.toHaveBeenCalled();
+    // fireEvent returns dispatchEvent's result, which is false when preventDefault() was called on
+    // the (cancelable) touchend — proving the compat-click suppression in handleHeaderTouchEnd ran.
+    expect(dispatched).toBe(false);
   });
 
   it('opens the drawer on an upward swipe past the threshold', () => {
@@ -176,5 +179,44 @@ describe('Sidebar', () => {
 
     expect(onToggleSidebar).not.toHaveBeenCalled();
     expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('treats exactly 10px as the dead zone, not a tap', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 110 }] });
+
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('treats exactly 30px downward as the swipe-close boundary', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: true, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 130 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+    expect(onToggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('treats exactly -30px upward as the swipe-open boundary', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 70 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+    expect(onToggleSidebar).not.toHaveBeenCalled();
   });
 });
