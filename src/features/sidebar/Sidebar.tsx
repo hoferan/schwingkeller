@@ -124,14 +124,14 @@ export const Sidebar = ({
         <div
           onClick={onToggleSidebar}
           style={{
-            padding: '9px 0 5px',
+            padding: '14px 0 12px',
             display: 'flex',
             justifyContent: 'center',
             cursor: 'pointer',
             flex: 'none',
           }}
         >
-          <div style={{ width: '44px', height: '5px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
+          <div style={{ width: '56px', height: '6px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
         </div>
       )}
 
