@@ -14,7 +14,7 @@ interface DetailModalProps {
 }
 
 const contactIcon: React.CSSProperties = {
-  width: '32px', height: '32px', borderRadius: theme.radius, background: theme.color.paper,
+  width: '32px', height: '32px', borderRadius: theme.radius.sm, background: theme.color.paper,
   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px',
   color: theme.color.ink, flex: 'none',
 };
@@ -26,7 +26,7 @@ const contactRow: React.CSSProperties = {
 };
 const tag: React.CSSProperties = {
   fontSize: '12px', fontWeight: 600, color: theme.color.ink, background: theme.color.paper,
-  border: '1px solid ' + theme.color.line, padding: '6px 12px', borderRadius: theme.radius,
+  border: '1px solid ' + theme.color.line, padding: '6px 12px', borderRadius: theme.radius.pill,
   display: 'flex', alignItems: 'center', gap: '6px',
 };
 
@@ -153,7 +153,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
           style={{
             marginTop: '16px', width: '100%', border: 'none', cursor: 'pointer',
             background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600, fontSize: '14px',
-            padding: '13px', borderRadius: theme.radius, display: 'flex', alignItems: 'center',
+            padding: '13px', borderRadius: theme.radius.sm, display: 'flex', alignItems: 'center',
             justifyContent: 'center', gap: '8px',
           }}
         >
@@ -165,7 +165,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
               onClick={onEdit}
               style={{
                 flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
-                fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius,
+                fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm,
                 cursor: 'pointer',
               }}
             >
@@ -175,7 +175,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
               onClick={onDelete}
               style={{
                 flex: 1, border: '1.5px solid ' + theme.color.accent, background: theme.color.bg, color: theme.color.accent,
-                fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius,
+                fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm,
                 cursor: 'pointer',
               }}
             >
