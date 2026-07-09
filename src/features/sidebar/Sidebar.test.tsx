@@ -120,6 +120,16 @@ describe('Sidebar', () => {
     expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
   });
 
+  it('keeps the full handle and header visible when the mobile sheet is collapsed', async () => {
+    renderSidebar({ isMobile: true, sidebarOpen: false });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const sheet = screen.getByTestId('sidebar-root');
+    // 116px = handle zone (8px+4px+8px = 20px) + header block (18px padding top/bottom = 36px,
+    // + 19px/1.15 title line ≈ 21.85px, + 10px gap, + 12px/"normal" count-pill line + 12px
+    // padding ≈ 26.4px), rounded up for font-metric slack — see the PEEK_HEIGHT comment.
+    expect(sheet.style.height).toBe('116px');
+  });
+
   it('does not close the mobile drawer on tap inside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
@@ -215,7 +225,7 @@ describe('Sidebar', () => {
   });
 
   it('commits to closing once dragged just past 25% of the peek-to-open range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -228,7 +238,7 @@ describe('Sidebar', () => {
   });
 
   it('snaps back to open when dragged just short of 25% of the range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -241,7 +251,7 @@ describe('Sidebar', () => {
   });
 
   it('commits to opening once dragged just past 25% of the peek-to-open range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -254,7 +264,7 @@ describe('Sidebar', () => {
   });
 
   it('snaps back to peek when dragged just short of 25% of the range upward', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');

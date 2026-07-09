@@ -26,7 +26,11 @@ interface SidebarProps {
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
-const PEEK_HEIGHT = 108;
+// Handle zone (8px+4px+8px = 20px) + header block (18px padding top/bottom = 36px, + 19px/1.15
+// title line ≈ 21.85px, + 10px gap, + 12px/"normal" count-pill line + 12px padding ≈ 26.4px)
+// ≈ 114px, rounded up to 116px so the whole handle+header block never clips (issue #8: the old
+// 108px value was shorter than the actual rendered block, so the header's bottom edge was cut off).
+const PEEK_HEIGHT = 116;
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
@@ -244,6 +248,7 @@ export const Sidebar = ({
   return (
     <div
       ref={rootRef}
+      data-testid="sidebar-root"
       style={sidebarStyle}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
@@ -258,13 +263,13 @@ export const Sidebar = ({
         {isMobile && (
           <div
             style={{
-              padding: '14px 0 12px',
+              padding: '8px 0 8px',
               display: 'flex',
               justifyContent: 'center',
               flex: 'none',
             }}
           >
-            <div style={{ width: '56px', height: '6px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
+            <div style={{ width: '40px', height: '4px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
           </div>
         )}
 
