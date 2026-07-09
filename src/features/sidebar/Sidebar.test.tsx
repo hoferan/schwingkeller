@@ -177,6 +177,68 @@ describe('Sidebar', () => {
     expect(onSetSidebarOpen).not.toHaveBeenCalled();
   });
 
+  it('commits to opening the tablet panel once dragged right past 25% of its width', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onSetSidebarOpen });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.touchStart(tab, { touches: [{ clientX: 100 }] });
+    fireEvent.touchMove(tab, { touches: [{ clientX: 190 }] }); // 90px right, past 86px (25% of 344)
+    fireEvent.touchEnd(tab, { changedTouches: [{ clientX: 190 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('snaps the tablet panel back to closed when dragged right just short of 25%', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onSetSidebarOpen });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.touchStart(tab, { touches: [{ clientX: 100 }] });
+    fireEvent.touchMove(tab, { touches: [{ clientX: 180 }] }); // 80px right, short of 86px
+    fireEvent.touchEnd(tab, { changedTouches: [{ clientX: 180 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('commits to closing the tablet panel once dragged left past 25% of its width', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const header = await screen.findByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(header, { touches: [{ clientX: 110 }] }); // 90px left, past 86px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientX: 110 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('snaps the tablet panel back to open when dragged left just short of 25%', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const header = await screen.findByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(header, { touches: [{ clientX: 120 }] }); // 80px left, short of 86px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientX: 120 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('does not start a tablet drag from the venue list body', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const list = screen.getByTestId('sidebar-list');
+
+    fireEvent.touchStart(list, { touches: [{ clientX: 200 }] });
+    const dispatched = fireEvent.touchMove(list, { touches: [{ clientX: 100 }] });
+    fireEvent.touchEnd(list, { changedTouches: [{ clientX: 100 }] });
+
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+    // Not cancelled — the panel didn't intercept the gesture, so native list scrolling proceeds.
+    expect(dispatched).toBe(true);
+  });
+
   it('does not close the mobile drawer on tap inside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });

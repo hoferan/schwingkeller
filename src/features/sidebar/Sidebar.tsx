@@ -106,6 +106,7 @@ export const Sidebar = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const tabRef = useRef<HTMLButtonElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number | null>(null);
   const dragHeightRef = useRef<number | null>(null);
@@ -113,6 +114,14 @@ export const Sidebar = ({
   const isDraggingRef = useRef(false);
   const startedOnHeaderRef = useRef(false);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
+  // Tablet/landscape panel's horizontal drag state — same model as the mobile sheet's vertical
+  // drag above, just re-oriented to `left`/clientX instead of `height`/clientY (issue #8).
+  const touchStartXRef = useRef<number | null>(null);
+  const dragStartXRef = useRef<number | null>(null);
+  const dragXRef = useRef<number | null>(null);
+  const tabletDraggingRef = useRef(false);
+  const startedOnDragZoneRef = useRef(false);
+  const [dragX, setDragX] = useState<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
@@ -174,6 +183,75 @@ export const Sidebar = ({
     dragHeightRef.current = null;
     setDragHeight(null);
   };
+
+  const handleTabletTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    dragStartXRef.current = sidebarOpen ? 0 : -TABLET_PANEL_WIDTH;
+    startedOnDragZoneRef.current = !!(
+      (headerRef.current && headerRef.current.contains(e.target as Node)) ||
+      (tabRef.current && tabRef.current.contains(e.target as Node))
+    );
+    tabletDraggingRef.current = false;
+    dragXRef.current = null;
+  };
+
+  const handleTabletTouchEnd = () => {
+    const wasDragging = tabletDraggingRef.current;
+    touchStartXRef.current = null;
+    tabletDraggingRef.current = false;
+    startedOnDragZoneRef.current = false;
+    // A non-dragging touch on the tab is a real tap — the tab's own onClick handles that. A
+    // non-dragging touch on the header (no click target there) is simply ignored, same as mobile
+    // ignores a non-header, non-dragging touch.
+    if (!wasDragging) return;
+
+    const finalX = dragXRef.current ?? dragStartXRef.current!;
+    const travelled = finalX - dragStartXRef.current!;
+    setDragX(null);
+    dragXRef.current = null;
+    if (travelled > TABLET_PANEL_WIDTH * 0.25) {
+      onSetSidebarOpen(true);
+    } else if (travelled < -TABLET_PANEL_WIDTH * 0.25) {
+      onSetSidebarOpen(false);
+    } else {
+      onSetSidebarOpen(sidebarOpen);
+    }
+  };
+
+  const handleTabletTouchCancel = () => {
+    touchStartXRef.current = null;
+    tabletDraggingRef.current = false;
+    startedOnDragZoneRef.current = false;
+    dragXRef.current = null;
+    setDragX(null);
+  };
+
+  // Native (non-passive) listener for the same reason the mobile drag effect below uses one:
+  // JSX's onTouchMove is passive by default, which silently no-ops preventDefault().
+  useEffect(() => {
+    if (!isTablet) return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartXRef.current === null || !startedOnDragZoneRef.current) return;
+      const deltaX = e.touches[0].clientX - touchStartXRef.current;
+
+      if (!tabletDraggingRef.current) {
+        if (Math.abs(deltaX) <= 8) return; // sub-slop jitter — still a potential tap
+        tabletDraggingRef.current = true;
+      }
+
+      e.preventDefault();
+      const newX = dragStartXRef.current! + deltaX;
+      const clamped = Math.min(0, Math.max(-TABLET_PANEL_WIDTH, newX));
+      dragXRef.current = clamped;
+      setDragX(clamped);
+    };
+
+    root.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => root.removeEventListener('touchmove', onTouchMove);
+  }, [isTablet]);
 
   // Continuous drag tracking. Attached natively (not as a JSX onTouchMove prop) because React
   // registers JSX touchmove listeners as passive by default, which silently makes
@@ -254,12 +332,12 @@ export const Sidebar = ({
         position: 'absolute',
         top: 0,
         bottom: 0,
-        left: `${sidebarOpen ? 0 : -TABLET_PANEL_WIDTH}px`,
+        left: `${dragX !== null ? dragX : sidebarOpen ? 0 : -TABLET_PANEL_WIDTH}px`,
         width: `${TABLET_PANEL_WIDTH}px`,
         zIndex: 1200,
         borderRight: '1px solid ' + theme.color.line,
         boxShadow: theme.shadow,
-        transition: 'left .28s cubic-bezier(.4,0,.2,1)',
+        transition: dragX !== null ? 'none' : 'left .28s cubic-bezier(.4,0,.2,1)',
       }
     : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
@@ -268,12 +346,13 @@ export const Sidebar = ({
       ref={rootRef}
       data-testid="sidebar-root"
       style={sidebarStyle}
-      onTouchStart={isMobile ? handleTouchStart : undefined}
-      onTouchEnd={isMobile ? handleTouchEnd : undefined}
-      onTouchCancel={isMobile ? handleTouchCancel : undefined}
+      onTouchStart={isMobile ? handleTouchStart : isTablet ? handleTabletTouchStart : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : isTablet ? handleTabletTouchEnd : undefined}
+      onTouchCancel={isMobile ? handleTouchCancel : isTablet ? handleTabletTouchCancel : undefined}
     >
       {isTablet && (
         <button
+          ref={tabRef}
           type="button"
           data-testid="sidebar-tablet-tab"
           onClick={onToggleSidebar}
