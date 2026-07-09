@@ -27,9 +27,15 @@ const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
 };
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
-// soft-card theme tokens — the goal here is to blend in with the native zoom control.
+// soft-card theme tokens — the goal here is to blend in with the native zoom control. Leaflet
+// applies its `.leaflet-touch` CSS variant whenever the browser supports Pointer Events (i.e.
+// virtually all modern browsers, not just touchscreens), and that variant uses a solid border
+// with NO box-shadow (`.leaflet-touch .leaflet-bar { box-shadow: none; border: 2px solid
+// rgba(0,0,0,.2); }` in leaflet.css) — so matching THAT, not the rarely-rendered non-touch
+// base style, is what actually looks consistent for real users (verified against
+// node_modules/leaflet/dist/leaflet.css).
 const nativeCtrlStyle: CSSProperties = {
-  background: '#fff', borderRadius: '4px', border: '1px solid rgba(0,0,0,.15)', overflow: 'hidden',
+  background: '#fff', borderRadius: '4px', border: '2px solid rgba(0,0,0,.2)', overflow: 'hidden',
 };
 // Matches the Topbar's DE/FR/IT language-switcher pill construction exactly, for visual consistency.
 const baseToggleWrapStyle: CSSProperties = {

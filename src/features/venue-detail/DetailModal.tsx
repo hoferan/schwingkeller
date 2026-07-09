@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X, MapPin, Home, Mountain, User, Phone, Globe, ExternalLink } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -108,12 +108,12 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
             color: theme.color.muted, fontSize: '13px',
           }}
         >
-          <span style={{ marginTop: '1px' }}>⌖</span>
+          <span style={{ marginTop: '1px', display: 'flex' }}><MapPin size={13} /></span>
           <span>{venue.address}</span>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-          {venue.indoor && <span style={tag}>⌂ {t.indoor}</span>}
-          {venue.outdoor && <span style={tag}>⛰ {t.outdoor}</span>}
+          {venue.indoor && <span style={tag}><Home size={13} /> {t.indoor}</span>}
+          {venue.outdoor && <span style={tag}><Mountain size={13} /> {t.outdoor}</span>}
         </div>
         <div style={{ height: '1px', background: theme.color.line, margin: '18px 0 14px' }}></div>
         <div
@@ -125,7 +125,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
           {t.contact}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '8px 0' }}>
-          <span style={contactIcon}>◉</span>
+          <span style={contactIcon}><User size={16} /></span>
           <div>
             <div style={contactLabel}>{t.person}</div>
             <div style={{ fontSize: '14px', color: theme.color.ink, fontWeight: 600 }}>{venue.person}</div>
@@ -133,7 +133,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
         </div>
         {venue.phone && (
           <a href={phoneUrl} style={contactRow}>
-            <span style={contactIcon}>✆</span>
+            <span style={contactIcon}><Phone size={16} /></span>
             <div>
               <div style={contactLabel}>{t.phone}</div>
               <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{venue.phone}</div>
@@ -142,7 +142,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
         )}
         {venue.website && (
           <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={contactRow}>
-            <span style={{ ...contactIcon, fontSize: '14px' }}>⊕</span>
+            <span style={contactIcon}><Globe size={15} /></span>
             <div>
               <div style={contactLabel}>{t.website}</div>
               <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{venue.website}</div>
@@ -158,7 +158,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
             justifyContent: 'center', gap: '8px',
           }}
         >
-          {t.navigate} ↗
+          {t.navigate} <ExternalLink size={15} />
         </button>
         {isAdmin && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>

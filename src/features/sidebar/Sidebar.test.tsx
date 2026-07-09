@@ -34,6 +34,7 @@ const venues = [
 
 interface HarnessProps {
   isMobile?: boolean;
+  isTablet?: boolean;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onSetSidebarOpen?: (open: boolean) => void;
@@ -41,6 +42,7 @@ interface HarnessProps {
 
 const Harness = ({
   isMobile = false,
+  isTablet = false,
   sidebarOpen = true,
   onToggleSidebar = () => {},
   onSetSidebarOpen = () => {},
@@ -58,6 +60,7 @@ const Harness = ({
       selectedId={selectedId}
       onSelect={setSelectedId}
       isMobile={isMobile}
+      isTablet={isTablet}
       sidebarOpen={sidebarOpen}
       onToggleSidebar={onToggleSidebar}
       onSetSidebarOpen={onSetSidebarOpen}
@@ -118,6 +121,122 @@ describe('Sidebar', () => {
     fireEvent.pointerDown(document.body);
 
     expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps the full handle and header visible when the mobile sheet is collapsed', async () => {
+    renderSidebar({ isMobile: true, sidebarOpen: false });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const sheet = screen.getByTestId('sidebar-root');
+    // 116px = handle zone (8px+4px+8px = 20px) + header block (18px padding top/bottom = 36px,
+    // + 19px/1.15 title line ≈ 21.85px, + 10px gap, + 12px/"normal" count-pill line + 12px
+    // padding ≈ 26.4px), rounded up for font-metric slack — see the PEEK_HEIGHT comment.
+    expect(sheet.style.height).toBe('116px');
+  });
+
+  it('renders the tablet panel off-screen to the left when collapsed', async () => {
+    renderSidebar({ isTablet: true, sidebarOpen: false });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const panel = screen.getByTestId('sidebar-root');
+    expect(panel.style.left).toBe('-344px');
+  });
+
+  it('slides the tablet panel fully into view when open', async () => {
+    renderSidebar({ isTablet: true, sidebarOpen: true });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const panel = screen.getByTestId('sidebar-root');
+    expect(panel.style.left).toBe('0px');
+  });
+
+  it('toggles the tablet panel via the floating arrow tab', async () => {
+    const onToggleSidebar = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onToggleSidebar });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.click(tab);
+
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the tablet panel on tap outside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('does not close the tablet panel on tap inside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const bern = await screen.findByText('Bern');
+
+    fireEvent.pointerDown(bern);
+
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
+  it('commits to opening the tablet panel once dragged right past 25% of its width', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onSetSidebarOpen });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.touchStart(tab, { touches: [{ clientX: 100 }] });
+    fireEvent.touchMove(tab, { touches: [{ clientX: 190 }] }); // 90px right, past 86px (25% of 344)
+    fireEvent.touchEnd(tab, { changedTouches: [{ clientX: 190 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('snaps the tablet panel back to closed when dragged right just short of 25%', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onSetSidebarOpen });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.touchStart(tab, { touches: [{ clientX: 100 }] });
+    fireEvent.touchMove(tab, { touches: [{ clientX: 180 }] }); // 80px right, short of 86px
+    fireEvent.touchEnd(tab, { changedTouches: [{ clientX: 180 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('commits to closing the tablet panel once dragged left past 25% of its width', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const header = await screen.findByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(header, { touches: [{ clientX: 110 }] }); // 90px left, past 86px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientX: 110 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('snaps the tablet panel back to open when dragged left just short of 25%', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const header = await screen.findByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientX: 200 }] });
+    fireEvent.touchMove(header, { touches: [{ clientX: 120 }] }); // 80px left, short of 86px
+    fireEvent.touchEnd(header, { changedTouches: [{ clientX: 120 }] });
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('does not start a tablet drag from the venue list body', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const list = screen.getByTestId('sidebar-list');
+
+    fireEvent.touchStart(list, { touches: [{ clientX: 200 }] });
+    const dispatched = fireEvent.touchMove(list, { touches: [{ clientX: 100 }] });
+    fireEvent.touchEnd(list, { changedTouches: [{ clientX: 100 }] });
+
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+    // Not cancelled — the panel didn't intercept the gesture, so native list scrolling proceeds.
+    expect(dispatched).toBe(true);
   });
 
   it('does not close the mobile drawer on tap inside it', async () => {
@@ -215,7 +334,7 @@ describe('Sidebar', () => {
   });
 
   it('commits to closing once dragged just past 25% of the peek-to-open range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -228,7 +347,7 @@ describe('Sidebar', () => {
   });
 
   it('snaps back to open when dragged just short of 25% of the range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -241,7 +360,7 @@ describe('Sidebar', () => {
   });
 
   it('commits to opening once dragged just past 25% of the peek-to-open range', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');
@@ -254,7 +373,7 @@ describe('Sidebar', () => {
   });
 
   it('snaps back to peek when dragged just short of 25% of the range upward', () => {
-    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 532px, 25% = 133px
+    vi.stubGlobal('innerHeight', 800); // open height = 640px, range = 524px, 25% = 131px
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: false, onSetSidebarOpen });
     const header = screen.getByTestId('sidebar-header');

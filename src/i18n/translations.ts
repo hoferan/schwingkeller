@@ -56,6 +56,8 @@ export const STR = {
     locSync: 'Koordinaten & Adresse werden automatisch synchronisiert.',
     noResults: 'Keine Schwingkeller gefunden.',
     adminMode: 'Admin-Modus',
+    expandSidebar: 'Menü öffnen',
+    collapseSidebar: 'Menü schliessen',
     importTitle: 'Import bestätigen',
     importBody:
       'Der Import ersetzt ALLE bestehenden Einträge durch den Inhalt der Datei. Dies kann nicht rückgängig gemacht werden.',
@@ -122,6 +124,8 @@ export const STR = {
     locSync: 'Coordonnées et adresse synchronisées automatiquement.',
     noResults: 'Aucun lieu trouvé.',
     adminMode: 'Mode admin',
+    expandSidebar: 'Ouvrir le menu',
+    collapseSidebar: 'Fermer le menu',
     importTitle: 'Confirmer l’import',
     importBody:
       'L’import remplace TOUTES les entrées existantes par le contenu du fichier. Cette action est irréversible.',
@@ -188,6 +192,8 @@ export const STR = {
     locSync: 'Coordinate e indirizzo sincronizzati automaticamente.',
     noResults: 'Nessuna sede trovata.',
     adminMode: 'Modalità admin',
+    expandSidebar: 'Apri il menu',
+    collapseSidebar: 'Chiudi il menu',
     importTitle: 'Conferma importazione',
     importBody:
       'L’importazione sostituisce TUTTE le voci esistenti con il contenuto del file. Questa azione è irreversibile.',

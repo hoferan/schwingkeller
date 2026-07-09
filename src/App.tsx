@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Crosshair, ArrowRight } from 'lucide-react';
 import { Topbar } from './components/Topbar';
 import { Modal } from './components/Modal';
 import { Sidebar } from './features/sidebar/Sidebar';
@@ -53,6 +54,7 @@ function AppShell() {
   }, []);
   const mode = modeOf(vw);
   const isMobile = mode === 'm';
+  const isTablet = mode === 't';
 
   // Cross-cutting UI state.
   const [search, setSearch] = useState('');
@@ -248,6 +250,7 @@ function AppShell() {
           selectedId={selectedId}
           onSelect={selectVenue}
           isMobile={isMobile}
+          isTablet={isTablet}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onSetSidebarOpen={setSidebarOpen}
@@ -307,7 +310,9 @@ function AppShell() {
             maxWidth: 'calc(100% - 32px)', animation: 'popIn .24s ease',
           }}
         >
-          <span style={{ fontSize: '13px' }}>⌖ {t.pickHint}</span>
+          <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Crosshair size={14} /> {t.pickHint}
+          </span>
           <button
             onClick={cancelPlacing}
             style={{
@@ -369,7 +374,9 @@ function AppShell() {
                 <div style={{ opacity: 0.7 }}>{t.importExisting}</div>
                 <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{venues.length}</div>
               </div>
-              <div style={{ color: theme.color.accent, fontSize: '18px', flex: 'none' }}>→</div>
+              <div style={{ color: theme.color.accent, flex: 'none', display: 'flex', alignItems: 'center' }}>
+                <ArrowRight size={18} />
+              </div>
               <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
                 <div style={{ opacity: 0.7 }}>{t.import}</div>
                 <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{pendingImport.count}</div>

@@ -27,36 +27,25 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
   const { isAdmin, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
 
-  const adminPill = isAdmin && (
-    <div
-      title={t.adminMode}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: 'none',
-        background: theme.color.accent, color: theme.color.accentInk, fontSize: '11px', fontWeight: 700,
-        letterSpacing: '0.05em', textTransform: 'uppercase', padding: '5px 12px',
-        borderRadius: theme.radius.pill, whiteSpace: 'nowrap',
-      }}
-    >
-      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: theme.color.accentInk, flex: 'none' }}></span>
-      {isMobile ? 'Admin' : t.adminMode}
-    </div>
-  );
-
   return (
     <div
+      data-testid="topbar"
       style={{
-        height: '60px', flex: 'none', background: theme.color.bg,
+        height: '60px', flex: 'none', background: isAdmin ? theme.color.accent : theme.color.bg,
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: '9px',
-        borderBottom: '2px solid ' + theme.color.accent, position: 'relative', zIndex: 1100,
+        borderBottom: '2px solid ' + (isAdmin ? theme.color.ink : theme.color.accent),
+        position: 'relative', zIndex: 1100,
       }}
     >
-      {/* Wordmark: always visible, matching the AFLS reference. Tagline stays mobile-hidden to save vertical space. */}
+      {/* Wordmark: always visible, matching the AFLS reference. Tagline stays mobile-hidden to save
+          vertical space. Admin mode inverts the whole header to solid red as the visibility signal
+          (issue #8) instead of overlaying a pill that clutters the bar at narrow widths. */}
       <div style={{ minWidth: 0 }}>
         <div
           style={{
             fontFamily: theme.font.display, fontWeight: 700, letterSpacing: '0.04em',
-            textTransform: 'uppercase', color: theme.color.accent, fontSize: '15px', lineHeight: 1.1,
-            whiteSpace: 'nowrap',
+            textTransform: 'uppercase', color: isAdmin ? theme.color.accentInk : theme.color.accent,
+            fontSize: '15px', lineHeight: 1.1, whiteSpace: 'nowrap',
           }}
         >
           SCHWINGKELLER
@@ -64,7 +53,8 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
         {!isMobile && (
           <div
             style={{
-              fontSize: '10.5px', color: theme.color.muted, lineHeight: 1.1, marginTop: '1px',
+              fontSize: '10.5px', color: isAdmin ? theme.color.accentInk : theme.color.muted,
+              lineHeight: 1.1, marginTop: '1px',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
@@ -73,14 +63,7 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
         )}
       </div>
 
-      {/* Centered admin pill: flanked by two flex spacers so it sits mid-bar. */}
       <div style={{ flex: 1 }}></div>
-      {isAdmin && (
-        <>
-          {adminPill}
-          <div style={{ flex: 1 }}></div>
-        </>
-      )}
 
       {/* Language switcher: one text-pill row at every width, matching the AFLS reference. */}
       <div
@@ -103,8 +86,8 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
           title={t.logout}
           aria-label={t.logout}
           style={{
-            fontSize: '12.5px', fontWeight: 600, color: theme.color.ink, background: 'transparent',
-            border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.pill, cursor: 'pointer', flex: 'none',
+            fontSize: '12.5px', fontWeight: 600, color: theme.color.accentInk, background: 'transparent',
+            border: '1.5px solid ' + theme.color.accentInk, borderRadius: theme.radius.pill, cursor: 'pointer', flex: 'none',
             whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '6px', padding: isMobile ? '0' : '7px 13px', width: isMobile ? '38px' : 'auto',
             height: isMobile ? '38px' : 'auto',
