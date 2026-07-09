@@ -7,6 +7,7 @@ import { forwardGeocode, reverseGeocode } from '../venues/geocoding';
 import { uploadPhoto } from '../venues/api';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
+import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
 
 interface EditFormProps {
@@ -38,20 +39,20 @@ const blankDraft = (): Draft => ({
 });
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid #e0cfa6', borderRadius: '9px', padding: '11px 13px',
-  fontSize: '14px', color: '#3a2a18', background: '#fff', outline: 'none',
+  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '11px 13px',
+  fontSize: '14px', color: theme.color.ink, background: theme.color.bg, outline: 'none',
 };
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em',
-  textTransform: 'uppercase', color: '#9a7c45', marginBottom: '6px',
+  textTransform: 'uppercase', color: theme.color.muted, marginBottom: '6px',
 };
 const spOn: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: '9px', border: '1.5px solid #c0851d', background: '#f3e2b6', color: '#5a4527',
+  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.accent, background: theme.color.accent, color: theme.color.accentInk,
 };
 const spOff: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: '9px', border: '1.5px solid #e0cfa6', background: '#fff', color: '#a8916c',
+  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.muted,
 };
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
@@ -164,16 +165,16 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     <Modal onClose={onClose} width={480}>
       <div
         style={{
-          position: 'sticky', top: 0, background: '#f0e4c4', borderBottom: '1px solid #ddc99a',
+          position: 'sticky', top: 0, background: theme.color.bg, borderBottom: '1px solid ' + theme.color.line,
           padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2,
         }}
       >
-        <span style={{ fontFamily: "'Bitter',serif", fontSize: '17px', fontWeight: 800, color: '#2e2013' }}>
+        <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '17px', fontWeight: 700, color: theme.color.ink }}>
           {editTitle}
         </span>
         <button
           onClick={onClose}
-          style={{ border: 'none', background: 'transparent', color: '#9a7c45', fontSize: '19px', cursor: 'pointer' }}
+          style={{ border: 'none', background: 'transparent', color: theme.color.ink, fontSize: '19px', cursor: 'pointer' }}
         >
           ✕
         </button>
@@ -184,8 +185,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <label style={{ ...labelStyle, marginBottom: '7px' }}>{t.photo}</label>
         <label
           style={{
-            display: 'block', height: '128px', borderRadius: '11px', overflow: 'hidden', cursor: 'pointer',
-            border: '1.5px dashed #c9a85e', position: 'relative', marginBottom: '16px',
+            display: 'block', height: '128px', overflow: 'hidden', cursor: 'pointer', borderRadius: theme.radius.sm,
+            border: '1.5px dashed ' + theme.color.line, position: 'relative', marginBottom: '16px',
           }}
         >
           {draft.photo_url ? (
@@ -198,9 +199,9 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             <div
               style={{
                 position: 'absolute', inset: 0,
-                background: 'repeating-linear-gradient(45deg,#ece0c6 0 11px,#e3d4b2 11px 22px)',
+                background: 'repeating-linear-gradient(45deg,#e5e5e5 0 11px,#d4d4d4 11px 22px)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: '6px', color: '#9a7c45',
+                gap: '6px', color: theme.color.ink,
               }}
             >
               <span style={{ fontSize: '22px' }}>⬆</span>
@@ -239,7 +240,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           ))}
         </select>
         {draft.cantonAuto && (
-          <div style={{ fontSize: '11px', color: '#6f8a4e', marginTop: '5px', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: theme.color.ink, marginTop: '5px', fontWeight: 600 }}>
             ✓ {t.cantonAuto}
           </div>
         )}
@@ -266,8 +267,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div
             style={{
-              flex: 1, background: '#fff', border: '1px solid #e0cfa6', borderRadius: '9px',
-              padding: '11px 13px', fontSize: '13px', color: '#7a6342', fontFamily: 'monospace',
+              flex: 1, background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
+              padding: '11px 13px', fontSize: '13px', color: theme.color.ink, fontFamily: 'monospace',
             }}
           >
             {editingCoords}
@@ -275,14 +276,14 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           <button
             onClick={onStartPlacing}
             style={{
-              border: '1.5px solid #c9a85e', background: '#fbf6ea', color: '#5a4527', fontWeight: 600,
-              fontSize: '13px', padding: '11px 14px', borderRadius: '9px', cursor: 'pointer', whiteSpace: 'nowrap',
+              border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink, fontWeight: 600,
+              fontSize: '13px', padding: '11px 14px', borderRadius: theme.radius.sm, cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
             ⌖ {t.pickOnMap}
           </button>
         </div>
-        <div style={{ fontSize: '11px', color: '#a08a64', marginTop: '5px' }}>↕ {t.locSync}</div>
+        <div style={{ fontSize: '11px', color: theme.color.muted, marginTop: '5px' }}>↕ {t.locSync}</div>
 
         {/* contact */}
         <label style={{ ...labelStyle, margin: '16px 0 6px' }}>{t.contact}</label>
@@ -310,7 +311,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
 
       <div
         style={{
-          position: 'sticky', bottom: 0, background: '#f0e4c4', borderTop: '1px solid #ddc99a',
+          position: 'sticky', bottom: 0, background: theme.color.bg, borderTop: '1px solid ' + theme.color.line,
           padding: '13px 18px', display: 'flex', flexDirection: 'column', gap: '9px',
         }}
       >
@@ -318,8 +319,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           onClick={() => { void save(false); }}
           disabled={saving}
           style={{
-            width: '100%', border: 'none', background: '#2e2013', color: '#f4ead4', fontWeight: 600,
-            fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+            width: '100%', border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600,
+            fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
           }}
         >
           {t.saveClose}
@@ -328,8 +329,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           <button
             onClick={onClose}
             style={{
-              flex: 1, border: '1.5px solid #c9a85e', background: 'transparent', color: '#5a4527',
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: '11px', cursor: 'pointer',
+              flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
+              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
             }}
           >
             {t.cancel}
@@ -338,8 +339,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             onClick={() => { void save(true); }}
             disabled={saving}
             style={{
-              flex: 1, border: '1.5px solid #b3892f', background: '#fbf0d4', color: '#7a5618',
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: '11px', cursor: 'pointer',
+              flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
+              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
             }}
           >
             {t.saveNew}

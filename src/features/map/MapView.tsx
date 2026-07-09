@@ -1,11 +1,13 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
+import { Maximize } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { pinHtml, popupHtml, clusterIcon } from './markers';
+import { theme } from '../../theme';
 
 interface MapViewProps {
   venues: Venue[];
@@ -19,36 +21,39 @@ interface MapViewProps {
   registerFitAll?: (fn: () => void) => void;
 }
 
-// GeoJSON ring helpers: leaflet wants [lat,lng], geojson stores [lng,lat].
-interface GeoJSONFeatureCollection {
-  features: Array<{
-    geometry: { type: string; coordinates: number[][][] | number[][][][] } | null;
-  }>;
-}
-
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
 const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
 const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
-  display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
 };
-const toggleWrapStyle: CSSProperties = {
-  display: 'flex', background: '#f6edd9', border: '1px solid #cbb077',
-  borderRadius: '9px', overflow: 'hidden', boxShadow: '0 3px 10px rgba(60,40,15,.25)',
+// Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
+// soft-card theme tokens — the goal here is to blend in with the native zoom control.
+const nativeCtrlStyle: CSSProperties = {
+  background: '#fff', borderRadius: '4px', border: '1px solid rgba(0,0,0,.15)', overflow: 'hidden',
 };
-const fitAllBtnStyle: CSSProperties = {
-  width: '38px', height: '38px', border: '1px solid #cbb077', background: '#f6edd9',
-  color: '#5a4527', borderRadius: '9px', cursor: 'pointer',
-  boxShadow: '0 3px 10px rgba(60,40,15,.25)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
+// Matches the Topbar's DE/FR/IT language-switcher pill construction exactly, for visual consistency.
+const baseToggleWrapStyle: CSSProperties = {
+  display: 'flex', gap: '2px', background: theme.color.paper,
+  padding: '4px', borderRadius: theme.radius.pill, flex: 'none',
 };
-const layerBtnStyle = (active: boolean): CSSProperties => ({
-  border: 'none', cursor: 'pointer', fontFamily: "'Work Sans',sans-serif", fontSize: '12px',
-  fontWeight: 600, padding: '7px 13px',
-  background: active ? '#c0851d' : 'transparent', color: active ? '#2a1d10' : '#7a6342',
+const baseToggleBtnStyle = (active: boolean): CSSProperties => ({
+  background: active ? theme.color.accent : 'transparent',
+  color: active ? theme.color.accentInk : theme.color.muted,
+  border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
+  lineHeight: '1', padding: '6px 10px', borderRadius: theme.radius.pill,
 });
-
-const cantonStyle = (): L.PathOptions => ({ color: '#9a7c45', weight: 1, fill: false, fillOpacity: 0 });
+// Default top offset and size before the real zoom-control is measured (see the mount effect):
+// 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
+const FIT_ALL_DEFAULT_TOP = 46;
+const FIT_ALL_DEFAULT_SIZE = 30;
+const fitAllWrapStyle = (top: number, size: number): CSSProperties => ({
+  ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
+  width: `${size}px`, height: `${size}px`, zIndex: 1000,
+});
+const fitAllBtnStyle: CSSProperties = {
+  width: '100%', height: '100%', border: 'none', background: 'transparent',
+  color: theme.color.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+};
 
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
@@ -61,9 +66,8 @@ export function MapView({
   const markerGroupRef = useRef<any>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
   const tileRef = useRef<L.TileLayer | null>(null);
-  const satRefLayers = useRef<L.TileLayer[] | null>(null);
-  const maskLayerRef = useRef<L.Polygon | null>(null);
-  const cantonLayerRef = useRef<L.GeoJSON | null>(null);
+  const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
+  const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -87,25 +91,14 @@ export function MapView({
     const map = mapRef.current;
     if (!map) return;
     if (tileRef.current) { map.removeLayer(tileRef.current); tileRef.current = null; }
-    if (satRefLayers.current) { satRefLayers.current.forEach((l) => map.removeLayer(l)); satRefLayers.current = null; }
     if (kind === 'sat') {
       tileRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 18 });
       tileRef.current.addTo(map); tileRef.current.bringToBack();
-      satRefLayers.current = [
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }),
-      ];
-      satRefLayers.current.forEach((l) => l.addTo(map));
     } else {
-      tileRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO', maxZoom: 19 });
+      tileRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 });
       tileRef.current.addTo(map); tileRef.current.bringToBack();
     }
     const pane = map.getPane('tilePane'); if (pane) pane.style.filter = 'none';
-  };
-
-  const applyMaskTint = (kind: 'map' | 'sat') => {
-    if (maskLayerRef.current) maskLayerRef.current.setStyle({ fillColor: kind === 'sat' ? '#0e1c12' : '#6f6553', fillOpacity: kind === 'sat' ? 0.5 : 0.6 });
-    if (cantonLayerRef.current) cantonLayerRef.current.setStyle({ color: kind === 'sat' ? '#f4ead4' : '#9a7c45', weight: kind === 'sat' ? 1.2 : 1 });
   };
 
   const refreshMarkers = () => {
@@ -115,7 +108,7 @@ export function MapView({
     if (sz && (sz.x <= 0 || sz.y <= 0)) { window.setTimeout(refreshMarkers, 120); return; }
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -36] });
+      const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] });
       const m = L.marker([v.lat, v.lng], { icon }).addTo(group);
       m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('click', () => onSelectRef.current(v.id));
@@ -125,7 +118,7 @@ export function MapView({
 
   const updatePins = () => {
     Object.keys(markersRef.current).forEach((id) => {
-      markersRef.current[id].setIcon(L.divIcon({ className: '', html: pinHtml(id === selectedIdRef.current), iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -36] }));
+      markersRef.current[id].setIcon(L.divIcon({ className: '', html: pinHtml(id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] }));
     });
   };
 
@@ -179,33 +172,6 @@ export function MapView({
     L.control.attribution({ prefix: '<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>' }).addTo(map);
     setTile(baseKind);
 
-    let cancelled = false;
-    const init = async () => {
-      try {
-        const res = await fetch('/cantons.geojson');
-        if (cancelled) return;
-        const gj = (await res.json()) as GeoJSONFeatureCollection;
-        if (cancelled) return;
-        const holes: number[][][] = [];
-        gj.features.forEach((f) => {
-          if (!f.geometry) return;
-          if (f.geometry.type === 'Polygon') {
-            (f.geometry.coordinates as number[][][]).forEach((ring) => holes.push(ring.map((c) => [c[1], c[0]])));
-          } else if (f.geometry.type === 'MultiPolygon') {
-            (f.geometry.coordinates as number[][][][]).forEach((poly) => poly.forEach((ring) => holes.push(ring.map((c) => [c[1], c[0]]))));
-          }
-        });
-        const world: number[][] = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
-        maskLayerRef.current = L.polygon([world as L.LatLngExpression[], ...(holes as unknown as L.LatLngExpression[][])], { stroke: false, fillColor: '#6f6553', fillOpacity: 0.6, interactive: false }).addTo(map);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        cantonLayerRef.current = L.geoJSON(gj as any, { style: cantonStyle, interactive: false }).addTo(map);
-        applyMaskTint(baseKind);
-      } catch (err) {
-        console.warn('cantons load failed', err);
-      }
-    };
-    void init();
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Lany = L as any;
     markerGroupRef.current = Lany.markerClusterGroup
@@ -218,6 +184,11 @@ export function MapView({
     map.whenReady(() => {
       if (!mapRef.current) return;
       map.invalidateSize();
+      const zoomEl = map.zoomControl.getContainer();
+      if (zoomEl) {
+        setFitAllTop(10 + zoomEl.offsetHeight + 10);
+        setFitAllSize(zoomEl.offsetWidth);
+      }
       window.setTimeout(() => {
         if (!mapRef.current || !markerGroupRef.current) return;
         map.invalidateSize();
@@ -227,15 +198,11 @@ export function MapView({
     });
 
     return () => {
-      cancelled = true;
       map.remove();
       mapRef.current = null;
       markerGroupRef.current = null;
       markersRef.current = {};
       tileRef.current = null;
-      satRefLayers.current = null;
-      maskLayerRef.current = null;
-      cantonLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -244,7 +211,6 @@ export function MapView({
   useEffect(() => {
     if (!mapRef.current) return;
     setTile(baseKind);
-    applyMaskTint(baseKind);
   }, [baseKind]);
 
   // Venue list change → rebuild markers.
@@ -281,16 +247,23 @@ export function MapView({
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
       <div style={overlayStyle}>
-        <div style={toggleWrapStyle}>
-          <button onClick={() => onChangeBase('map')} style={layerBtnStyle(baseKind === 'map')}>{t.mapView}</button>
-          <button onClick={() => onChangeBase('sat')} style={layerBtnStyle(baseKind === 'sat')}>{t.satView}</button>
+        <div style={baseToggleWrapStyle}>
+          <button onClick={() => onChangeBase('map')} style={baseToggleBtnStyle(baseKind === 'map')}>
+            {t.mapView}
+          </button>
+          <button onClick={() => onChangeBase('sat')} style={baseToggleBtnStyle(baseKind === 'sat')}>
+            {t.satView}
+          </button>
         </div>
+      </div>
+      <div style={fitAllWrapStyle(fitAllTop, fitAllSize)}>
         <button
+          className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
           title={t.fitAll}
           style={fitAllBtnStyle}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9V5a1 1 0 0 1 1-1h4" /><path d="M20 9V5a1 1 0 0 0-1-1h-4" /><path d="M4 15v4a1 1 0 0 0 1 1h4" /><path d="M20 15v4a1 1 0 0 1-1 1h-4" /></svg>
+          <Maximize size={18} />
         </button>
       </div>
     </div>

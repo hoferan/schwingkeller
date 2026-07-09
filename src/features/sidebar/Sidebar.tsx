@@ -1,9 +1,11 @@
-import { useRef, type CSSProperties } from 'react';
+import { useRef, useEffect, useState, type CSSProperties } from 'react';
+import { Search, X, ChevronRight, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton } from '../venues/grouping';
 import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
+import { theme } from '../../theme';
 
 interface SidebarProps {
   venues: Venue[];
@@ -16,39 +18,25 @@ interface SidebarProps {
   isMobile: boolean;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onSetSidebarOpen: (open: boolean) => void;
   onAdd: () => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
   onImport: (file: File) => void;
 }
 
-const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: '#f6edd9' };
-
-const downloadIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3v12" />
-    <path d="m7 11 5 5 5-5" />
-    <path d="M5 21h14" />
-  </svg>
-);
-
-const uploadIcon = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 21V9" />
-    <path d="m7 13 5-5 5 5" />
-    <path d="M5 3h14" />
-  </svg>
-);
+const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
+const PEEK_HEIGHT = 108;
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
-  border: '1px solid #d8c089',
-  background: '#fbf6ea',
-  color: '#5a4527',
+  border: '1px solid ' + theme.color.line,
+  background: theme.color.bg,
+  color: theme.color.ink,
   fontWeight: 600,
   fontSize: '11.5px',
   padding: '8px 6px',
-  borderRadius: '8px',
+  borderRadius: theme.radius.sm,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   display: 'flex',
@@ -61,12 +49,25 @@ const rowStyle = (sel: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  padding: '9px 10px 9px 12px',
-  margin: '3px 0',
-  borderRadius: '0 8px 8px 0',
+  padding: '13px 14px',
+  margin: '7px 0',
+  borderRadius: theme.radius.sm,
   cursor: 'pointer',
-  borderLeft: sel ? '2px solid #c0851d' : '2px solid #e6d3a3',
-  background: sel ? '#fbf6ea' : 'transparent',
+  background: sel ? theme.color.paper : theme.color.bg,
+  border: sel ? '1.5px solid ' + theme.color.accent : '1px solid ' + theme.color.line,
+  boxShadow: sel ? theme.shadow : 'none',
+});
+
+const chevronBadgeStyle = (sel: boolean): CSSProperties => ({
+  width: '22px',
+  height: '22px',
+  borderRadius: '50%',
+  background: sel ? theme.color.bg : theme.color.paper,
+  color: theme.color.accent,
+  flex: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 });
 
 // "town" line: drop the street part of the address, fall back to full address.
@@ -84,6 +85,7 @@ export const Sidebar = ({
   isMobile,
   sidebarOpen,
   onToggleSidebar,
+  onSetSidebarOpen,
   onAdd,
   onExportJSON,
   onExportCSV,
@@ -92,6 +94,127 @@ export const Sidebar = ({
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const dragStartHeightRef = useRef<number | null>(null);
+  const dragHeightRef = useRef<number | null>(null);
+  const openHeightPxRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const startedOnHeaderRef = useRef(false);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    openHeightPxRef.current = window.innerHeight * 0.8;
+    dragStartHeightRef.current = sidebarOpen ? openHeightPxRef.current : PEEK_HEIGHT;
+    startedOnHeaderRef.current = !!(headerRef.current && headerRef.current.contains(e.target as Node));
+    isDraggingRef.current = false;
+    dragHeightRef.current = null;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartYRef.current;
+    const wasDragging = isDraggingRef.current;
+    touchStartYRef.current = null;
+    isDraggingRef.current = false;
+    if (startY === null) return;
+
+    if (!wasDragging) {
+      // Never became a drag — either a pass-through list scroll, or too small to classify.
+      if (startedOnHeaderRef.current) {
+        const deltaY = e.changedTouches[0].clientY - startY;
+        if (Math.abs(deltaY) < 10) {
+          // Suppress the synthetic compat click that follows a touch tap, which would otherwise
+          // double-fire onToggleSidebar via the header's onClick.
+          e.preventDefault();
+          onToggleSidebar();
+        }
+      }
+      return;
+    }
+
+    // Snap relative to how far the drag travelled from its OWN starting point, not the sheet's
+    // absolute midpoint — the peek-to-open range is large (~500px+), so an absolute-midpoint snap
+    // would require a much heavier drag than the old ±30px swipe to ever flip state.
+    // Read the ref, not the `dragHeight` state: the state is written from a native touchmove
+    // listener and may not have flushed to a re-render yet by the time touchend fires, so it can
+    // be one or more moves stale relative to the finger's actual final position.
+    const finalHeight = dragHeightRef.current ?? dragStartHeightRef.current!;
+    const range = openHeightPxRef.current - PEEK_HEIGHT;
+    const travelled = finalHeight - dragStartHeightRef.current!;
+    setDragHeight(null);
+    dragHeightRef.current = null;
+    if (travelled > range * 0.25) {
+      onSetSidebarOpen(true);
+    } else if (travelled < -range * 0.25) {
+      onSetSidebarOpen(false);
+    } else {
+      onSetSidebarOpen(sidebarOpen);
+    }
+  };
+
+  // The browser can interrupt a touch mid-gesture (edge-swipe navigation, incoming call), firing
+  // touchcancel instead of touchend. Reset the gesture refs so the sheet animates back to its
+  // current sidebarOpen state instead of freezing at whatever height the last touchmove left it —
+  // no snap decision here, since the gesture was aborted rather than released.
+  const handleTouchCancel = () => {
+    touchStartYRef.current = null;
+    isDraggingRef.current = false;
+    dragHeightRef.current = null;
+    setDragHeight(null);
+  };
+
+  // Continuous drag tracking. Attached natively (not as a JSX onTouchMove prop) because React
+  // registers JSX touchmove listeners as passive by default, which silently makes
+  // preventDefault() inside them a no-op — blocking native scroll while dragging requires the
+  // { passive: false } form, which JSX doesn't expose.
+  useEffect(() => {
+    if (!isMobile) return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartYRef.current === null) return;
+      const deltaY = e.touches[0].clientY - touchStartYRef.current;
+
+      if (!isDraggingRef.current) {
+        if (startedOnHeaderRef.current || !sidebarOpen) {
+          if (Math.abs(deltaY) <= 8) return; // sub-slop jitter — still a potential tap, don't classify yet
+          isDraggingRef.current = true;
+        } else {
+          const list = listRef.current;
+          const atTop = !list || list.scrollTop <= 0;
+          if (atTop && deltaY > 5) {
+            isDraggingRef.current = true;
+          } else {
+            return;
+          }
+        }
+      }
+
+      e.preventDefault();
+      const newHeight = dragStartHeightRef.current! - deltaY;
+      const clamped = Math.min(openHeightPxRef.current, Math.max(PEEK_HEIGHT, newHeight));
+      dragHeightRef.current = clamped;
+      setDragHeight(clamped);
+    };
+
+    root.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => root.removeEventListener('touchmove', onTouchMove);
+  }, [isMobile, sidebarOpen]);
+
+  useEffect(() => {
+    if (!isMobile || !sidebarOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        onSetSidebarOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [isMobile, sidebarOpen, onSetSidebarOpen]);
 
   const list = filterVenues(venues, search);
   const groups = groupByCanton(list);
@@ -100,7 +223,8 @@ export const Sidebar = ({
   const noResults = list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
 
-  // Mobile: bottom drawer (height toggles). Desktop/tablet: fixed-width column.
+  // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
+  // Desktop/tablet: fixed-width column.
   const sidebarStyle: CSSProperties = isMobile
     ? {
         ...sbBase,
@@ -108,31 +232,67 @@ export const Sidebar = ({
         left: 0,
         right: 0,
         bottom: 0,
-        height: sidebarOpen ? '80vh' : '108px',
+        height: dragHeight !== null ? `${dragHeight}px` : sidebarOpen ? '80vh' : `${PEEK_HEIGHT}px`,
         zIndex: 1200,
-        borderTop: '1px solid #ddc9a0',
-        borderRadius: '18px 18px 0 0',
-        boxShadow: '0 -8px 30px rgba(40,26,10,.28)',
-        transition: 'height .32s cubic-bezier(.4,0,.2,1)',
+        borderTop: '1px solid ' + theme.color.line,
+        borderRadius: theme.radius.sm + ' ' + theme.radius.sm + ' 0 0',
+        boxShadow: theme.shadow,
+        transition: dragHeight !== null ? 'none' : 'height .32s cubic-bezier(.4,0,.2,1)',
       }
-    : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid #ddc9a0' };
+    : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
   return (
-    <div style={sidebarStyle}>
-      {isMobile && (
+    <div
+      ref={rootRef}
+      style={sidebarStyle}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      onTouchCancel={isMobile ? handleTouchCancel : undefined}
+    >
+      <div
+        ref={headerRef}
+        data-testid="sidebar-header"
+        onClick={isMobile ? onToggleSidebar : undefined}
+        style={{ cursor: isMobile ? 'pointer' : 'default' }}
+      >
+        {isMobile && (
+          <div
+            style={{
+              padding: '14px 0 12px',
+              display: 'flex',
+              justifyContent: 'center',
+              flex: 'none',
+            }}
+          >
+            <div style={{ width: '56px', height: '6px', borderRadius: theme.radius.pill, background: theme.color.ink }} />
+          </div>
+        )}
+
         <div
-          onClick={onToggleSidebar}
           style={{
-            padding: '9px 0 5px',
-            display: 'flex',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            flex: 'none',
+            background: theme.color.ink, padding: '18px 15px', display: 'flex',
+            flexDirection: 'column', gap: '10px', flex: 'none',
           }}
         >
-          <div style={{ width: '44px', height: '5px', borderRadius: '3px', background: '#d3bd8c' }} />
+          <span
+            style={{
+              fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700,
+              color: theme.color.bg, fontSize: '19px', lineHeight: 1.15,
+            }}
+          >
+            {t.searchTitle}
+          </span>
+          <span
+            style={{
+              display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.accent,
+              color: theme.color.accentInk, fontFamily: theme.font.display, textTransform: 'uppercase',
+              fontWeight: 700, fontSize: '12px', padding: '6px 14px', borderRadius: theme.radius.pill,
+            }}
+          >
+            {totalText}
+          </span>
         </div>
-      )}
+      </div>
 
       <div style={{ padding: '15px 15px 11px', flex: 'none' }}>
         <div
@@ -140,13 +300,13 @@ export const Sidebar = ({
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            background: '#fff',
-            border: '1px solid #e0cfa6',
-            borderRadius: '24px',
+            background: theme.color.bg,
+            border: '1px solid ' + theme.color.line,
+            borderRadius: theme.radius.sm,
             padding: '11px 16px',
           }}
         >
-          <span style={{ color: '#bca673', fontSize: '15px' }}>⌕</span>
+          <Search size={16} color={theme.color.muted} />
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
@@ -156,7 +316,7 @@ export const Sidebar = ({
               outline: 'none',
               background: 'transparent',
               fontSize: '14px',
-              color: '#3a2a18',
+              color: theme.color.ink,
               width: '100%',
               minWidth: 0,
             }}
@@ -166,22 +326,20 @@ export const Sidebar = ({
               onClick={() => onSearch('')}
               aria-label="clear"
               style={{
-                border: 'none',
-                background: '#ece0c6',
-                color: '#7a6342',
+                border: '1px solid ' + theme.color.line,
+                background: theme.color.bg,
+                color: theme.color.ink,
                 width: '22px',
                 height: '22px',
                 borderRadius: '50%',
                 cursor: 'pointer',
-                fontSize: '12px',
-                lineHeight: 1,
                 flex: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              ✕
+              <X size={12} />
             </button>
           )}
         </div>
@@ -202,12 +360,12 @@ export const Sidebar = ({
             style={{
               width: '100%',
               border: 'none',
-              background: '#2e2013',
-              color: '#f4ead4',
+              background: theme.color.accent,
+              color: theme.color.accentInk,
               fontWeight: 600,
               fontSize: '13px',
               padding: '10px',
-              borderRadius: '9px',
+              borderRadius: theme.radius.sm,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -215,18 +373,18 @@ export const Sidebar = ({
               gap: '7px',
             }}
           >
-            <span style={{ fontSize: '16px', lineHeight: 1 }}>＋</span>
+            <Plus size={16} />
             {t.add}
           </button>
           <div style={{ display: 'flex', gap: '7px' }}>
             <button onClick={onExportJSON} style={exportBtnStyle}>
-              {downloadIcon} JSON
+              <Download size={13} /> JSON
             </button>
             <button onClick={onExportCSV} style={exportBtnStyle}>
-              {downloadIcon} CSV
+              <Download size={13} /> CSV
             </button>
             <label style={exportBtnStyle}>
-              {uploadIcon} {t.import}
+              <Upload size={13} /> {t.import}
               <input
                 ref={fileRef}
                 type="file"
@@ -254,24 +412,29 @@ export const Sidebar = ({
       >
         <span
           style={{
-            fontFamily: "'Bitter',serif",
+            fontFamily: theme.font.display,
             fontSize: '11px',
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            color: '#9a7c45',
+            color: theme.color.muted,
             fontWeight: 700,
           }}
         >
           {t.byCanton}
         </span>
-        <span style={{ fontSize: '11px', color: '#b09a6e' }}>{totalText}</span>
+        <span style={{ fontSize: '11px', color: theme.color.muted }}>{totalText}</span>
       </div>
 
-      <div className="sk-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}>
+      <div
+        ref={listRef}
+        data-testid="sidebar-list"
+        className="sk-scroll"
+        style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
+      >
         {groups.map((group) => {
           const exp = searching || !!expanded[group.code];
           return (
-            <div key={group.code} style={{ borderBottom: '1px solid #e6d3a3' }}>
+            <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
               <div
                 onClick={() => onToggleCanton(group.code)}
                 style={{
@@ -295,9 +458,10 @@ export const Sidebar = ({
                 />
                 <span
                   style={{
-                    fontFamily: "'Bitter',serif",
+                    fontFamily: theme.font.display,
+                    textTransform: 'uppercase',
                     fontWeight: 700,
-                    color: '#2e2013',
+                    color: theme.color.ink,
                     fontSize: '15.5px',
                     flex: 1,
                   }}
@@ -308,57 +472,63 @@ export const Sidebar = ({
                   style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    color: '#7a5618',
-                    background: '#ecd7a0',
+                    color: theme.color.accentInk,
+                    background: theme.color.ink,
                     padding: '2px 9px',
-                    borderRadius: '20px',
+                    borderRadius: theme.radius.pill,
                   }}
                 >
                   {group.count}
                 </span>
-                <span style={{ color: '#b59a63', fontSize: '11px', width: '12px', textAlign: 'center' }}>
-                  {exp ? '▾' : '▸'}
+                <span style={{ color: theme.color.ink, width: '12px', display: 'flex', justifyContent: 'center' }}>
+                  <ChevronRight
+                    size={12}
+                    style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform .2s ease' }}
+                  />
                 </span>
               </div>
               {exp && (
                 <div style={{ padding: '1px 0 9px' }}>
-                  {group.venues.map((v) => (
-                    <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(v.id === selectedId)}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: '#3a2a18',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {v.name}
+                  {group.venues.map((v) => {
+                    const sel = v.id === selectedId;
+                    return (
+                      <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              color: theme.color.ink,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {v.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: theme.color.muted,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {townOf(v.address)}
+                          </div>
                         </div>
-                        <div
-                          style={{
-                            fontSize: '11.5px',
-                            color: '#a08a64',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {townOf(v.address)}
-                        </div>
+                        <span style={chevronBadgeStyle(sel)}><ChevronRight size={14} /></span>
                       </div>
-                      <span style={{ fontSize: '14px', color: '#c0851d', flex: 'none' }}>›</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           );
         })}
         {noResults && (
-          <div style={{ padding: '34px 12px', textAlign: 'center', color: '#a08a64', fontSize: '13px' }}>
+          <div style={{ padding: '34px 12px', textAlign: 'center', color: theme.color.muted, fontSize: '13px' }}>
             {t.noResults}
           </div>
         )}

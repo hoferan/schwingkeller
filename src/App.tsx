@@ -12,6 +12,7 @@ import type { Venue, VenueInput } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
+import { theme } from './theme';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -89,9 +90,6 @@ function AppShell() {
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
 
   // ---- layout styles (prototype renderVals ~624-631) ----
-  // Sidebar owns its own desktop/mobile layout. The tablet drawer scrim is
-  // rendered here (shown only in tablet mode when the drawer is open).
-  const scrimShow = mode === 't' && sidebarOpen;
   const mainStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', display: 'flex', minHeight: 0 };
   const mapWrapStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', minWidth: 0, minHeight: 0 };
 
@@ -234,11 +232,11 @@ function AppShell() {
   return (
     <div
       style={{
-        height: '100vh', display: 'flex', flexDirection: 'column', background: '#efe3c9',
-        overflow: 'hidden', fontFamily: "'Work Sans',sans-serif",
+        height: '100dvh', display: 'flex', flexDirection: 'column', background: theme.color.bg,
+        overflow: 'hidden', fontFamily: theme.font.body,
       }}
     >
-      <Topbar onToggleSidebar={() => setSidebarOpen((o) => !o)} showHamburger={mode !== 'd'} onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
+      <Topbar onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
 
       <div style={mainStyle}>
         <Sidebar
@@ -252,19 +250,12 @@ function AppShell() {
           isMobile={isMobile}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onSetSidebarOpen={setSidebarOpen}
           onAdd={openAdd}
           onExportJSON={onExportJSON}
           onExportCSV={onExportCSV}
           onImport={onImport}
         />
-
-        {/* Tablet drawer scrim */}
-        {scrimShow && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            style={{ position: 'absolute', inset: 0, background: 'rgba(30,20,10,.42)', zIndex: 1150, animation: 'fadeIn .2s ease' }}
-          />
-        )}
 
         <div style={mapWrapStyle}>
           <MapView
@@ -311,8 +302,8 @@ function AppShell() {
         <div
           style={{
             position: 'fixed', top: '74px', left: '50%', transform: 'translateX(-50%)', zIndex: 1700,
-            background: '#2e2013', color: '#f4ead4', padding: '12px 16px', borderRadius: '13px',
-            boxShadow: '0 12px 30px rgba(0,0,0,.4)', display: 'flex', gap: '14px', alignItems: 'center',
+            background: theme.color.ink, color: theme.color.bg, padding: '12px 16px', borderRadius: theme.radius.sm,
+            boxShadow: theme.shadow, display: 'flex', gap: '14px', alignItems: 'center',
             maxWidth: 'calc(100% - 32px)', animation: 'popIn .24s ease',
           }}
         >
@@ -320,8 +311,8 @@ function AppShell() {
           <button
             onClick={cancelPlacing}
             style={{
-              border: '1px solid #6b5634', background: 'transparent', color: '#e8d6ab', fontWeight: 600,
-              fontSize: '12.5px', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap',
+              border: '1px solid ' + theme.color.bg, background: 'transparent', color: theme.color.bg, fontWeight: 600,
+              fontSize: '12.5px', padding: '6px 12px', borderRadius: theme.radius.sm, cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
             {t.cancel}
@@ -333,18 +324,18 @@ function AppShell() {
       {confirmId && (
         <Modal onClose={cancelDelete} width={340} zIndex={1600}>
           <div style={{ padding: '22px' }}>
-            <div style={{ fontFamily: "'Bitter',serif", fontSize: '18px', fontWeight: 800, color: '#2e2013' }}>
+            <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700, color: theme.color.ink }}>
               {t.deleteTitle}
             </div>
-            <div style={{ fontSize: '13.5px', color: '#7a6342', marginTop: '8px', lineHeight: 1.5 }}>
+            <div style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '8px', lineHeight: 1.5 }}>
               {t.deleteBody}
             </div>
             <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
               <button
                 onClick={cancelDelete}
                 style={{
-                  flex: 1, border: '1.5px solid #c9a85e', background: 'transparent', color: '#5a4527',
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                  flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.cancel}
@@ -352,8 +343,8 @@ function AppShell() {
               <button
                 onClick={() => { void confirmDelete(); }}
                 style={{
-                  flex: 1, border: 'none', background: '#a3402c', color: '#f8ece8',
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                  flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.confirmDelete}
@@ -367,29 +358,29 @@ function AppShell() {
       {pendingImport && (
         <Modal onClose={cancelImport} width={360} zIndex={1600}>
           <div style={{ padding: '22px' }}>
-            <div style={{ fontFamily: "'Bitter',serif", fontSize: '18px', fontWeight: 800, color: '#2e2013' }}>
+            <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700, color: theme.color.ink }}>
               {t.importTitle}
             </div>
-            <div style={{ fontSize: '13.5px', color: '#7a6342', marginTop: '8px', lineHeight: 1.5 }}>
+            <div style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '8px', lineHeight: 1.5 }}>
               {t.importBody}
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', alignItems: 'center', fontSize: '12px' }}>
-              <div style={{ flex: 1, background: '#f3ead4', borderRadius: '9px', padding: '9px 11px', color: '#5a4527' }}>
+              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
                 <div style={{ opacity: 0.7 }}>{t.importExisting}</div>
-                <div style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'Bitter',serif" }}>{venues.length}</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{venues.length}</div>
               </div>
-              <div style={{ color: '#b08a3c', fontSize: '18px', flex: 'none' }}>→</div>
-              <div style={{ flex: 1, background: '#f3ead4', borderRadius: '9px', padding: '9px 11px', color: '#5a4527' }}>
+              <div style={{ color: theme.color.accent, fontSize: '18px', flex: 'none' }}>→</div>
+              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
                 <div style={{ opacity: 0.7 }}>{t.import}</div>
-                <div style={{ fontSize: '18px', fontWeight: 800, fontFamily: "'Bitter',serif" }}>{pendingImport.count}</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{pendingImport.count}</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
               <button
                 onClick={cancelImport}
                 style={{
-                  flex: 1, border: '1.5px solid #c9a85e', background: 'transparent', color: '#5a4527',
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                  flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.cancel}
@@ -397,8 +388,8 @@ function AppShell() {
               <button
                 onClick={() => { void runImport(); }}
                 style={{
-                  flex: 1, border: 'none', background: '#a3402c', color: '#f8ece8',
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '11px', cursor: 'pointer',
+                  flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
+                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
                 }}
               >
                 {t.importReplace}
@@ -414,8 +405,8 @@ function AppShell() {
           role="status"
           style={{
             position: 'fixed', bottom: '22px', left: '50%', transform: 'translateX(-50%)', zIndex: 1800,
-            background: flash.kind === 'ok' ? '#2e5a2e' : '#7a2b22', color: '#f6efe2',
-            padding: '12px 18px', borderRadius: '12px', boxShadow: '0 12px 30px rgba(0,0,0,.4)',
+            background: flash.kind === 'ok' ? theme.color.ink : theme.color.accent, color: theme.color.bg,
+            padding: '12px 18px', borderRadius: theme.radius.sm, boxShadow: theme.shadow,
             fontSize: '13.5px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center',
             animation: 'popIn .24s ease',
           }}

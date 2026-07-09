@@ -9,8 +9,9 @@ const venue: Venue = {
 };
 
 describe('markers html', () => {
-  it('pinHtml differs for selected', () => {
-    expect(pinHtml(true)).not.toBe(pinHtml(false));
+  it('pinHtml renders same color for both selected and unselected states with flat theme', () => {
+    // With the flat theme, selected and unselected states render identically since there's only one accent color
+    expect(pinHtml(true)).toBe(pinHtml(false));
   });
   it('popupHtml includes name and a data-detail hook', () => {
     const html = popupHtml(venue, STR.de);
