@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, Plus, Download, Upload } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton } from '../venues/grouping';
 import { wappenUrl } from '../../data/cantons';
@@ -16,6 +16,7 @@ interface SidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   isMobile: boolean;
+  isTablet: boolean;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onSetSidebarOpen: (open: boolean) => void;
@@ -31,6 +32,9 @@ const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', backgr
 // ≈ 114px, rounded up to 116px so the whole handle+header block never clips (issue #8: the old
 // 108px value was shorter than the actual rendered block, so the header's bottom edge was cut off).
 const PEEK_HEIGHT = 116;
+// Matches the desktop sidebar's fixed column width — the tablet/landscape overlay panel uses the
+// same width, just slid off-screen via `left` instead of removed from flow (issue #8).
+const TABLET_PANEL_WIDTH = 344;
 
 const exportBtnStyle: CSSProperties = {
   flex: 1,
@@ -87,6 +91,7 @@ export const Sidebar = ({
   selectedId,
   onSelect,
   isMobile,
+  isTablet,
   sidebarOpen,
   onToggleSidebar,
   onSetSidebarOpen,
@@ -210,7 +215,7 @@ export const Sidebar = ({
   }, [isMobile, sidebarOpen]);
 
   useEffect(() => {
-    if (!isMobile || !sidebarOpen) return;
+    if (!(isMobile || isTablet) || !sidebarOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         onSetSidebarOpen(false);
@@ -218,7 +223,7 @@ export const Sidebar = ({
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [isMobile, sidebarOpen, onSetSidebarOpen]);
+  }, [isMobile, isTablet, sidebarOpen, onSetSidebarOpen]);
 
   const list = filterVenues(venues, search);
   const groups = groupByCanton(list);
@@ -243,6 +248,19 @@ export const Sidebar = ({
         boxShadow: theme.shadow,
         transition: dragHeight !== null ? 'none' : 'height .32s cubic-bezier(.4,0,.2,1)',
       }
+    : isTablet
+    ? {
+        ...sbBase,
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: `${sidebarOpen ? 0 : -TABLET_PANEL_WIDTH}px`,
+        width: `${TABLET_PANEL_WIDTH}px`,
+        zIndex: 1200,
+        borderRight: '1px solid ' + theme.color.line,
+        boxShadow: theme.shadow,
+        transition: 'left .28s cubic-bezier(.4,0,.2,1)',
+      }
     : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
 
   return (
@@ -254,6 +272,24 @@ export const Sidebar = ({
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
       onTouchCancel={isMobile ? handleTouchCancel : undefined}
     >
+      {isTablet && (
+        <button
+          type="button"
+          data-testid="sidebar-tablet-tab"
+          onClick={onToggleSidebar}
+          title={sidebarOpen ? t.collapseSidebar : t.expandSidebar}
+          aria-label={sidebarOpen ? t.collapseSidebar : t.expandSidebar}
+          style={{
+            position: 'absolute', top: '50%', left: `${TABLET_PANEL_WIDTH}px`, transform: 'translateY(-50%)',
+            width: '28px', height: '56px', border: 'none',
+            borderRadius: '0 ' + theme.radius.sm + ' ' + theme.radius.sm + ' 0',
+            background: theme.color.bg, boxShadow: theme.shadow, color: theme.color.ink,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1200,
+          }}
+        >
+          {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        </button>
+      )}
       <div
         ref={headerRef}
         data-testid="sidebar-header"

@@ -34,6 +34,7 @@ const venues = [
 
 interface HarnessProps {
   isMobile?: boolean;
+  isTablet?: boolean;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onSetSidebarOpen?: (open: boolean) => void;
@@ -41,6 +42,7 @@ interface HarnessProps {
 
 const Harness = ({
   isMobile = false,
+  isTablet = false,
   sidebarOpen = true,
   onToggleSidebar = () => {},
   onSetSidebarOpen = () => {},
@@ -58,6 +60,7 @@ const Harness = ({
       selectedId={selectedId}
       onSelect={setSelectedId}
       isMobile={isMobile}
+      isTablet={isTablet}
       sidebarOpen={sidebarOpen}
       onToggleSidebar={onToggleSidebar}
       onSetSidebarOpen={onSetSidebarOpen}
@@ -128,6 +131,50 @@ describe('Sidebar', () => {
     // + 19px/1.15 title line ≈ 21.85px, + 10px gap, + 12px/"normal" count-pill line + 12px
     // padding ≈ 26.4px), rounded up for font-metric slack — see the PEEK_HEIGHT comment.
     expect(sheet.style.height).toBe('116px');
+  });
+
+  it('renders the tablet panel off-screen to the left when collapsed', async () => {
+    renderSidebar({ isTablet: true, sidebarOpen: false });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const panel = screen.getByTestId('sidebar-root');
+    expect(panel.style.left).toBe('-344px');
+  });
+
+  it('slides the tablet panel fully into view when open', async () => {
+    renderSidebar({ isTablet: true, sidebarOpen: true });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    const panel = screen.getByTestId('sidebar-root');
+    expect(panel.style.left).toBe('0px');
+  });
+
+  it('toggles the tablet panel via the floating arrow tab', async () => {
+    const onToggleSidebar = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: false, onToggleSidebar });
+    const tab = await screen.findByTestId('sidebar-tablet-tab');
+
+    fireEvent.click(tab);
+
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the tablet panel on tap outside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('does not close the tablet panel on tap inside it', async () => {
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
+    const bern = await screen.findByText('Bern');
+
+    fireEvent.pointerDown(bern);
+
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
   });
 
   it('does not close the mobile drawer on tap inside it', async () => {

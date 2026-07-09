@@ -53,6 +53,7 @@ function AppShell() {
   }, []);
   const mode = modeOf(vw);
   const isMobile = mode === 'm';
+  const isTablet = mode === 't';
 
   // Cross-cutting UI state.
   const [search, setSearch] = useState('');
@@ -248,6 +249,7 @@ function AppShell() {
           selectedId={selectedId}
           onSelect={selectVenue}
           isMobile={isMobile}
+          isTablet={isTablet}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onSetSidebarOpen={setSidebarOpen}
