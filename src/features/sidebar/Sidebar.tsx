@@ -99,6 +99,7 @@ export const Sidebar = ({
   const listRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number | null>(null);
+  const dragHeightRef = useRef<number | null>(null);
   const openHeightPxRef = useRef(0);
   const isDraggingRef = useRef(false);
   const startedOnHeaderRef = useRef(false);
@@ -110,6 +111,7 @@ export const Sidebar = ({
     dragStartHeightRef.current = sidebarOpen ? openHeightPxRef.current : PEEK_HEIGHT;
     startedOnHeaderRef.current = !!(headerRef.current && headerRef.current.contains(e.target as Node));
     isDraggingRef.current = false;
+    dragHeightRef.current = null;
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -136,10 +138,14 @@ export const Sidebar = ({
     // Snap relative to how far the drag travelled from its OWN starting point, not the sheet's
     // absolute midpoint — the peek-to-open range is large (~500px+), so an absolute-midpoint snap
     // would require a much heavier drag than the old ±30px swipe to ever flip state.
-    const finalHeight = dragHeight ?? dragStartHeightRef.current!;
+    // Read the ref, not the `dragHeight` state: the state is written from a native touchmove
+    // listener and may not have flushed to a re-render yet by the time touchend fires, so it can
+    // be one or more moves stale relative to the finger's actual final position.
+    const finalHeight = dragHeightRef.current ?? dragStartHeightRef.current!;
     const range = openHeightPxRef.current - PEEK_HEIGHT;
     const travelled = finalHeight - dragStartHeightRef.current!;
     setDragHeight(null);
+    dragHeightRef.current = null;
     if (travelled > range * 0.25) {
       onSetSidebarOpen(true);
     } else if (travelled < -range * 0.25) {
@@ -179,6 +185,7 @@ export const Sidebar = ({
       e.preventDefault();
       const newHeight = dragStartHeightRef.current! - deltaY;
       const clamped = Math.min(openHeightPxRef.current, Math.max(PEEK_HEIGHT, newHeight));
+      dragHeightRef.current = clamped;
       setDragHeight(clamped);
     };
 
