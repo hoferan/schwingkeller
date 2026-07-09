@@ -155,6 +155,17 @@ export const Sidebar = ({
     }
   };
 
+  // The browser can interrupt a touch mid-gesture (edge-swipe navigation, incoming call), firing
+  // touchcancel instead of touchend. Reset the gesture refs so the sheet animates back to its
+  // current sidebarOpen state instead of freezing at whatever height the last touchmove left it —
+  // no snap decision here, since the gesture was aborted rather than released.
+  const handleTouchCancel = () => {
+    touchStartYRef.current = null;
+    isDraggingRef.current = false;
+    dragHeightRef.current = null;
+    setDragHeight(null);
+  };
+
   // Continuous drag tracking. Attached natively (not as a JSX onTouchMove prop) because React
   // registers JSX touchmove listeners as passive by default, which silently makes
   // preventDefault() inside them a no-op — blocking native scroll while dragging requires the
@@ -170,6 +181,7 @@ export const Sidebar = ({
 
       if (!isDraggingRef.current) {
         if (startedOnHeaderRef.current || !sidebarOpen) {
+          if (Math.abs(deltaY) <= 8) return; // sub-slop jitter — still a potential tap, don't classify yet
           isDraggingRef.current = true;
         } else {
           const list = listRef.current;
@@ -235,6 +247,7 @@ export const Sidebar = ({
       style={sidebarStyle}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      onTouchCancel={isMobile ? handleTouchCancel : undefined}
     >
       <div
         ref={headerRef}

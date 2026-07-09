@@ -146,6 +146,20 @@ describe('Sidebar', () => {
     expect(dispatched).toBe(false);
   });
 
+  it('still treats a header tap with tiny jitter as a tap toggle', () => {
+    const onToggleSidebar = vi.fn();
+    const onSetSidebarOpen = vi.fn();
+    renderSidebar({ isMobile: true, sidebarOpen: false, onToggleSidebar, onSetSidebarOpen });
+    const header = screen.getByTestId('sidebar-header');
+
+    fireEvent.touchStart(header, { touches: [{ clientY: 100 }] });
+    fireEvent.touchMove(header, { touches: [{ clientY: 103 }] }); // 3px finger roll — real taps do this
+    fireEvent.touchEnd(header, { changedTouches: [{ clientY: 103 }] });
+
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+    expect(onSetSidebarOpen).not.toHaveBeenCalled();
+  });
+
   it('does nothing in the dead zone between tap and swipe thresholds', () => {
     const onToggleSidebar = vi.fn();
     const onSetSidebarOpen = vi.fn();

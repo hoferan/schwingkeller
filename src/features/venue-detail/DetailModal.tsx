@@ -83,6 +83,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
         )}
         <button
           onClick={onClose}
+          aria-label={t.close}
           style={{
             position: 'absolute', top: '11px', left: '11px', width: '32px', height: '32px',
             borderRadius: '50%', border: 'none', background: 'rgba(17,17,17,.7)', color: theme.color.bg,
