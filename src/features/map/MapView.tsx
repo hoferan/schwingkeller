@@ -29,12 +29,18 @@ const overlayStyle: CSSProperties = {
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
 // soft-card theme tokens — the goal here is to blend in with the native zoom control.
 //
-// The border is deliberately NOT hardcoded here. Two rounds of guessing a static border
-// value (once from leaflet.css source, once re-verified "by eye" against a screenshot) both
-// failed to match what real browsers/devices actually render (see issues #8 and #21). Instead,
-// the border is read at runtime from the real native zoom control via getComputedStyle (see the
-// map-init effect below) and passed into fitAllWrapStyle, so the two controls match by
-// construction — regardless of Leaflet version, browser rendering, or device pixel ratio.
+// The border and background-clip are deliberately NOT hardcoded here. Leaflet's real rule is
+// `.leaflet-touch .leaflet-bar { background-clip: padding-box; border: 2px solid #0003; }` —
+// the padding-box clip means the translucent border is painted over whatever's BEHIND the
+// control (the map), not over the control's own background. A border-only mirror (matching
+// width/style/color but leaving background-clip at its `border-box` default) still renders
+// wrong: our white background would paint straight through to the outer edge, so the same
+// translucent color blends with opaque white instead of the map, reading visibly darker (see
+// issues #8 and #21 — the second of which survived an earlier border-only fix because
+// background-clip wasn't part of what was compared). So both are read at runtime from the real
+// native zoom control via getComputedStyle (see the map-init effect below) and passed into
+// fitAllWrapStyle, so the two controls match by construction — regardless of Leaflet version,
+// browser rendering, or device pixel ratio.
 const nativeCtrlStyle: CSSProperties = {
   background: '#fff', borderRadius: '4px', overflow: 'hidden',
 };
@@ -52,13 +58,15 @@ const baseToggleBtnStyle = (active: boolean): CSSProperties => ({
 // Defaults before the real zoom-control is measured (see the mount effect):
 // - top/size: 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control
 //   height) + 10px (gap).
-// - border: today's best-known value, used only until the real control's computed border loads.
+// - border/backgroundClip: today's best-known values, used only until the real control's
+//   computed style loads.
 const FIT_ALL_DEFAULT_TOP = 46;
 const FIT_ALL_DEFAULT_SIZE = 30;
 const FIT_ALL_DEFAULT_BORDER = '2px solid rgba(0,0,0,.2)';
-const fitAllWrapStyle = (top: number, size: number, border: string): CSSProperties => ({
+const FIT_ALL_DEFAULT_BG_CLIP = 'padding-box';
+const fitAllWrapStyle = (top: number, size: number, border: string, backgroundClip: string): CSSProperties => ({
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
-  width: `${size}px`, height: `${size}px`, border, zIndex: 1000,
+  width: `${size}px`, height: `${size}px`, border, backgroundClip, zIndex: 1000,
 });
 const fitAllBtnStyle: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -79,6 +87,7 @@ export function MapView({
   const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
   const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
   const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
+  const [fitAllBgClip, setFitAllBgClip] = useState(FIT_ALL_DEFAULT_BG_CLIP);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -201,6 +210,7 @@ export function MapView({
         setFitAllSize(zoomEl.offsetWidth);
         const zoomStyle = getComputedStyle(zoomEl);
         setFitAllBorder(`${zoomStyle.borderWidth} ${zoomStyle.borderStyle} ${zoomStyle.borderColor}`);
+        setFitAllBgClip(zoomStyle.backgroundClip);
       }
       window.setTimeout(() => {
         if (!mapRef.current || !markerGroupRef.current) return;
@@ -269,7 +279,7 @@ export function MapView({
           </button>
         </div>
       </div>
-      <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder)}>
+      <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
