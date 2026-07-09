@@ -27,15 +27,16 @@ const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
 };
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
-// soft-card theme tokens — the goal here is to blend in with the native zoom control. Leaflet
-// applies its `.leaflet-touch` CSS variant whenever the browser supports Pointer Events (i.e.
-// virtually all modern browsers, not just touchscreens), and that variant uses a solid border
-// with NO box-shadow (`.leaflet-touch .leaflet-bar { box-shadow: none; border: 2px solid
-// rgba(0,0,0,.2); }` in leaflet.css) — so matching THAT, not the rarely-rendered non-touch
-// base style, is what actually looks consistent for real users (verified against
-// node_modules/leaflet/dist/leaflet.css).
+// soft-card theme tokens — the goal here is to blend in with the native zoom control.
+//
+// The border is deliberately NOT hardcoded here. Two rounds of guessing a static border
+// value (once from leaflet.css source, once re-verified "by eye" against a screenshot) both
+// failed to match what real browsers/devices actually render (see issues #8 and #21). Instead,
+// the border is read at runtime from the real native zoom control via getComputedStyle (see the
+// map-init effect below) and passed into fitAllWrapStyle, so the two controls match by
+// construction — regardless of Leaflet version, browser rendering, or device pixel ratio.
 const nativeCtrlStyle: CSSProperties = {
-  background: '#fff', borderRadius: '4px', border: '2px solid rgba(0,0,0,.2)', overflow: 'hidden',
+  background: '#fff', borderRadius: '4px', overflow: 'hidden',
 };
 // Matches the Topbar's DE/FR/IT language-switcher pill construction exactly, for visual consistency.
 const baseToggleWrapStyle: CSSProperties = {
@@ -48,13 +49,16 @@ const baseToggleBtnStyle = (active: boolean): CSSProperties => ({
   border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
   lineHeight: '1', padding: '6px 10px', borderRadius: theme.radius.pill,
 });
-// Default top offset and size before the real zoom-control is measured (see the mount effect):
-// 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control height) + 10px (gap).
+// Defaults before the real zoom-control is measured (see the mount effect):
+// - top/size: 10px (Leaflet's own top-control margin) + 26px (default non-touch zoom-control
+//   height) + 10px (gap).
+// - border: today's best-known value, used only until the real control's computed border loads.
 const FIT_ALL_DEFAULT_TOP = 46;
 const FIT_ALL_DEFAULT_SIZE = 30;
-const fitAllWrapStyle = (top: number, size: number): CSSProperties => ({
+const FIT_ALL_DEFAULT_BORDER = '2px solid rgba(0,0,0,.2)';
+const fitAllWrapStyle = (top: number, size: number, border: string): CSSProperties => ({
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
-  width: `${size}px`, height: `${size}px`, zIndex: 1000,
+  width: `${size}px`, height: `${size}px`, border, zIndex: 1000,
 });
 const fitAllBtnStyle: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -74,6 +78,7 @@ export function MapView({
   const tileRef = useRef<L.TileLayer | null>(null);
   const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
   const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
+  const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -194,6 +199,8 @@ export function MapView({
       if (zoomEl) {
         setFitAllTop(10 + zoomEl.offsetHeight + 10);
         setFitAllSize(zoomEl.offsetWidth);
+        const zoomStyle = getComputedStyle(zoomEl);
+        setFitAllBorder(`${zoomStyle.borderWidth} ${zoomStyle.borderStyle} ${zoomStyle.borderColor}`);
       }
       window.setTimeout(() => {
         if (!mapRef.current || !markerGroupRef.current) return;
@@ -262,7 +269,7 @@ export function MapView({
           </button>
         </div>
       </div>
-      <div style={fitAllWrapStyle(fitAllTop, fitAllSize)}>
+      <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder)}>
         <button
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
