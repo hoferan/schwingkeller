@@ -17,7 +17,7 @@ export const Modal = ({ onClose, width = 440, children, zIndex = 1300 }: ModalPr
       className="sk-scroll"
       style={{
         background: theme.color.bg, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
-        boxShadow: theme.shadow, width, maxWidth: '100%', maxHeight: '92vh', overflow: 'auto', animation: 'popIn .26s ease',
+        boxShadow: theme.shadow, width, maxWidth: '100%', maxHeight: '92dvh', overflow: 'auto', animation: 'popIn .26s ease',
       }}
     >
       {children}
