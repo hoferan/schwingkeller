@@ -27,9 +27,11 @@ const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
 };
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
-// soft-card theme tokens — the goal here is to blend in with the native zoom control.
+// soft-card theme tokens — the goal here is to blend in with the native zoom control. Leaflet
+// defines its control edge with box-shadow, not a border, so we match that exactly rather than
+// approximating it with a border (issue #8: the two controls looked visibly different side by side).
 const nativeCtrlStyle: CSSProperties = {
-  background: '#fff', borderRadius: '4px', border: '1px solid rgba(0,0,0,.15)', overflow: 'hidden',
+  background: '#fff', borderRadius: '4px', boxShadow: '0 1px 5px rgba(0,0,0,.65)', overflow: 'hidden',
 };
 // Matches the Topbar's DE/FR/IT language-switcher pill construction exactly, for visual consistency.
 const baseToggleWrapStyle: CSSProperties = {
