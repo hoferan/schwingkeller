@@ -11,3 +11,4 @@ coverage
 supabase/.branches
 supabase/.temp
 test-report.junit.xml
+.claude/worktrees/
