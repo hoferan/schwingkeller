@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { X, Upload, Check, Home, Mountain, Crosshair, ArrowUpDown } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
@@ -49,10 +50,12 @@ const labelStyle: React.CSSProperties = {
 const spOn: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
   borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.accent, background: theme.color.accent, color: theme.color.accentInk,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
 };
 const spOff: React.CSSProperties = {
   flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
   borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.muted,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
 };
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
@@ -174,9 +177,13 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         </span>
         <button
           onClick={onClose}
-          style={{ border: 'none', background: 'transparent', color: theme.color.ink, fontSize: '19px', cursor: 'pointer' }}
+          aria-label={t.close}
+          style={{
+            border: 'none', background: 'transparent', color: theme.color.ink, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
         >
-          ✕
+          <X size={18} />
         </button>
       </div>
 
@@ -204,7 +211,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
                 gap: '6px', color: theme.color.ink,
               }}
             >
-              <span style={{ fontSize: '22px' }}>⬆</span>
+              <Upload size={22} />
               <span style={{ fontSize: '12.5px', fontWeight: 600 }}>{t.upload}</span>
             </div>
           )}
@@ -240,8 +247,13 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           ))}
         </select>
         {draft.cantonAuto && (
-          <div style={{ fontSize: '11px', color: theme.color.ink, marginTop: '5px', fontWeight: 600 }}>
-            ✓ {t.cantonAuto}
+          <div
+            style={{
+              fontSize: '11px', color: theme.color.ink, marginTop: '5px', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: '4px',
+            }}
+          >
+            <Check size={12} /> {t.cantonAuto}
           </div>
         )}
 
@@ -252,13 +264,13 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             onClick={() => setDraft((d) => ({ ...d, indoor: !d.indoor }))}
             style={draft.indoor ? spOn : spOff}
           >
-            ⌂ {t.indoor}
+            <Home size={14} /> {t.indoor}
           </button>
           <button
             onClick={() => setDraft((d) => ({ ...d, outdoor: !d.outdoor }))}
             style={draft.outdoor ? spOn : spOff}
           >
-            ⛰ {t.outdoor}
+            <Mountain size={14} /> {t.outdoor}
           </button>
         </div>
 
@@ -278,12 +290,20 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             style={{
               border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink, fontWeight: 600,
               fontSize: '13px', padding: '11px 14px', borderRadius: theme.radius.sm, cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            ⌖ {t.pickOnMap}
+            <Crosshair size={14} /> {t.pickOnMap}
           </button>
         </div>
-        <div style={{ fontSize: '11px', color: theme.color.muted, marginTop: '5px' }}>↕ {t.locSync}</div>
+        <div
+          style={{
+            fontSize: '11px', color: theme.color.muted, marginTop: '5px',
+            display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          <ArrowUpDown size={12} /> {t.locSync}
+        </div>
 
         {/* contact */}
         <label style={{ ...labelStyle, margin: '16px 0 6px' }}>{t.contact}</label>
