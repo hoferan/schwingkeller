@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import ReactDOM, { type Root } from 'react-dom/client';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -6,7 +7,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { Maximize } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, popupHtml, clusterIcon } from './markers';
+import { pinHtml, clusterIcon } from './markers';
+import { MarkerPopup } from './MarkerPopup';
 import { theme } from '../../theme';
 
 interface MapViewProps {
@@ -130,7 +132,20 @@ export function MapView({
     venuesRef.current.forEach((v) => {
       const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] });
       const m = L.marker([v.lat, v.lng], { icon }).addTo(group);
-      m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
+      const popupContainer = document.createElement('div');
+      let popupRoot: Root | null = null;
+      m.bindPopup(popupContainer, { maxWidth: 240, minWidth: 222, closeButton: true });
+      m.on('popupopen', () => {
+        popupRoot = ReactDOM.createRoot(popupContainer);
+        popupRoot.render(
+          <MarkerPopup venue={v} t={tRef.current} onDetail={() => onOpenDetailRef.current(v.id)} />
+        );
+        m.getPopup()?.update();
+      });
+      m.on('popupclose', () => {
+        popupRoot?.unmount();
+        popupRoot = null;
+      });
       m.on('click', () => onSelectRef.current(v.id));
       markersRef.current[v.id] = m;
     });
@@ -178,12 +193,6 @@ export function MapView({
     onPickLocationRef.current(lat, lng);
   };
 
-  const onPopupOpen = (e: L.PopupEvent) => {
-    const el = e.popup.getElement(); if (!el) return;
-    const b = el.querySelector('[data-detail]') as HTMLElement | null;
-    if (b) b.onclick = () => { const id = b.getAttribute('data-detail'); if (id) onOpenDetailRef.current(id); };
-  };
-
   // Mount: create the map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
@@ -198,7 +207,6 @@ export function MapView({
       ? Lany.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50, spiderfyOnMaxZoom: true, zoomToBoundsOnClick: false, disableClusteringAtZoom: 16, removeOutsideVisibleBounds: false, animate: false, iconCreateFunction: clusterIcon(L) })
       : L.layerGroup();
     if (markerGroupRef.current.on) markerGroupRef.current.on('clusterclick', onClusterClick);
-    map.on('popupopen', onPopupOpen);
     map.on('click', onMapClick);
 
     map.whenReady(() => {
