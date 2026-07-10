@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import ReactDOM, { type Root } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -137,9 +138,14 @@ export function MapView({
       m.bindPopup(popupContainer, { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('popupopen', () => {
         popupRoot = ReactDOM.createRoot(popupContainer);
-        popupRoot.render(
-          <MarkerPopup venue={v} t={tRef.current} onDetail={() => onOpenDetailRef.current(v.id)} />
-        );
+        // createRoot().render() commits asynchronously (a microtask) when called outside a
+        // React-native event, so without flushSync the getPopup()?.update() call below would
+        // measure an empty container and permanently mis-size/mis-position the popup.
+        flushSync(() => {
+          popupRoot!.render(
+            <MarkerPopup venue={v} t={tRef.current} onDetail={() => onOpenDetailRef.current(v.id)} />
+          );
+        });
         m.getPopup()?.update();
       });
       m.on('popupclose', () => {
@@ -163,7 +169,17 @@ export function MapView({
     const mx = map.getMaxZoom ? map.getMaxZoom() : 17;
     const z = Math.min(mx, Math.max(map.getZoom() + 4, 16));
     map.flyTo(m.getLatLng(), z, { duration: 0.8 });
-    window.setTimeout(() => { const mm = markersRef.current[id]; if (mm) mm.openPopup(); }, 880);
+    // If the user manually closes the popup while this is pending (e.g. clicking the marker
+    // already opens it, then they dismiss it before the flight finishes), don't force it back
+    // open underneath them.
+    let userClosed = false;
+    const onUserClose = () => { userClosed = true; };
+    m.once('popupclose', onUserClose);
+    window.setTimeout(() => {
+      m.off('popupclose', onUserClose);
+      const mm = markersRef.current[id];
+      if (mm && !userClosed) mm.openPopup();
+    }, 880);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
