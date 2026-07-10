@@ -48,23 +48,36 @@ cellars"). See issue #10.
 
 Considered:
 - **npm package (`swiss-maps`)** — real dependency, needs discussion per
-  CLAUDE.md, plus a TopoJSON→GeoJSON conversion step.
+  CLAUDE.md; its geodata is also non-commercial-licensed (sourced from
+  BFS/FSO generalized boundaries), which is more restrictive than
+  swisstopo's own free-geodata license.
 - **Live API call at runtime** (swisstopo/geo.admin.ch or Nominatim,
   which this project already uses for geocoding) — rejected: turns a
   core map interaction into one with external-service latency and
-  uptime/rate-limit risk on every page load.
+  uptime/rate-limit risk on every page load. Also not reachable from
+  this project's sandboxed dev/agent environment (confirmed via network
+  policy check).
 - **Fetch once, vendor as a static asset** (chosen) — no new runtime
   dependency, no runtime network call, and cantonal borders essentially
   never change so the data doesn't go stale.
+- **Ship full boundary polygons and compute bounds at runtime** — ruled
+  out in favor of the option below once outline-rendering was already
+  scoped out: there's no consumer for full polygon precision, only for
+  a bounding box.
 
-A one-off script, `scripts/fetch-canton-boundaries.mjs`, fetches the 26
-canton geometries from the official swisstopo/geo.admin.ch API
-(`swissBOUNDARIES3D`, free/open license), simplifies them to a
-web-appropriate precision, and writes `src/data/canton-boundaries.json` — a
-GeoJSON `FeatureCollection` with one `Feature` per canton, each
-`properties.code` matching the existing `CANTONS` codes. The script is
-documented so it can be re-run if boundaries are ever revised; it isn't
-part of the app build/runtime.
+Since no outline is ever drawn (see Scope), there's no need to ship or
+parse full polygon geometry — only its bounding box per canton is ever
+used. The bounding boxes were computed once, offline, from the official
+swisstopo `swissBOUNDARIES3D` dataset (`TLM_KANTONSGEBIET` layer, Jan
+2026 release, EPSG:2056/LV95), reprojected to WGS84 (EPSG:4326) and
+rounded to 5 decimal places (~1m precision, matching the rounding already
+used for hand-picked venue coordinates in `MapView.tsx`'s `onMapClick`).
+Each of the 26 features' `NAME` field was matched against the existing
+`CANTONS[].name` values in `src/data/cantons.ts` (exact string match for
+all 26) to attach the 2-letter code. This was a one-time, offline
+conversion (not part of this repo's Node/Vite toolchain) — swisstopo's
+free-geodata license permits this reuse, and cantonal borders don't
+change, so there's no ongoing regeneration step to automate.
 
 ### New modules
 
@@ -72,12 +85,12 @@ part of the app build/runtime.
   Reads `ctn` from a `URLSearchParams`-parseable string, uppercases it,
   and returns the code only if `cantonByCode` recognizes it; otherwise
   `null`.
-- **`src/data/cantonBoundaries.ts`** — `boundsForCanton(code: string, collection = cantonBoundaries): [[number, number], [number, number]] | null`.
-  Walks the matching feature's `Polygon`/`MultiPolygon` rings (some
-  cantons have multi-part geometry) and returns a min/max lat/lng box, or
-  `null` if the code isn't in the collection. The `collection` parameter
-  defaults to the real imported data but lets tests pass a small
-  synthetic `FeatureCollection` fixture instead.
+- **`src/data/cantonBounds.ts`** — a static lookup,
+  `CANTON_BOUNDS: Record<string, [[number, number], [number, number]]>`,
+  the 26 precomputed `code → [[minLat, minLng], [maxLat, maxLng]]`
+  entries described above, plus `boundsForCanton(code: string): [[number, number], [number, number]] | null`,
+  a trivial lookup (`CANTON_BOUNDS[code] ?? null`) so call sites don't
+  reach into the raw table directly.
 
 ### App wiring
 
@@ -87,8 +100,8 @@ In `AppShell` (`src/App.tsx`):
 - `expanded`'s initial state becomes `{ [ctnParam]: true }` instead of
   the current hardcoded `{ BE: true }`, when `ctnParam` is set.
 - `initialFocusBounds` is derived the same way, synchronously, since
-  `boundsForCanton` doesn't depend on the (async) venues query at all:
-  `ctnParam ? boundsForCanton(ctnParam) : null`.
+  `boundsForCanton` is a static lookup with no dependency on the (async)
+  venues query at all: `ctnParam ? boundsForCanton(ctnParam) : null`.
 
 ### MapView change
 
@@ -119,11 +132,11 @@ re-snap the view later if `venues` (or anything else) causes a re-render.
 - `src/lib/permalink.test.ts` (new): `parseCantonParam` — valid uppercase,
   valid lowercase, unknown code, missing param, empty string, param mixed
   with other query params.
-- `src/data/cantonBoundaries.test.ts` (new): `boundsForCanton` — using a
-  small synthetic `FeatureCollection` fixture (a known square/triangle
-  geometry with a predictable min/max result) rather than asserting on
-  real Switzerland coordinates; also an unknown-code case returning
-  `null`.
+- `src/data/cantonBounds.test.ts` (new): `boundsForCanton` — a known
+  code (e.g. `FR`) returns its exact precomputed bounds, an unknown code
+  returns `null`; a table-driven check that all 26 `CANTONS` codes have a
+  `CANTON_BOUNDS` entry (keeps the two tables from silently drifting
+  apart).
 - No new `MapView`/Leaflet-level test — consistent with this codebase's
   existing convention of not unit-testing Leaflet internals directly
   (there's no `MapView.test.tsx` or `App.test.tsx` today).
