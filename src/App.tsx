@@ -14,8 +14,10 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
-import { parseCantonParam, parseVenueParam, withVenueParam } from './lib/permalink';
+import { parseCantonParam, parseVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
+import { useVenuePermalink } from './features/venues/useVenuePermalink';
+import { shareVenueUrl } from './lib/share';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -111,35 +113,7 @@ function AppShell() {
   const openDetail = (id: string) => { setDetailId(id); setSelectedId(id); };
   const closeDetail = () => setDetailId(null);
 
-  // Resolve a ?venue= permalink once the venues query settles. Runs at
-  // most once — background refetches must not re-trigger it.
-  const appliedVenueParamRef = useRef(false);
-  useEffect(() => {
-    if (!venueParam || appliedVenueParamRef.current || !venuesLoaded) return;
-    appliedVenueParamRef.current = true;
-    const match = venues.find((v) => v.id === venueParam);
-    if (match) {
-      // Deliberately synchronous: this effect resolves an external URL param
-      // against freshly-loaded query data, runs at most once (guarded above),
-      // and must open the modal as soon as that data settles.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      openDetail(match.id);
-      setExpanded((e) => ({ ...e, [match.canton]: true }));
-    }
-  }, [venueParam, venues, venuesLoaded]);
-
-  // Keep the URL's ?venue= in sync with the open/closed DetailModal so the
-  // address bar stays shareable. Skips its first run so it never strips a
-  // permalink's ?venue= before the effect above has applied it.
-  const mountedUrlSyncRef = useRef(false);
-  useEffect(() => {
-    if (!mountedUrlSyncRef.current) {
-      mountedUrlSyncRef.current = true;
-      return;
-    }
-    const next = withVenueParam(window.location.pathname + window.location.search, detailId);
-    window.history.replaceState(null, '', next);
-  }, [detailId]);
+  useVenuePermalink({ venueParam, venues, venuesLoaded, detailId, openDetail, setExpanded });
 
   const navigate = () => {
     if (detailVenue) {
@@ -152,16 +126,13 @@ function AppShell() {
 
   const shareVenue = async () => {
     if (!detailVenue) return;
-    const url = window.location.href;
     try {
-      if (navigator.share) {
-        await navigator.share({ title: detailVenue.name, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      showFlash('ok', t.linkCopied);
+      const outcome = await shareVenueUrl(detailVenue.name, window.location.href, {
+        share: navigator.share ? (data) => navigator.share(data) : undefined,
+        copy: (text) => navigator.clipboard.writeText(text),
+      });
+      if (outcome === 'copied') showFlash('ok', t.linkCopied);
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
       showFlash('err', captureAndFormat(err, t.shareFailed));
     }
   };
