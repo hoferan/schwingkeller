@@ -10,7 +10,6 @@ type T = typeof STR.de;
 interface MarkerPopupProps {
   venue: Venue;
   t: T;
-  onDetail: () => void;
 }
 
 // Matches svgIcon's inline style from the old popupHtml string builder, preserved for
@@ -49,7 +48,10 @@ const detailBtnStyle: CSSProperties = {
   padding: '9px', borderRadius: '10px',
 };
 
-export function MarkerPopup({ venue, t, onDetail }: MarkerPopupProps) {
+// Rendered to a static HTML string (see markers.tsx's popupHtml) and handed to Leaflet's
+// bindPopup as plain content, so there's no live React tree here — the Details button uses
+// data-detail instead of a real onClick; MapView.tsx wires the click via DOM delegation.
+export function MarkerPopup({ venue, t }: MarkerPopupProps) {
   const c = cantonByCode(venue.canton);
   return (
     <div style={wrapStyle}>
@@ -74,7 +76,7 @@ export function MarkerPopup({ venue, t, onDetail }: MarkerPopupProps) {
             <span style={tagStyle}><Mountain size={11} style={iconStyle} /> {t.outdoor}</span>
           )}
         </div>
-        <button onClick={onDetail} style={detailBtnStyle}>
+        <button data-detail={venue.id} style={detailBtnStyle}>
           {t.details} <ArrowRight size={13} style={iconStyle} />
         </button>
       </div>

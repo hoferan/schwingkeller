@@ -1,4 +1,12 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { Venue } from '../venues/types';
+import type { STR } from '../../i18n/translations';
 import { theme } from '../../theme';
+import { MarkerPopup } from './MarkerPopup';
+
+type T = typeof STR.de;
+
+export const popupHtml = (v: Venue, t: T): string => renderToStaticMarkup(<MarkerPopup venue={v} t={t} />);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const pinHtml = (_sel: boolean): string =>

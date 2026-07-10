@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import ReactDOM, { type Root } from 'react-dom/client';
-import { flushSync } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -8,8 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { Maximize } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, clusterIcon } from './markers';
-import { MarkerPopup } from './MarkerPopup';
+import { pinHtml, popupHtml, clusterIcon } from './markers';
 import { theme } from '../../theme';
 
 interface MapViewProps {
@@ -133,25 +130,7 @@ export function MapView({
     venuesRef.current.forEach((v) => {
       const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] });
       const m = L.marker([v.lat, v.lng], { icon }).addTo(group);
-      const popupContainer = document.createElement('div');
-      let popupRoot: Root | null = null;
-      m.bindPopup(popupContainer, { maxWidth: 240, minWidth: 222, closeButton: true });
-      m.on('popupopen', () => {
-        popupRoot = ReactDOM.createRoot(popupContainer);
-        // createRoot().render() commits asynchronously (a microtask) when called outside a
-        // React-native event, so without flushSync the getPopup()?.update() call below would
-        // measure an empty container and permanently mis-size/mis-position the popup.
-        flushSync(() => {
-          popupRoot!.render(
-            <MarkerPopup venue={v} t={tRef.current} onDetail={() => onOpenDetailRef.current(v.id)} />
-          );
-        });
-        m.getPopup()?.update();
-      });
-      m.on('popupclose', () => {
-        popupRoot?.unmount();
-        popupRoot = null;
-      });
+      m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('click', () => onSelectRef.current(v.id));
       markersRef.current[v.id] = m;
     });
@@ -169,17 +148,7 @@ export function MapView({
     const mx = map.getMaxZoom ? map.getMaxZoom() : 17;
     const z = Math.min(mx, Math.max(map.getZoom() + 4, 16));
     map.flyTo(m.getLatLng(), z, { duration: 0.8 });
-    // If the user manually closes the popup while this is pending (e.g. clicking the marker
-    // already opens it, then they dismiss it before the flight finishes), don't force it back
-    // open underneath them.
-    let userClosed = false;
-    const onUserClose = () => { userClosed = true; };
-    m.once('popupclose', onUserClose);
-    window.setTimeout(() => {
-      m.off('popupclose', onUserClose);
-      const mm = markersRef.current[id];
-      if (mm && !userClosed) mm.openPopup();
-    }, 880);
+    window.setTimeout(() => { const mm = markersRef.current[id]; if (mm) mm.openPopup(); }, 880);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,6 +178,12 @@ export function MapView({
     onPickLocationRef.current(lat, lng);
   };
 
+  const onPopupOpen = (e: L.PopupEvent) => {
+    const el = e.popup.getElement(); if (!el) return;
+    const b = el.querySelector('[data-detail]') as HTMLElement | null;
+    if (b) b.onclick = () => { const id = b.getAttribute('data-detail'); if (id) onOpenDetailRef.current(id); };
+  };
+
   // Mount: create the map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
@@ -223,6 +198,7 @@ export function MapView({
       ? Lany.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50, spiderfyOnMaxZoom: true, zoomToBoundsOnClick: false, disableClusteringAtZoom: 16, removeOutsideVisibleBounds: false, animate: false, iconCreateFunction: clusterIcon(L) })
       : L.layerGroup();
     if (markerGroupRef.current.on) markerGroupRef.current.on('clusterclick', onClusterClick);
+    map.on('popupopen', onPopupOpen);
     map.on('click', onMapClick);
 
     map.whenReady(() => {
