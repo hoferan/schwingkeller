@@ -69,6 +69,9 @@ export const STR = {
     deleteError: 'Löschen fehlgeschlagen',
     saveError: 'Speichern fehlgeschlagen',
     uploadError: 'Foto-Upload fehlgeschlagen',
+    share: 'Teilen',
+    linkCopied: 'Link kopiert',
+    shareFailed: 'Teilen fehlgeschlagen',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -137,6 +140,9 @@ export const STR = {
     deleteError: 'Échec de la suppression',
     saveError: 'Échec de l’enregistrement',
     uploadError: 'Échec du téléchargement de la photo',
+    share: 'Partager',
+    linkCopied: 'Lien copié',
+    shareFailed: 'Échec du partage',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -205,6 +211,9 @@ export const STR = {
     deleteError: 'Eliminazione fallita',
     saveError: 'Salvataggio fallito',
     uploadError: 'Caricamento foto fallito',
+    share: 'Condividi',
+    linkCopied: 'Link copiato',
+    shareFailed: 'Condivisione non riuscita',
   },
 } as const;
 
