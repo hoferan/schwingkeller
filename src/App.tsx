@@ -14,6 +14,8 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
+import { parseCantonParam } from './lib/permalink';
+import { boundsForCanton } from './data/cantonBounds';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -57,8 +59,13 @@ function AppShell() {
   const isTablet = mode === 't';
 
   // Cross-cutting UI state.
+  // Parsed once at startup — this is not a live two-way URL sync (see
+  // docs/superpowers/specs/2026-07-10-canton-permalinks-design.md).
+  const [ctnParam] = useState<string | null>(() => parseCantonParam(window.location.search));
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ BE: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    ctnParam ? { [ctnParam]: true } : { BE: true },
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [baseKind, setBaseKind] = useState<'map' | 'sat'>('map');
@@ -90,6 +97,7 @@ function AppShell() {
   useEffect(() => () => { if (flashTimer.current) window.clearTimeout(flashTimer.current); }, []);
 
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
+  const initialFocusBounds = ctnParam ? boundsForCanton(ctnParam) : null;
 
   // ---- layout styles (prototype renderVals ~624-631) ----
   const mainStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', display: 'flex', minHeight: 0 };
@@ -270,6 +278,7 @@ function AppShell() {
             onChangeBase={setBaseKind}
             placing={placing}
             onPickLocation={onPickLocation}
+            initialFocusBounds={initialFocusBounds}
           />
         </div>
       </div>
