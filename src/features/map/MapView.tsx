@@ -228,6 +228,7 @@ export function MapView({
       markerGroupRef.current = null;
       markersRef.current = {};
       tileRef.current = null;
+      appliedInitialFocusRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -272,11 +273,17 @@ export function MapView({
   // available (venues load async, but these bounds don't depend on venues —
   // they can arrive as early as the first render). Never re-fires, so a
   // later re-render can't re-snap the view while the user is browsing.
+  // Deferred via whenReady: calling flyToBounds before Leaflet's internal
+  // load state is established throws inside Leaflet's own animation code
+  // (TypeError reading '_leaflet_pos') and silently aborts the fly.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !initialFocusBounds || appliedInitialFocusRef.current) return;
-    appliedInitialFocusRef.current = true;
-    map.flyToBounds(initialFocusBounds, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
+    map.whenReady(() => {
+      if (!mapRef.current || appliedInitialFocusRef.current) return;
+      appliedInitialFocusRef.current = true;
+      mapRef.current.flyToBounds(initialFocusBounds, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
+    });
   }, [initialFocusBounds]);
 
   return (
