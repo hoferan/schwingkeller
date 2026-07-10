@@ -14,8 +14,10 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
-import { parseCantonParam } from './lib/permalink';
+import { parseCantonParam, parseVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
+import { useVenuePermalink } from './features/venues/useVenuePermalink';
+import { shareVenueUrl } from './lib/share';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -44,7 +46,7 @@ const download = (name: string, type: string, data: string) => {
 
 function AppShell() {
   const { t } = useTranslation();
-  const { data: venues = [] } = useVenues();
+  const { data: venues = [], isSuccess: venuesLoaded } = useVenues();
   const m = useVenueMutations();
 
   // Responsive width tracking.
@@ -59,9 +61,12 @@ function AppShell() {
   const isTablet = mode === 't';
 
   // Cross-cutting UI state.
-  // Parsed once at startup — this is not a live two-way URL sync (see
-  // docs/superpowers/specs/2026-07-10-canton-permalinks-design.md).
-  const [ctnParam] = useState<string | null>(() => parseCantonParam(window.location.search));
+  // Parsed once at startup. ?venue= takes precedence over ?ctn= — see
+  // docs/superpowers/specs/2026-07-10-venue-permalink-share-design.md.
+  const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
+  const [ctnParam] = useState<string | null>(() =>
+    venueParam ? null : parseCantonParam(window.location.search),
+  );
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     ctnParam ? { [ctnParam]: true } : { BE: true },
@@ -108,12 +113,27 @@ function AppShell() {
   const openDetail = (id: string) => { setDetailId(id); setSelectedId(id); };
   const closeDetail = () => setDetailId(null);
 
+  useVenuePermalink({ venueParam, venues, venuesLoaded, detailId, openDetail, setExpanded });
+
   const navigate = () => {
     if (detailVenue) {
       window.open(
         'https://www.google.com/maps/dir/?api=1&destination=' + detailVenue.lat + ',' + detailVenue.lng,
         '_blank',
       );
+    }
+  };
+
+  const shareVenue = async () => {
+    if (!detailVenue) return;
+    try {
+      const outcome = await shareVenueUrl(detailVenue.name, window.location.href, {
+        share: navigator.share ? (data) => navigator.share(data) : undefined,
+        copy: (text) => navigator.clipboard.writeText(text),
+      });
+      if (outcome === 'copied') showFlash('ok', t.linkCopied);
+    } catch (err) {
+      showFlash('err', captureAndFormat(err, t.shareFailed));
     }
   };
 
@@ -288,6 +308,7 @@ function AppShell() {
           venue={detailVenue}
           onClose={closeDetail}
           onNavigate={navigate}
+          onShare={() => { void shareVenue(); }}
           onEdit={openEdit}
           onDelete={askDelete}
         />
