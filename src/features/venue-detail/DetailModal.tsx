@@ -1,4 +1,4 @@
-import { X, MapPin, Home, Mountain, User, Phone, Globe, ExternalLink } from 'lucide-react';
+import { X, MapPin, Home, Mountain, User, Phone, Globe, ExternalLink, Share2 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -10,6 +10,7 @@ interface DetailModalProps {
   venue: Venue;
   onClose: () => void;
   onNavigate: () => void;
+  onShare: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -31,7 +32,7 @@ const tag: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: '6px',
 };
 
-export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: DetailModalProps) => {
+export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDelete }: DetailModalProps) => {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
 
@@ -149,17 +150,29 @@ export const DetailModal = ({ venue, onClose, onNavigate, onEdit, onDelete }: De
             </div>
           </a>
         )}
-        <button
-          onClick={onNavigate}
-          style={{
-            marginTop: '16px', width: '100%', border: 'none', cursor: 'pointer',
-            background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600, fontSize: '14px',
-            padding: '13px', borderRadius: theme.radius.sm, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', gap: '8px',
-          }}
-        >
-          {t.navigate} <ExternalLink size={15} />
-        </button>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+          <button
+            onClick={onNavigate}
+            style={{
+              flex: 2, border: 'none', cursor: 'pointer',
+              background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600, fontSize: '14px',
+              padding: '13px', borderRadius: theme.radius.sm, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '8px',
+            }}
+          >
+            {t.navigate} <ExternalLink size={15} />
+          </button>
+          <button
+            onClick={onShare}
+            style={{
+              flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
+              fontWeight: 600, fontSize: '14px', padding: '13px', borderRadius: theme.radius.sm, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            {t.share} <Share2 size={15} />
+          </button>
+        </div>
         {isAdmin && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
             <button

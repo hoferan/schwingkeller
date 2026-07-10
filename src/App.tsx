@@ -150,6 +150,22 @@ function AppShell() {
     }
   };
 
+  const shareVenue = async () => {
+    if (!detailVenue) return;
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: detailVenue.name, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      showFlash('ok', t.linkCopied);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      showFlash('err', captureAndFormat(err, t.shareFailed));
+    }
+  };
+
   const openEdit = () => {
     if (!detailVenue) return;
     setEditInitial(detailVenue);
@@ -321,6 +337,7 @@ function AppShell() {
           venue={detailVenue}
           onClose={closeDetail}
           onNavigate={navigate}
+          onShare={() => { void shareVenue(); }}
           onEdit={openEdit}
           onDelete={askDelete}
         />

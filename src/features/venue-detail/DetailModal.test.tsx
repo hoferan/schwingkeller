@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => {
   return {
@@ -36,7 +36,7 @@ const venue: Venue = {
 
 const noop = () => {};
 
-const renderModal = () =>
+const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>> = {}) =>
   render(
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
@@ -44,8 +44,10 @@ const renderModal = () =>
           venue={venue}
           onClose={noop}
           onNavigate={noop}
+          onShare={noop}
           onEdit={noop}
           onDelete={noop}
+          {...overrides}
         />
       </I18nContext.Provider>
     </AuthProvider>,
@@ -67,5 +69,25 @@ describe('DetailModal', () => {
     getSession.mockResolvedValue({ data: { session: { user: { id: 'admin' } } } });
     renderModal();
     expect(await screen.findByText(STR.de.edit)).toBeInTheDocument();
+  });
+
+  it('calls onShare when the Share button is clicked, not onNavigate', async () => {
+    const onNavigate = vi.fn();
+    const onShare = vi.fn();
+    renderModal({ onNavigate, onShare });
+    await screen.findByText(venue.name);
+    fireEvent.click(screen.getByRole('button', { name: STR.de.share }));
+    expect(onShare).toHaveBeenCalledTimes(1);
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('calls onNavigate when the Navigate button is clicked, not onShare', async () => {
+    const onNavigate = vi.fn();
+    const onShare = vi.fn();
+    renderModal({ onNavigate, onShare });
+    await screen.findByText(venue.name);
+    fireEvent.click(screen.getByRole('button', { name: STR.de.navigate }));
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(onShare).not.toHaveBeenCalled();
   });
 });
