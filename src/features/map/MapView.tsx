@@ -19,6 +19,7 @@ interface MapViewProps {
   placing: boolean;
   onPickLocation: (lat: number, lng: number) => void;
   registerFitAll?: (fn: () => void) => void;
+  initialFocusBounds?: [[number, number], [number, number]] | null;
 }
 
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
@@ -75,7 +76,7 @@ const fitAllBtnStyle: CSSProperties = {
 
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
-  baseKind, onChangeBase, placing, onPickLocation, registerFitAll,
+  baseKind, onChangeBase, placing, onPickLocation, registerFitAll, initialFocusBounds,
 }: MapViewProps) {
   const { t } = useTranslation();
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +89,7 @@ export function MapView({
   const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
   const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
   const [fitAllBgClip, setFitAllBgClip] = useState(FIT_ALL_DEFAULT_BG_CLIP);
+  const appliedInitialFocusRef = useRef(false);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -226,6 +228,7 @@ export function MapView({
       markerGroupRef.current = null;
       markersRef.current = {};
       tileRef.current = null;
+      appliedInitialFocusRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -265,6 +268,23 @@ export function MapView({
       if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 });
     });
   }, [registerFitAll]);
+
+  // Apply the initial canton-focus bounds once, the first time they're
+  // available (venues load async, but these bounds don't depend on venues —
+  // they can arrive as early as the first render). Never re-fires, so a
+  // later re-render can't re-snap the view while the user is browsing.
+  // Deferred via whenReady: calling flyToBounds before Leaflet's internal
+  // load state is established throws inside Leaflet's own animation code
+  // (TypeError reading '_leaflet_pos') and silently aborts the fly.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !initialFocusBounds || appliedInitialFocusRef.current) return;
+    map.whenReady(() => {
+      if (!mapRef.current || appliedInitialFocusRef.current) return;
+      appliedInitialFocusRef.current = true;
+      mapRef.current.flyToBounds(initialFocusBounds, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
+    });
+  }, [initialFocusBounds]);
 
   return (
     <div style={wrapStyle}>
