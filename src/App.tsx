@@ -14,7 +14,7 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
-import { parseCantonParam } from './lib/permalink';
+import { parseCantonParam, parseVenueParam, withVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
 
 type Mode = 'd' | 't' | 'm';
@@ -44,7 +44,7 @@ const download = (name: string, type: string, data: string) => {
 
 function AppShell() {
   const { t } = useTranslation();
-  const { data: venues = [] } = useVenues();
+  const { data: venues = [], isSuccess: venuesLoaded } = useVenues();
   const m = useVenueMutations();
 
   // Responsive width tracking.
@@ -59,9 +59,12 @@ function AppShell() {
   const isTablet = mode === 't';
 
   // Cross-cutting UI state.
-  // Parsed once at startup — this is not a live two-way URL sync (see
-  // docs/superpowers/specs/2026-07-10-canton-permalinks-design.md).
-  const [ctnParam] = useState<string | null>(() => parseCantonParam(window.location.search));
+  // Parsed once at startup. ?venue= takes precedence over ?ctn= — see
+  // docs/superpowers/specs/2026-07-10-venue-permalink-share-design.md.
+  const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
+  const [ctnParam] = useState<string | null>(() =>
+    venueParam ? null : parseCantonParam(window.location.search),
+  );
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     ctnParam ? { [ctnParam]: true } : { BE: true },
@@ -107,6 +110,36 @@ function AppShell() {
   const selectVenue = (id: string) => { setSelectedId(id); setSidebarOpen(false); };
   const openDetail = (id: string) => { setDetailId(id); setSelectedId(id); };
   const closeDetail = () => setDetailId(null);
+
+  // Resolve a ?venue= permalink once the venues query settles. Runs at
+  // most once — background refetches must not re-trigger it.
+  const appliedVenueParamRef = useRef(false);
+  useEffect(() => {
+    if (!venueParam || appliedVenueParamRef.current || !venuesLoaded) return;
+    appliedVenueParamRef.current = true;
+    const match = venues.find((v) => v.id === venueParam);
+    if (match) {
+      // Deliberately synchronous: this effect resolves an external URL param
+      // against freshly-loaded query data, runs at most once (guarded above),
+      // and must open the modal as soon as that data settles.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      openDetail(match.id);
+      setExpanded((e) => ({ ...e, [match.canton]: true }));
+    }
+  }, [venueParam, venues, venuesLoaded]);
+
+  // Keep the URL's ?venue= in sync with the open/closed DetailModal so the
+  // address bar stays shareable. Skips its first run so it never strips a
+  // permalink's ?venue= before the effect above has applied it.
+  const mountedUrlSyncRef = useRef(false);
+  useEffect(() => {
+    if (!mountedUrlSyncRef.current) {
+      mountedUrlSyncRef.current = true;
+      return;
+    }
+    const next = withVenueParam(window.location.pathname + window.location.search, detailId);
+    window.history.replaceState(null, '', next);
+  }, [detailId]);
 
   const navigate = () => {
     if (detailVenue) {
