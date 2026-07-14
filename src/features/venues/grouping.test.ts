@@ -29,4 +29,22 @@ describe('groupByCanton', () => {
     expect(g.map((x) => x.code)).toEqual(['BE', 'LU']);
     expect(g[1].count).toBe(2);
   });
+
+  it('includes all 26 cantons in canton order when includeEmpty is true', () => {
+    const g = groupByCanton(venues, true);
+    expect(g).toHaveLength(26);
+    expect(g.map((x) => x.code)).toEqual([
+      'ZH', 'BE', 'LU', 'UR', 'SZ', 'OW', 'NW', 'GL', 'ZG', 'FR', 'SO', 'BS', 'BL',
+      'SH', 'AR', 'AI', 'SG', 'GR', 'AG', 'TG', 'TI', 'VD', 'VS', 'NE', 'GE', 'JU',
+    ]);
+    const zh = g.find((x) => x.code === 'ZH')!;
+    expect(zh.count).toBe(0);
+    expect(zh.venues).toEqual([]);
+    const lu = g.find((x) => x.code === 'LU')!;
+    expect(lu.count).toBe(2);
+  });
+
+  it('defaults to only cantons with venues when includeEmpty is omitted', () => {
+    expect(groupByCanton(venues).map((x) => x.code)).toEqual(['BE', 'LU']);
+  });
 });

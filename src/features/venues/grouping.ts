@@ -12,10 +12,11 @@ export const filterVenues = (venues: Venue[], search: string): Venue[] => {
 
 export interface CantonGroup { code: string; name: string; count: number; venues: Venue[] }
 
-export const groupByCanton = (venues: Venue[]): CantonGroup[] => {
+export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGroup[] => {
   const by: Record<string, Venue[]> = {};
   venues.forEach((v) => { (by[v.canton] = by[v.canton] ?? []).push(v); });
-  return CANTONS.filter((c) => by[c.code]).map((c) => ({
-    code: c.code, name: c.name, count: by[c.code].length, venues: by[c.code],
+  const source = includeEmpty ? CANTONS : CANTONS.filter((c) => by[c.code]);
+  return source.map((c) => ({
+    code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
   }));
 };
