@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, Plus, Download, Upload } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, Plus, Download, Upload, Home, Mountain } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import { filterVenues, groupByCanton } from '../venues/grouping';
+import { filterVenues, groupByCanton, type Facets } from '../venues/grouping';
 import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -122,6 +122,7 @@ export const Sidebar = ({
   const tabletDraggingRef = useRef(false);
   const startedOnDragZoneRef = useRef(false);
   const [dragX, setDragX] = useState<number | null>(null);
+  const [facets, setFacets] = useState<Facets>({ indoor: false, outdoor: false });
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
@@ -303,11 +304,12 @@ export const Sidebar = ({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isMobile, isTablet, sidebarOpen, onSetSidebarOpen]);
 
-  const list = filterVenues(venues, search);
+  const list = filterVenues(venues, search, facets);
   const searching = search.trim() !== '';
-  const groups = groupByCanton(list, !searching);
+  const filtering = searching || facets.indoor || facets.outdoor;
+  const groups = groupByCanton(list, !filtering);
   const hasSearch = search.trim() !== '';
-  const noResults = searching && list.length === 0;
+  const noResults = filtering && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
@@ -465,6 +467,40 @@ export const Sidebar = ({
         </div>
       </div>
 
+      <div style={{ padding: '0 15px 11px', flex: 'none', display: 'flex', gap: '8px' }}>
+        {([
+          { key: 'indoor', label: t.indoor, Icon: Home },
+          { key: 'outdoor', label: t.outdoor, Icon: Mountain },
+        ] as { key: keyof Facets; label: string; Icon: typeof Home }[]).map(({ key, label, Icon }) => {
+          const active = facets[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setFacets((f) => ({ ...f, [key]: !f[key] }))}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                border: '1px solid ' + (active ? theme.color.accent : theme.color.line),
+                background: active ? theme.color.accent : theme.color.bg,
+                color: active ? theme.color.accentInk : theme.color.ink,
+                fontWeight: 600,
+                fontSize: '12.5px',
+                padding: '9px 8px',
+                borderRadius: theme.radius.sm,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon size={14} /> {label}
+            </button>
+          );
+        })}
+      </div>
+
       {isAdmin && (
         <div
           style={{
@@ -552,7 +588,7 @@ export const Sidebar = ({
         style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
       >
         {groups.map((group) => {
-          const exp = searching || !!expanded[group.code];
+          const exp = filtering || !!expanded[group.code];
           return (
             <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
               <div

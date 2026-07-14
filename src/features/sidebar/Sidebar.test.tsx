@@ -127,6 +127,69 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Bern')).not.toBeInTheDocument();
   });
 
+  it('filters the list to outdoor venues when the Outdoor chip is toggled', async () => {
+    const user = userEvent.setup();
+    const mixed = [
+      v({ id: '1', name: 'InnenKeller', canton: 'BE', indoor: true, outdoor: false }),
+      v({ id: '2', name: 'AussenPlatz', canton: 'LU', indoor: false, outdoor: true }),
+    ];
+    renderSidebar({ venuesData: mixed });
+    const outdoor = await screen.findByRole('button', { name: STR.de.outdoor });
+    expect(outdoor).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(outdoor);
+
+    expect(outdoor).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(screen.getByText('AussenPlatz')).toBeInTheDocument());
+    expect(screen.queryByText('InnenKeller')).not.toBeInTheDocument();
+  });
+
+  it('shows the union when both chips are active', async () => {
+    const user = userEvent.setup();
+    const mixed = [
+      v({ id: '1', name: 'InnenKeller', canton: 'BE', indoor: true, outdoor: false }),
+      v({ id: '2', name: 'AussenPlatz', canton: 'LU', indoor: false, outdoor: true }),
+      v({ id: '3', name: 'Nirgends', canton: 'ZH', indoor: false, outdoor: false }),
+    ];
+    renderSidebar({ venuesData: mixed });
+
+    await user.click(await screen.findByRole('button', { name: STR.de.indoor }));
+    await user.click(await screen.findByRole('button', { name: STR.de.outdoor }));
+
+    await waitFor(() => expect(screen.getByText('InnenKeller')).toBeInTheDocument());
+    expect(screen.getByText('AussenPlatz')).toBeInTheDocument();
+    expect(screen.queryByText('Nirgends')).not.toBeInTheDocument();
+  });
+
+  it('clears the facet when an active chip is toggled off again', async () => {
+    const user = userEvent.setup();
+    const mixed = [
+      v({ id: '1', name: 'InnenKeller', canton: 'BE', indoor: true, outdoor: false }),
+      v({ id: '2', name: 'AussenPlatz', canton: 'LU', indoor: false, outdoor: true }),
+    ];
+    renderSidebar({ venuesData: mixed });
+    const outdoor = await screen.findByRole('button', { name: STR.de.outdoor });
+
+    await user.click(outdoor); // on
+    await user.click(outdoor); // off
+
+    expect(outdoor).toHaveAttribute('aria-pressed', 'false');
+    // Idle again: groups collapse, so no venue rows are visible and no no-results banner shows.
+    expect(screen.queryByText(STR.de.noResults)).not.toBeInTheDocument();
+  });
+
+  it('shows the no-results banner when a facet matches nothing', async () => {
+    const user = userEvent.setup();
+    const indoorOnly = [
+      v({ id: '1', name: 'InnenKeller', canton: 'BE', indoor: true, outdoor: false }),
+    ];
+    renderSidebar({ venuesData: indoorOnly });
+
+    await user.click(await screen.findByRole('button', { name: STR.de.outdoor }));
+
+    await waitFor(() => expect(screen.getByText(STR.de.noResults)).toBeInTheDocument());
+  });
+
   it('hides admin tools when not admin', async () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
