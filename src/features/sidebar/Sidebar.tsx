@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
 import { Search, X, ChevronRight, ChevronLeft, Plus, Download, Upload } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import { filterVenues, groupByCanton } from '../venues/grouping';
+import { filterVenues, groupByCanton, flatSorted, type SortMode } from '../venues/grouping';
+import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
+import type { GeoStatus } from '../geo/useGeolocation';
 import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -24,6 +26,11 @@ interface SidebarProps {
   onExportJSON: () => void;
   onExportCSV: () => void;
   onImport: (file: File) => void;
+  sortMode: SortMode;
+  onSortMode: (m: SortMode) => void;
+  userPosition: LatLng | null;
+  geoStatus: GeoStatus;
+  onRequestLocation: () => void;
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
@@ -66,6 +73,17 @@ const rowStyle = (sel: boolean): CSSProperties => ({
   boxShadow: sel ? theme.shadow : 'none',
 });
 
+const distanceBadgeStyle: CSSProperties = {
+  flex: 'none',
+  fontSize: '11px',
+  fontWeight: 700,
+  color: theme.color.accentInk,
+  background: theme.color.ink,
+  padding: '2px 9px',
+  borderRadius: theme.radius.pill,
+  whiteSpace: 'nowrap',
+};
+
 const chevronBadgeStyle = (sel: boolean): CSSProperties => ({
   width: '22px',
   height: '22px',
@@ -99,8 +117,13 @@ export const Sidebar = ({
   onExportJSON,
   onExportCSV,
   onImport,
+  sortMode,
+  onSortMode,
+  userPosition,
+  geoStatus,
+  onRequestLocation,
 }: SidebarProps) => {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { isAdmin } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -309,6 +332,8 @@ export const Sidebar = ({
   const hasSearch = search.trim() !== '';
   const noResults = searching && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
+  const flat = sortMode !== 'canton';
+  const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
   // Desktop/tablet: fixed-width column.
@@ -521,6 +546,37 @@ export const Sidebar = ({
         </div>
       )}
 
+      <div style={{ padding: '0 15px 10px', flex: 'none' }} role="radiogroup" aria-label={t.sortBy}>
+        <div style={{ display: 'flex', gap: '2px', background: theme.color.paper, padding: '4px', borderRadius: theme.radius.pill }}>
+          {([['canton', t.sortCanton], ['name', t.sortName], ['distance', t.sortDistance]] as const)
+            .filter(([mode]) => !(mode === 'distance' && geoStatus === 'unsupported'))
+            .map(([mode, label]) => {
+              const active = sortMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={mode === 'distance' ? t.useMyLocation : undefined}
+                  onClick={() => {
+                    onSortMode(mode);
+                    if (mode === 'distance' && !userPosition) onRequestLocation();
+                  }}
+                  style={{
+                    flex: 1, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+                    lineHeight: '1', padding: '7px 8px', borderRadius: theme.radius.pill,
+                    background: active ? theme.color.accent : 'transparent',
+                    color: active ? theme.color.accentInk : theme.color.muted,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+        </div>
+      </div>
+
       <div
         style={{
           display: 'flex',
@@ -551,7 +607,7 @@ export const Sidebar = ({
         className="sk-scroll"
         style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
       >
-        {groups.map((group) => {
+        {!flat && groups.map((group) => {
           const exp = searching || !!expanded[group.code];
           return (
             <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
@@ -660,6 +716,30 @@ export const Sidebar = ({
             </div>
           );
         })}
+        {flat &&
+          flatList.map((v) => {
+            const sel = v.id === selectedId;
+            return (
+              <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+                <img
+                  src={wappenUrl(v.canton)}
+                  alt=""
+                  style={{ width: '16px', height: '20px', objectFit: 'contain', flex: 'none', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: theme.color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {v.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: theme.color.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {townOf(v.address)}
+                  </div>
+                </div>
+                {sortMode === 'distance' && userPosition && (
+                  <span style={distanceBadgeStyle}>{formatDistance(haversineKm(userPosition, v), lang)}</span>
+                )}
+              </div>
+            );
+          })}
         {noResults && (
           <div style={{ padding: '34px 12px', textAlign: 'center', color: theme.color.muted, fontSize: '13px' }}>
             {t.noResults}

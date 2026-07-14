@@ -74,6 +74,14 @@ export const STR = {
     shareFailed: 'Teilen fehlgeschlagen',
     cantonEmpty:
       'Für diesen Kanton sind noch keine Schwingkeller erfasst. Neue Einträge können ausschliesslich von Administratoren hinzugefügt werden.',
+    sortBy: 'Sortieren',
+    sortCanton: 'Kanton',
+    sortName: 'Name',
+    sortDistance: 'Distanz',
+    useMyLocation: 'Meinen Standort verwenden',
+    locationDenied: 'Standortzugriff verweigert.',
+    locationError: 'Standort konnte nicht ermittelt werden.',
+    youAreHere: 'Ihr Standort',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -147,6 +155,14 @@ export const STR = {
     shareFailed: 'Échec du partage',
     cantonEmpty:
       'Aucun lieu n’est encore répertorié pour ce canton. Les nouvelles entrées ne peuvent être ajoutées que par les administrateurs.',
+    sortBy: 'Trier',
+    sortCanton: 'Canton',
+    sortName: 'Nom',
+    sortDistance: 'Distance',
+    useMyLocation: 'Utiliser ma position',
+    locationDenied: 'Accès à la position refusé.',
+    locationError: 'Impossible de déterminer la position.',
+    youAreHere: 'Votre position',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -220,6 +236,14 @@ export const STR = {
     shareFailed: 'Condivisione non riuscita',
     cantonEmpty:
       'Per questo cantone non è ancora stata registrata alcuna sede. Le nuove voci possono essere aggiunte esclusivamente dagli amministratori.',
+    sortBy: 'Ordina',
+    sortCanton: 'Cantone',
+    sortName: 'Nome',
+    sortDistance: 'Distanza',
+    useMyLocation: 'Usa la mia posizione',
+    locationDenied: 'Accesso alla posizione negato.',
+    locationError: 'Impossibile determinare la posizione.',
+    youAreHere: 'La tua posizione',
   },
 } as const;
 

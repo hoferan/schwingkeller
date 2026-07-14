@@ -15,6 +15,13 @@ export const pinHtml = (_sel: boolean): string =>
   + '<div style="position:absolute;left:9px;top:9px;width:10px;height:10px;border-radius:50%;background:' + theme.color.bg + ';"></div>'
   + '</div>';
 
+// A distinct blue "you are here" dot. Deliberately NOT theme.color.accent — it must never be
+// mistaken for a red venue pin or cluster. Blue is the conventional device-location color.
+export const userPinHtml = (): string =>
+  '<div style="position:relative;width:22px;height:22px;">'
+  + '<div style="position:absolute;inset:0;border-radius:50%;background:#1a73e8;border:3px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';"></div>'
+  + '</div>';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const clusterIcon = (L: any) => (cluster: any) => {
   const n = cluster.getChildCount();
