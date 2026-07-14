@@ -20,16 +20,20 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
 import type { Venue } from '../venues/types';
+import type { SortMode } from '../venues/grouping';
+import type { LatLng } from '../venues/distance';
+import type { GeoStatus } from '../geo/useGeolocation';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photo_url: null, ...over,
 });
 
+// Distances: venue '1' Emmental in BE, '2'/'3' in LU. Given coords so distance is meaningful.
 const venues = [
-  v({ id: '1', name: 'Emmental', canton: 'BE' }),
-  v({ id: '2', name: 'Willisau', canton: 'LU' }),
-  v({ id: '3', name: 'Allmend', canton: 'LU' }),
+  v({ id: '1', name: 'Emmental', canton: 'BE', lat: 46.9, lng: 7.6 }),
+  v({ id: '2', name: 'Willisau', canton: 'LU', lat: 47.1, lng: 8.0 }),
+  v({ id: '3', name: 'Allmend', canton: 'LU', lat: 47.05, lng: 8.3 }),
 ];
 
 interface HarnessProps {
@@ -39,6 +43,10 @@ interface HarnessProps {
   onToggleSidebar?: () => void;
   onSetSidebarOpen?: (open: boolean) => void;
   venuesData?: Venue[];
+  sortModeInit?: SortMode;
+  userPosition?: LatLng | null;
+  geoStatus?: GeoStatus;
+  onRequestLocation?: () => void;
 }
 
 const Harness = ({
@@ -48,10 +56,15 @@ const Harness = ({
   onToggleSidebar = () => {},
   onSetSidebarOpen = () => {},
   venuesData = venues,
+  sortModeInit = 'canton',
+  userPosition = null,
+  geoStatus = 'idle',
+  onRequestLocation = () => {},
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>(sortModeInit);
   return (
     <Sidebar
       venues={venuesData}
@@ -70,6 +83,11 @@ const Harness = ({
       onExportJSON={vi.fn()}
       onExportCSV={vi.fn()}
       onImport={vi.fn()}
+      sortMode={sortMode}
+      onSortMode={setSortMode}
+      userPosition={userPosition}
+      geoStatus={geoStatus}
+      onRequestLocation={onRequestLocation}
     />
   );
 };
@@ -445,5 +463,48 @@ describe('Sidebar', () => {
     fireEvent.touchEnd(list, { changedTouches: [{ clientY: 250 }] });
 
     expect(onSetSidebarOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('renders the sort control', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText(STR.de.sortName)).toBeInTheDocument());
+    expect(screen.getByText(STR.de.sortDistance)).toBeInTheDocument();
+  });
+
+  it('flattens the list when sorting by name (no canton expand needed)', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText(STR.de.sortName)).toBeInTheDocument());
+    await user.click(screen.getByText(STR.de.sortName));
+    // All venue names visible without expanding any canton group:
+    expect(screen.getByText('Allmend')).toBeInTheDocument();
+    expect(screen.getByText('Emmental')).toBeInTheDocument();
+    expect(screen.getByText('Willisau')).toBeInTheDocument();
+  });
+
+  it('requests location when Distance is picked without a position', async () => {
+    const onRequestLocation = vi.fn();
+    const user = userEvent.setup();
+    renderSidebar({ onRequestLocation });
+    await waitFor(() => expect(screen.getByText(STR.de.sortDistance)).toBeInTheDocument());
+    await user.click(screen.getByText(STR.de.sortDistance));
+    expect(onRequestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows distance badges only when sorting by distance with a position', async () => {
+    const user = userEvent.setup();
+    renderSidebar({ userPosition: { lat: 46.95, lng: 7.45 } });
+    await waitFor(() => expect(screen.getByText(STR.de.sortDistance)).toBeInTheDocument());
+    // No badges in canton mode:
+    expect(screen.queryByText(/km$/)).not.toBeInTheDocument();
+    await user.click(screen.getByText(STR.de.sortDistance));
+    // Nearest (Emmental, closest to origin) appears with a km badge:
+    await waitFor(() => expect(screen.getAllByText(/km$/).length).toBeGreaterThan(0));
+  });
+
+  it('hides the Distance option when geolocation is unsupported', async () => {
+    renderSidebar({ geoStatus: 'unsupported' });
+    await waitFor(() => expect(screen.getByText(STR.de.sortName)).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.sortDistance)).not.toBeInTheDocument();
   });
 });
