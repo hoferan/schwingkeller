@@ -43,14 +43,17 @@ export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGrou
   const by: Record<string, Venue[]> = {};
   venues.forEach((v) => { (by[v.canton] = by[v.canton] ?? []).push(v); });
   const source = includeEmpty ? CANTONS : CANTONS.filter((c) => by[c.code]);
-  return source.map((c) => ({
-    code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
-  }));
+  return source
+    .map((c) => ({
+      code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 };
 ```
 
-Empty cantons come back as `{ count: 0, venues: [] }` in canonical `CANTONS`
-order.
+Groups are sorted alphabetically by canton name (German-locale collation, so
+`Zürich` sorts after `Zug`); empty cantons come back as `{ count: 0, venues: [] }`
+alongside the populated ones.
 
 **Alternatives considered:** a separate `allCantonGroups()` function (two code
 paths to keep in sync) and computing the full list inside the Sidebar (leaks
@@ -94,7 +97,7 @@ strings like `Schliessen`. Uses the domain terms already in the app
 ## Testing
 
 - `src/features/venues/grouping.test.ts` (extend): `groupByCanton(venues, true)`
-  returns all 26 cantons in canton order, with empty ones at `count: 0` and
+  returns all 26 cantons sorted alphabetically by name, with empty ones at `count: 0` and
   `venues: []`; the existing default-call test (only cantons with venues) stays
   green, confirming backward compatibility.
 - `src/i18n/translations.test.ts` already enforces key parity across DE/FR/IT —

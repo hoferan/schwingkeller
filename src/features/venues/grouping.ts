@@ -16,7 +16,9 @@ export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGrou
   const by: Record<string, Venue[]> = {};
   venues.forEach((v) => { (by[v.canton] = by[v.canton] ?? []).push(v); });
   const source = includeEmpty ? CANTONS : CANTONS.filter((c) => by[c.code]);
-  return source.map((c) => ({
-    code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
-  }));
+  return source
+    .map((c) => ({
+      code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 };

@@ -24,18 +24,20 @@ describe('filterVenues', () => {
 });
 
 describe('groupByCanton', () => {
-  it('groups in canton order with counts', () => {
+  it('groups alphabetically by name with counts', () => {
     const g = groupByCanton(venues);
+    // Bern < Luzern alphabetically.
     expect(g.map((x) => x.code)).toEqual(['BE', 'LU']);
     expect(g[1].count).toBe(2);
   });
 
-  it('includes all 26 cantons in canton order when includeEmpty is true', () => {
+  it('includes all 26 cantons sorted alphabetically by name when includeEmpty is true', () => {
     const g = groupByCanton(venues, true);
     expect(g).toHaveLength(26);
+    // Ordered by the German canton names (Aargau, Appenzell Ausserrhoden, …, Zürich).
     expect(g.map((x) => x.code)).toEqual([
-      'ZH', 'BE', 'LU', 'UR', 'SZ', 'OW', 'NW', 'GL', 'ZG', 'FR', 'SO', 'BS', 'BL',
-      'SH', 'AR', 'AI', 'SG', 'GR', 'AG', 'TG', 'TI', 'VD', 'VS', 'NE', 'GE', 'JU',
+      'AG', 'AR', 'AI', 'BL', 'BS', 'BE', 'FR', 'GE', 'GL', 'GR', 'JU', 'LU', 'NE',
+      'NW', 'OW', 'SH', 'SZ', 'SO', 'SG', 'TG', 'TI', 'UR', 'VS', 'VD', 'ZG', 'ZH',
     ]);
     const zh = g.find((x) => x.code === 'ZH')!;
     expect(zh.count).toBe(0);
