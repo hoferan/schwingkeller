@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pinHtml, popupHtml } from './markers';
+import { pinHtml, popupHtml, userPinHtml } from './markers';
 import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
 
@@ -17,5 +17,13 @@ describe('markers html', () => {
     const html = popupHtml(venue, STR.de);
     expect(html).toContain('Emmental');
     expect(html).toContain('data-detail="1"');
+  });
+});
+
+describe('userPinHtml', () => {
+  it('is a blue location dot, visually distinct from venue pins', () => {
+    const html = userPinHtml();
+    expect(html).toContain('#1a73e8');
+    expect(html).not.toBe(pinHtml(false));
   });
 });

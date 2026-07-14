@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterVenues, groupByCanton } from './grouping';
+import { filterVenues, groupByCanton, flatSorted } from './grouping';
 import type { Venue } from './types';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -80,5 +80,24 @@ describe('groupByCanton', () => {
 
   it('defaults to only cantons with venues when includeEmpty is omitted', () => {
     expect(groupByCanton(venues).map((x) => x.code)).toEqual(['BE', 'LU']);
+  });
+});
+
+describe('flatSorted', () => {
+  const mk = (id: string, name: string, lat: number, lng: number) => ({
+    id, name, canton: 'BE', address: '', lat, lng,
+    indoor: true, outdoor: false, person: '', phone: '', website: '', photo_url: null,
+  });
+  const venues = [mk('1', 'Zug-Halle', 47.2, 8.5), mk('2', 'Aare-Keller', 46.9, 7.4)];
+
+  it('sorts by name A→Z', () => {
+    expect(flatSorted(venues, 'name').map((v) => v.name)).toEqual(['Aare-Keller', 'Zug-Halle']);
+  });
+  it('sorts by distance nearest-first when an origin is given', () => {
+    const origin = { lat: 46.95, lng: 7.45 };
+    expect(flatSorted(venues, 'distance', origin).map((v) => v.id)).toEqual(['2', '1']);
+  });
+  it('falls back to name order for distance mode with no origin', () => {
+    expect(flatSorted(venues, 'distance', null).map((v) => v.name)).toEqual(['Aare-Keller', 'Zug-Halle']);
   });
 });
