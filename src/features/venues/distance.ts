@@ -18,18 +18,20 @@ export const haversineKm = (a: LatLng, b: LatLng): number => {
 };
 
 export const formatDistance = (km: number, locale: string): string => {
+  const swiss: Record<string, string> = { de: 'de-CH', fr: 'fr-CH', it: 'it-CH' };
+  const loc = swiss[locale] ?? locale;
   if (km < 1) {
     const m = Math.round((km * 1000) / 10) * 10;
-    return `${new Intl.NumberFormat(locale).format(m)} m`;
+    return `${new Intl.NumberFormat(loc).format(m)} m`;
   }
   if (km < 100) {
-    const n = new Intl.NumberFormat(locale, {
+    const n = new Intl.NumberFormat(loc, {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     }).format(km);
     return `${n} km`;
   }
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(km)} km`;
+  return `${new Intl.NumberFormat(loc, { maximumFractionDigits: 0 }).format(km)} km`;
 };
 
 export const sortByDistance = <T extends LatLng>(items: T[], origin: LatLng): T[] =>

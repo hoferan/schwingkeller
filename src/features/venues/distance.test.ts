@@ -18,7 +18,7 @@ describe('formatDistance', () => {
     expect(formatDistance(0.847, 'de')).toBe('850 m');
   });
   it('shows one decimal from 1 to 99 km', () => {
-    expect(formatDistance(4.23, 'en')).toBe('4.2 km');
+    expect(formatDistance(4.23, 'de')).toBe('4.2 km');
   });
   it('uses the locale decimal separator', () => {
     expect(formatDistance(4.23, 'fr')).toBe('4,2 km');
