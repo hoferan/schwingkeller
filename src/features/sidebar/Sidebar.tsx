@@ -304,10 +304,10 @@ export const Sidebar = ({
   }, [isMobile, isTablet, sidebarOpen, onSetSidebarOpen]);
 
   const list = filterVenues(venues, search);
-  const groups = groupByCanton(list);
   const searching = search.trim() !== '';
+  const groups = groupByCanton(list, !searching);
   const hasSearch = search.trim() !== '';
-  const noResults = list.length === 0;
+  const noResults = searching && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
@@ -609,39 +609,52 @@ export const Sidebar = ({
               </div>
               {exp && (
                 <div style={{ padding: '1px 0 9px' }}>
-                  {group.venues.map((v) => {
-                    const sel = v.id === selectedId;
-                    return (
-                      <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              color: theme.color.ink,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {v.name}
+                  {group.venues.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '10px 12px 14px',
+                        color: theme.color.muted,
+                        fontSize: '12.5px',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {t.cantonEmpty}
+                    </div>
+                  ) : (
+                    group.venues.map((v) => {
+                      const sel = v.id === selectedId;
+                      return (
+                        <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                color: theme.color.ink,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {v.name}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '12px',
+                                color: theme.color.muted,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {townOf(v.address)}
+                            </div>
                           </div>
-                          <div
-                            style={{
-                              fontSize: '12px',
-                              color: theme.color.muted,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {townOf(v.address)}
-                          </div>
+                          <span style={chevronBadgeStyle(sel)}><ChevronRight size={14} /></span>
                         </div>
-                        <span style={chevronBadgeStyle(sel)}><ChevronRight size={14} /></span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>

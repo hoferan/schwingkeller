@@ -72,6 +72,8 @@ export const STR = {
     share: 'Teilen',
     linkCopied: 'Link kopiert',
     shareFailed: 'Teilen fehlgeschlagen',
+    cantonEmpty:
+      'Für diesen Kanton sind noch keine Schwingkeller erfasst. Neue Einträge können ausschliesslich von Administratoren hinzugefügt werden.',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -143,6 +145,8 @@ export const STR = {
     share: 'Partager',
     linkCopied: 'Lien copié',
     shareFailed: 'Échec du partage',
+    cantonEmpty:
+      'Aucun lieu n’est encore répertorié pour ce canton. Les nouvelles entrées ne peuvent être ajoutées que par les administrateurs.',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -214,6 +218,8 @@ export const STR = {
     share: 'Condividi',
     linkCopied: 'Link copiato',
     shareFailed: 'Condivisione non riuscita',
+    cantonEmpty:
+      'Per questo cantone non è ancora stata registrata alcuna sede. Le nuove voci possono essere aggiunte esclusivamente dagli amministratori.',
   },
 } as const;
 

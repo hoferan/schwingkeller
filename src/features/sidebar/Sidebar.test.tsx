@@ -38,6 +38,7 @@ interface HarnessProps {
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onSetSidebarOpen?: (open: boolean) => void;
+  venuesData?: Venue[];
 }
 
 const Harness = ({
@@ -46,13 +47,14 @@ const Harness = ({
   sidebarOpen = true,
   onToggleSidebar = () => {},
   onSetSidebarOpen = () => {},
+  venuesData = venues,
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   return (
     <Sidebar
-      venues={venues}
+      venues={venuesData}
       search={search}
       onSearch={setSearch}
       expanded={expanded}
@@ -90,6 +92,24 @@ describe('Sidebar', () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
     expect(screen.getByText('Luzern')).toBeInTheDocument();
+  });
+
+  it('shows the empty-state message for a canton with no venues when expanded', async () => {
+    renderSidebar();
+    // Zug has no venues in the fixture, but must still render as one of all 26 cantons.
+    await waitFor(() => expect(screen.getByText('Zug')).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.cantonEmpty)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Zug'));
+
+    await waitFor(() => expect(screen.getByText(STR.de.cantonEmpty)).toBeInTheDocument());
+  });
+
+  it('does not show the no-results banner when idle with no venues at all', async () => {
+    renderSidebar({ venuesData: [] });
+    // Empty cantons still render when idle (not searching), even with zero venues overall.
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.noResults)).not.toBeInTheDocument();
   });
 
   it('filters venues as the user types in the search box', async () => {
