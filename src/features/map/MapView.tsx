@@ -301,7 +301,7 @@ export function MapView({
     const pos = userPosition;
     if (!pos) return;
     const icon = L.divIcon({ className: '', html: userPinHtml(), iconSize: [22, 22], iconAnchor: [11, 11] });
-    userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false, keyboard: false }).addTo(map);
+    userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false, keyboard: false, title: tRef.current.youAreHere }).addTo(map);
     map.flyTo([pos.lat, pos.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
   }, [userPosition]);
 
