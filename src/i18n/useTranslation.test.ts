@@ -53,3 +53,39 @@ describe('detectLang', () => {
     expect(detectLang()).toBe('it');
   });
 });
+
+import { loadLang } from './useTranslation';
+
+describe('loadLang', () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('returns a valid stored value without detecting', () => {
+    localStorage.setItem('schwing_lang', 'fr');
+    const langsGet = vi.spyOn(window.navigator, 'languages', 'get');
+    expect(loadLang()).toBe('fr');
+    expect(langsGet).not.toHaveBeenCalled();
+  });
+
+  it('detects and persists when nothing is stored', () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['fr-CH']);
+    expect(loadLang()).toBe('fr');
+    expect(localStorage.getItem('schwing_lang')).toBe('fr');
+  });
+
+  it('ignores an invalid stored value and falls through to detection', () => {
+    localStorage.setItem('schwing_lang', 'en');
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['it-IT']);
+    expect(loadLang()).toBe('it');
+    expect(localStorage.getItem('schwing_lang')).toBe('it');
+  });
+
+  it('returns de when localStorage.getItem throws', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(loadLang()).toBe('de');
+  });
+});

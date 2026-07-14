@@ -21,6 +21,14 @@ export const detectLang = (): Lang => {
 };
 
 export const loadLang = (): Lang => {
-  try { return (localStorage.getItem('schwing_lang') as Lang) || 'de'; } catch { return 'de'; }
+  try {
+    const stored = localStorage.getItem('schwing_lang');
+    if (stored && (LANGS as readonly string[]).includes(stored)) return stored as Lang;
+    const detected = detectLang();
+    saveLang(detected);
+    return detected;
+  } catch {
+    return 'de';
+  }
 };
 export const saveLang = (l: Lang) => { try { localStorage.setItem('schwing_lang', l); } catch { /* ignore */ } };
