@@ -471,7 +471,7 @@ export const Sidebar = ({
         {([
           { key: 'indoor', label: t.indoor, Icon: Home },
           { key: 'outdoor', label: t.outdoor, Icon: Mountain },
-        ] as { key: keyof Facets; label: string; Icon: typeof Home }[]).map(({ key, label, Icon }) => {
+        ] satisfies { key: keyof Facets; label: string; Icon: typeof Home }[]).map(({ key, label, Icon }) => {
           const active = facets[key];
           return (
             <button
@@ -495,7 +495,7 @@ export const Sidebar = ({
                 cursor: 'pointer',
               }}
             >
-              <Icon size={14} /> {label}
+              <Icon size={14} aria-hidden /> {label}
             </button>
           );
         })}
