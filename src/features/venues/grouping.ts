@@ -1,5 +1,7 @@
 import { CANTONS, cantonByCode } from '../../data/cantons';
 import type { Venue } from './types';
+import type { LatLng } from './distance';
+import { sortByDistance } from './distance';
 
 export const filterVenues = (venues: Venue[], search: string): Venue[] => {
   const q = search.trim().toLowerCase();
@@ -21,4 +23,18 @@ export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGrou
       code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+};
+
+export type SortMode = 'canton' | 'name' | 'distance';
+
+export const flatSorted = (
+  venues: Venue[],
+  mode: SortMode,
+  origin?: LatLng | null,
+): Venue[] => {
+  if (mode === 'distance' && origin) return sortByDistance(venues, origin);
+  if (mode === 'name' || mode === 'distance') {
+    return [...venues].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  }
+  return venues;
 };
