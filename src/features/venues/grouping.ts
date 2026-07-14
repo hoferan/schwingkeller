@@ -3,12 +3,23 @@ import type { Venue } from './types';
 import type { LatLng } from './distance';
 import { sortByDistance } from './distance';
 
-export const filterVenues = (venues: Venue[], search: string): Venue[] => {
+export interface Facets {
+  indoor: boolean;
+  outdoor: boolean;
+}
+
+export const filterVenues = (venues: Venue[], search: string, facets?: Facets): Venue[] => {
   const q = search.trim().toLowerCase();
-  if (!q) return venues;
+  const anyFacet = !!facets && (facets.indoor || facets.outdoor);
+  if (!q && !anyFacet) return venues;
   return venues.filter((v) => {
     const c = cantonByCode(v.canton);
-    return `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''}`.toLowerCase().includes(q);
+    const textOk =
+      !q ||
+      `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''}`.toLowerCase().includes(q);
+    const facetOk =
+      !anyFacet || (facets!.indoor && v.indoor) || (facets!.outdoor && v.outdoor);
+    return textOk && facetOk;
   });
 };
 

@@ -21,6 +21,38 @@ describe('filterVenues', () => {
   it('matches canton name', () => {
     expect(filterVenues(venues, 'luzern').map((x) => x.id)).toEqual(['2', '3']);
   });
+
+  const mixed = [
+    v({ id: '1', name: 'IndoorOnly', indoor: true, outdoor: false }),
+    v({ id: '2', name: 'OutdoorOnly', indoor: false, outdoor: true }),
+    v({ id: '3', name: 'Both', indoor: true, outdoor: true }),
+    v({ id: '4', name: 'Neither', indoor: false, outdoor: false }),
+  ];
+
+  it('returns all when no facet flag is set', () => {
+    expect(filterVenues(mixed, '', { indoor: false, outdoor: false }).map((x) => x.id))
+      .toEqual(['1', '2', '3', '4']);
+  });
+  it('returns all when facets is omitted', () => {
+    expect(filterVenues(mixed, '')).toHaveLength(4);
+  });
+  it('indoor chip keeps only indoor venues', () => {
+    expect(filterVenues(mixed, '', { indoor: true, outdoor: false }).map((x) => x.id))
+      .toEqual(['1', '3']);
+  });
+  it('outdoor chip keeps only outdoor venues', () => {
+    expect(filterVenues(mixed, '', { indoor: false, outdoor: true }).map((x) => x.id))
+      .toEqual(['2', '3']);
+  });
+  it('both chips keep the union (indoor OR outdoor), excluding neither', () => {
+    expect(filterVenues(mixed, '', { indoor: true, outdoor: true }).map((x) => x.id))
+      .toEqual(['1', '2', '3']);
+  });
+  it('combines text query and facet with AND', () => {
+    // "only" matches OutdoorOnly, Both, and IndoorOnly by name; outdoor chip narrows to outdoor ones.
+    expect(filterVenues(mixed, 'only', { indoor: false, outdoor: true }).map((x) => x.id))
+      .toEqual(['2']);
+  });
 });
 
 describe('groupByCanton', () => {
