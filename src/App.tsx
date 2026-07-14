@@ -18,6 +18,8 @@ import { parseCantonParam, parseVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { shareVenueUrl } from './lib/share';
+import { useGeolocation } from './features/geo/useGeolocation';
+import type { SortMode } from './features/venues/grouping';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -77,6 +79,8 @@ function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('canton');
+  const geo = useGeolocation();
 
   // Edit-form state. `editOpen` controls whether the form should exist at all;
   // `editInitial` holds the Venue being edited (null = new). While `placing`
@@ -100,6 +104,16 @@ function AppShell() {
     flashTimer.current = window.setTimeout(() => setFlash(null), 4500);
   };
   useEffect(() => () => { if (flashTimer.current) window.clearTimeout(flashTimer.current); }, []);
+
+  useEffect(() => {
+    // Toast reacts to a status change reported by the browser's geolocation callback (an
+    // external system), not to render-derived state — safe to setState here.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (geo.status === 'denied') showFlash('err', t.locationDenied);
+    else if (geo.status === 'error') showFlash('err', t.locationError);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo.status]);
 
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
   const initialFocusBounds = ctnParam ? boundsForCanton(ctnParam) : null;
@@ -286,6 +300,11 @@ function AppShell() {
           onExportJSON={onExportJSON}
           onExportCSV={onExportCSV}
           onImport={onImport}
+          sortMode={sortMode}
+          onSortMode={setSortMode}
+          userPosition={geo.position}
+          geoStatus={geo.status}
+          onRequestLocation={geo.request}
         />
 
         <div style={mapWrapStyle}>
@@ -299,6 +318,9 @@ function AppShell() {
             placing={placing}
             onPickLocation={onPickLocation}
             initialFocusBounds={initialFocusBounds}
+            userPosition={geo.position}
+            geoStatus={geo.status}
+            onRequestLocation={geo.request}
           />
         </div>
       </div>

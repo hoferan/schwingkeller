@@ -3,10 +3,12 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
-import { Maximize } from 'lucide-react';
+import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, popupHtml, clusterIcon } from './markers';
+import { pinHtml, popupHtml, clusterIcon, userPinHtml } from './markers';
+import type { LatLng } from '../venues/distance';
+import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
 
 interface MapViewProps {
@@ -20,6 +22,9 @@ interface MapViewProps {
   onPickLocation: (lat: number, lng: number) => void;
   registerFitAll?: (fn: () => void) => void;
   initialFocusBounds?: [[number, number], [number, number]] | null;
+  userPosition: LatLng | null;
+  geoStatus: GeoStatus;
+  onRequestLocation: () => void;
 }
 
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
@@ -77,6 +82,7 @@ const fitAllBtnStyle: CSSProperties = {
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
   baseKind, onChangeBase, placing, onPickLocation, registerFitAll, initialFocusBounds,
+  userPosition, geoStatus, onRequestLocation,
 }: MapViewProps) {
   const { t } = useTranslation();
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -85,6 +91,7 @@ export function MapView({
   const markerGroupRef = useRef<any>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
   const tileRef = useRef<L.TileLayer | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
   const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
   const [fitAllSize, setFitAllSize] = useState(FIT_ALL_DEFAULT_SIZE);
   const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
@@ -286,6 +293,18 @@ export function MapView({
     });
   }, [initialFocusBounds]);
 
+  // User position → drop / move the "you are here" marker and gently center on it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (userMarkerRef.current) { map.removeLayer(userMarkerRef.current); userMarkerRef.current = null; }
+    const pos = userPosition;
+    if (!pos) return;
+    const icon = L.divIcon({ className: '', html: userPinHtml(), iconSize: [22, 22], iconAnchor: [11, 11] });
+    userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false, keyboard: false }).addTo(map);
+    map.flyTo([pos.lat, pos.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
+  }, [userPosition]);
+
   return (
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
@@ -309,6 +328,19 @@ export function MapView({
           <Maximize size={18} />
         </button>
       </div>
+      {geoStatus !== 'unsupported' && (
+        <div style={{ ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${fitAllTop + fitAllSize + 10}px`, width: `${fitAllSize}px`, height: `${fitAllSize}px`, border: fitAllBorder, backgroundClip: fitAllBgClip, zIndex: 1000 }}>
+          <button
+            className="sk-native-ctrl-btn"
+            onClick={onRequestLocation}
+            title={t.useMyLocation}
+            aria-label={t.useMyLocation}
+            style={{ ...fitAllBtnStyle, color: geoStatus === 'denied' || geoStatus === 'error' ? theme.color.muted : theme.color.ink }}
+          >
+            <LocateFixed size={18} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
