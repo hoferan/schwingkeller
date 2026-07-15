@@ -16,7 +16,7 @@ const venue: Venue = {
   person: '',
   phone: '',
   website: '',
-  photo_url: null,
+  photos: [],
 };
 
 describe('MarkerPopup', () => {
@@ -31,5 +31,20 @@ describe('MarkerPopup', () => {
   it('marks the details button with the venue id for click delegation', () => {
     render(<MarkerPopup venue={venue} t={STR.de} />);
     expect(screen.getByRole('button', { name: STR.de.details })).toHaveAttribute('data-detail', '1');
+  });
+
+  it('renders a photo when available, not the placeholder', () => {
+    const venueWithPhoto: Venue = {
+      ...venue,
+      photos: [{ id: 'p1', url: 'https://example.com/photo.jpg', position: 0 }],
+    };
+    const { container } = render(<MarkerPopup venue={venueWithPhoto} t={STR.de} />);
+
+    // Check that the photo URL is rendered in the background-image style
+    // Note: quotes are HTML-encoded as &quot; in the innerHTML
+    expect(container.innerHTML).toContain('url(&quot;https://example.com/photo.jpg&quot;)');
+
+    // Check that the placeholder "FOTO" label is NOT present when photo is available
+    expect(screen.queryByText('FOTO')).not.toBeInTheDocument();
   });
 });

@@ -24,11 +24,12 @@ import type { SortMode } from './features/venues/grouping';
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
 
-// Strip the synthetic id so an imported row becomes a VenueInput.
-const toInput = (v: Venue): VenueInput => {
-  const { id: _id, ...rest } = v;
+// Strip the synthetic id and flatten the gallery into photo_urls for the
+// bulk-replace RPC shape.
+const toInput = (v: Venue): VenueInput & { photo_urls: string[] } => {
+  const { id: _id, photos, ...rest } = v;
   void _id;
-  return rest;
+  return { ...rest, photo_urls: photos.map((p) => p.url) };
 };
 
 const download = (name: string, type: string, data: string) => {
@@ -95,7 +96,9 @@ function AppShell() {
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Import confirmation (staged file) + transient status toast.
-  const [pendingImport, setPendingImport] = useState<{ count: number; inputs: VenueInput[] } | null>(null);
+  const [pendingImport, setPendingImport] = useState<
+    { count: number; inputs: (VenueInput & { photo_urls: string[] })[] } | null
+  >(null);
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const flashTimer = useRef<number | null>(null);
   const showFlash = (kind: 'ok' | 'err', text: string) => {

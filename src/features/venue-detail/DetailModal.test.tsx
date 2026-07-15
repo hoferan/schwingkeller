@@ -31,7 +31,7 @@ const venue: Venue = {
   person: 'Hans Muster',
   phone: '+41 31 123 45 67',
   website: 'schwingkeller-bern.ch',
-  photo_url: null,
+  photos: [],
 };
 
 const noop = () => {};

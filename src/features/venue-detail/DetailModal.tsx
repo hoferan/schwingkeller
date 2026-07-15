@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { wappenUrl } from '../../data/cantons';
 import type { Venue } from '../venues/types';
 import { theme } from '../../theme';
+import { PhotoGallery } from './PhotoGallery';
 
 interface DetailModalProps {
   venue: Venue;
@@ -48,30 +49,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
           overflow: 'hidden',
         }}
       >
-        {venue.photo_url ? (
-          <img
-            src={venue.photo_url}
-            alt=""
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : (
-          <div
-            style={{
-              position: 'absolute', inset: 0,
-              background: 'repeating-linear-gradient(45deg,#e5e5e5 0 12px,#d4d4d4 12px 24px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'monospace', fontSize: '11px', letterSpacing: '.12em', color: theme.color.ink,
-                background: theme.color.bg, border: '1px solid ' + theme.color.line, padding: '6px 11px',
-              }}
-            >
-              FOTO · {venue.name}
-            </span>
-          </div>
-        )}
+        <PhotoGallery photos={venue.photos} venueName={venue.name} />
         {wappen && (
           <img
             src={wappen}

@@ -3,6 +3,7 @@ import { Home, Mountain, ArrowRight } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import type { STR } from '../../i18n/translations';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
+import { coverPhotoUrl } from '../venues/photos';
 import { theme } from '../../theme';
 
 type T = typeof STR.de;
@@ -53,10 +54,11 @@ const detailBtnStyle: CSSProperties = {
 // data-detail instead of a real onClick; MapView.tsx wires the click via DOM delegation.
 export function MarkerPopup({ venue, t }: MarkerPopupProps) {
   const c = cantonByCode(venue.canton);
+  const photo = coverPhotoUrl(venue);
   return (
     <div style={wrapStyle}>
-      {venue.photo_url ? (
-        <div style={photoStyle(venue.photo_url)} />
+      {photo ? (
+        <div style={photoStyle(photo)} />
       ) : (
         <div style={photoPlaceholderStyle}>
           <span style={fotoLabelStyle}>FOTO</span>

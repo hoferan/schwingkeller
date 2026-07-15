@@ -26,7 +26,7 @@ import type { GeoStatus } from '../geo/useGeolocation';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photo_url: null, ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
 });
 
 // Distances: venue '1' Emmental in BE, '2'/'3' in LU. Given coords so distance is meaningful.

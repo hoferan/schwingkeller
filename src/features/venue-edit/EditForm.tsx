@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Upload, Check, Home, Mountain, Crosshair, ArrowUpDown } from 'lucide-react';
+import { X, Check, Home, Mountain, Crosshair, ArrowUpDown } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
 import { plzToCanton } from '../../data/plzRanges';
 import { forwardGeocode, reverseGeocode } from '../venues/geocoding';
-import { uploadPhoto } from '../venues/api';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
 import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
+import { PhotoGalleryEditor } from './PhotoGalleryEditor';
 
 interface EditFormProps {
   initial: Venue | null;
@@ -35,7 +35,7 @@ const blankDraft = (): Draft => ({
   person: '',
   phone: '',
   website: '',
-  photo_url: null,
+  photos: [],
   cantonAuto: false,
 });
 
@@ -60,7 +60,7 @@ const spOff: React.CSSProperties = {
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
   const { t } = useTranslation();
-  const { create, update } = useVenueMutations();
+  const { create, update, syncPhotos } = useVenueMutations();
 
   const [draft, setDraft] = useState<Draft>(() =>
     initial ? { ...initial, cantonAuto: false } : blankDraft());
@@ -119,20 +119,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     }));
   };
 
-  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    try {
-      const url = await uploadPhoto(f);
-      setDraft((d) => ({ ...d, photo_url: url }));
-    } catch (err) {
-      // Keep prior value; surface the failure non-fatally.
-      onError?.(captureAndFormat(err, t.uploadError));
-    } finally {
-      e.target.value = '';
-    }
-  };
-
   const buildInput = (): VenueInput => ({
     name: draft.name,
     canton: draft.canton,
@@ -144,7 +130,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     person: draft.person,
     phone: draft.phone,
     website: draft.website,
-    photo_url: draft.photo_url,
   });
 
   const save = async (andNew: boolean) => {
@@ -154,6 +139,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       const saved = initial
         ? await update.mutateAsync({ id: initial.id, input })
         : await create.mutateAsync(input);
+      await syncPhotos.mutateAsync({ venueId: saved.id, original: initial?.photos ?? [], draft: draft.photos });
       onSaved(saved, andNew);
     } catch (err) {
       onError?.(captureAndFormat(err, t.saveError));
@@ -190,33 +176,13 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       <div style={{ padding: '16px 18px 18px' }}>
         {/* photo */}
         <label style={{ ...labelStyle, marginBottom: '7px' }}>{t.photo}</label>
-        <label
-          style={{
-            display: 'block', height: '128px', overflow: 'hidden', cursor: 'pointer', borderRadius: theme.radius.sm,
-            border: '1.5px dashed ' + theme.color.line, position: 'relative', marginBottom: '16px',
-          }}
-        >
-          {draft.photo_url ? (
-            <img
-              src={draft.photo_url}
-              alt=""
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <div
-              style={{
-                position: 'absolute', inset: 0,
-                background: 'repeating-linear-gradient(45deg,#e5e5e5 0 11px,#d4d4d4 11px 22px)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: '6px', color: theme.color.ink,
-              }}
-            >
-              <Upload size={22} />
-              <span style={{ fontSize: '12.5px', fontWeight: 600 }}>{t.upload}</span>
-            </div>
-          )}
-          <input type="file" accept="image/*" onChange={onUpload} style={{ display: 'none' }} />
-        </label>
+        <div style={{ marginBottom: '16px' }}>
+          <PhotoGalleryEditor
+            photos={draft.photos}
+            onChange={(photos) => setDraft((d) => ({ ...d, photos }))}
+            onError={onError}
+          />
+        </div>
 
         {/* name */}
         <label style={labelStyle}>{t.name}</label>

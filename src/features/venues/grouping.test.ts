@@ -4,7 +4,7 @@ import type { Venue } from './types';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photo_url: null, ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
 });
 
 const venues = [
@@ -86,7 +86,7 @@ describe('groupByCanton', () => {
 describe('flatSorted', () => {
   const mk = (id: string, name: string, lat: number, lng: number) => ({
     id, name, canton: 'BE', address: '', lat, lng,
-    indoor: true, outdoor: false, person: '', phone: '', website: '', photo_url: null,
+    indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [],
   });
   const venues = [mk('1', 'Zug-Halle', 47.2, 8.5), mk('2', 'Aare-Keller', 46.9, 7.4)];
 

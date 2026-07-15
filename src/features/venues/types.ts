@@ -1,3 +1,9 @@
+export interface VenuePhoto {
+  id: string;
+  url: string;
+  position: number;
+}
+
 export interface Venue {
   id: string;
   name: string;
@@ -10,7 +16,7 @@ export interface Venue {
   person: string;
   phone: string;
   website: string;
-  photo_url: string | null;
+  photos: VenuePhoto[];
 }
 
-export type VenueInput = Omit<Venue, 'id'>;
+export type VenueInput = Omit<Venue, 'id' | 'photos'>;
