@@ -5,7 +5,6 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
 import { plzToCanton } from '../../data/plzRanges';
 import { forwardGeocode, reverseGeocode } from '../venues/geocoding';
-import { syncVenuePhotos } from '../venues/api';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
 import { theme } from '../../theme';
@@ -61,7 +60,7 @@ const spOff: React.CSSProperties = {
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
   const { t } = useTranslation();
-  const { create, update } = useVenueMutations();
+  const { create, update, syncPhotos } = useVenueMutations();
 
   const [draft, setDraft] = useState<Draft>(() =>
     initial ? { ...initial, cantonAuto: false } : blankDraft());
@@ -140,7 +139,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       const saved = initial
         ? await update.mutateAsync({ id: initial.id, input })
         : await create.mutateAsync(input);
-      await syncVenuePhotos(saved.id, initial?.photos ?? [], draft.photos);
+      await syncPhotos.mutateAsync({ venueId: saved.id, original: initial?.photos ?? [], draft: draft.photos });
       onSaved(saved, andNew);
     } catch (err) {
       onError?.(captureAndFormat(err, t.saveError));

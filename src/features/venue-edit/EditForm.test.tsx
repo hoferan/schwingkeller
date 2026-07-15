@@ -59,9 +59,10 @@ beforeEach(() => {
   uploadMock.mockResolvedValue({ error: null });
 });
 
-const renderForm = (onError = vi.fn()) =>
-  render(
-    <QueryClientProvider client={makeClient()}>
+const renderForm = (onError = vi.fn(), client = makeClient()) => ({
+  client,
+  ...render(
+    <QueryClientProvider client={client}>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <EditForm
           initial={null}
@@ -73,7 +74,8 @@ const renderForm = (onError = vi.fn()) =>
         />
       </I18nContext.Provider>
     </QueryClientProvider>,
-  );
+  ),
+});
 
 describe('EditForm onError prop', () => {
   it('accepts an onError callback without invoking it on a clean render', () => {
@@ -102,5 +104,35 @@ describe('EditForm onError prop', () => {
     fireEvent.click(screen.getByText(STR.de.saveClose));
 
     await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], []));
+  });
+
+  it('invalidates the venues query again after syncVenuePhotos resolves, not just after the venue save', async () => {
+    // Hold syncVenuePhotos open so we can observe the invalidateQueries call count
+    // before and after it resolves — this is what would have caught the staleness bug.
+    let resolveSync: () => void = () => {};
+    const syncPromise = new Promise<void>((resolve) => { resolveSync = resolve; });
+    vi.mocked(syncVenuePhotos).mockImplementationOnce(() => syncPromise);
+
+    const client = makeClient();
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+
+    renderForm(vi.fn(), client);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    // The venue-row create/update mutation has resolved and syncVenuePhotos has been
+    // invoked (but not yet resolved) — at this point only the create mutation's own
+    // onSuccess should have invalidated the ['venues'] query.
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], []));
+    const callsBeforeSyncResolved = invalidateSpy.mock.calls.length;
+    expect(callsBeforeSyncResolved).toBeGreaterThanOrEqual(1);
+
+    resolveSync();
+
+    // Once syncVenuePhotos resolves, the syncPhotos mutation's own onSuccess must fire
+    // a further invalidation of ['venues'] — proving the gallery/marker data is
+    // refetched with the post-sync photo state, not just the pre-sync venue row.
+    await waitFor(() => expect(invalidateSpy.mock.calls.length).toBeGreaterThan(callsBeforeSyncResolved));
+    expect(invalidateSpy).toHaveBeenLastCalledWith({ queryKey: ['venues'] });
   });
 });
