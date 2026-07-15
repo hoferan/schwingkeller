@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const { uploadMock } = vi.hoisted(() => ({
@@ -20,7 +20,7 @@ vi.mock('../../lib/supabase', () => ({
       update: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: { id: 'v1', name: 'Testkeller' }, error: null }),
     }),
     storage: {
       from: vi.fn().mockReturnValue({
@@ -40,10 +40,16 @@ vi.mock('../venues/geocoding', () => ({
   reverseGeocode: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('../venues/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../venues/api')>();
+  return { ...actual, syncVenuePhotos: vi.fn().mockResolvedValue(undefined) };
+});
+
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { EditForm } from './EditForm';
 import { captureAndFormat } from '../../lib/sentry';
+import { syncVenuePhotos } from '../venues/api';
 
 const makeClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -88,5 +94,13 @@ describe('EditForm onError prop', () => {
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.uploadError));
     expect(captureAndFormat).toHaveBeenCalled();
+  });
+
+  it('calls syncVenuePhotos with the venue id and the current photo draft after save', async () => {
+    renderForm();
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], []));
   });
 });
