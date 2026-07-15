@@ -9,4 +9,12 @@ describe('translations', () => {
     expect(Object.keys(STR.it).sort()).toEqual(keys);
   });
   it('resolves a known key', () => { expect(STR.de.search).toBe('Schwingkeller suchen …'); });
+  it('defines the admin-section and sort-label keys in every language', () => {
+    for (const lang of LANGS) {
+      expect(STR[lang].adminSection).toBeTruthy();
+      expect(STR[lang].adminToggle).toBeTruthy();
+      expect(STR[lang].byName).toBeTruthy();
+      expect(STR[lang].byDistance).toBeTruthy();
+    }
+  });
 });

@@ -423,7 +423,12 @@ services:
         condition: service_completed_successfully
       kong:
         condition: service_healthy
-    command: npm run dev
+    # Install deps at startup so the anonymous node_modules volume (below) always
+    # matches package.json. Without this, adding a dependency after the volume was
+    # first created leaves the container's node_modules stale — a rebuild does NOT
+    # re-seed an existing anonymous volume — and Vite crashes with ERR_MODULE_NOT_FOUND
+    # for the new package. `npm install` is idempotent and fast when deps are unchanged.
+    command: sh -c "npm install && npm run dev"
 
 volumes:
   db-data:

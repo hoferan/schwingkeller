@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, Plus, Download, Upload, Home, Mountain } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, ChevronDown, Plus, Download, Upload, Home, Mountain } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton, flatSorted, type SortMode, type Facets } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
@@ -146,6 +146,23 @@ export const Sidebar = ({
   const startedOnDragZoneRef = useRef(false);
   const [dragX, setDragX] = useState<number | null>(null);
   const [facets, setFacets] = useState<Facets>({ indoor: false, outdoor: false });
+  const [adminOpen, setAdminOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('sk-verwaltung-open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleAdmin = () =>
+    setAdminOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem('sk-verwaltung-open', String(next));
+      } catch {
+        /* localStorage unavailable — keep in-memory state only */
+      }
+      return next;
+    });
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
@@ -336,6 +353,7 @@ export const Sidebar = ({
   const totalText = `${list.length} ${t.unitTotal}`;
   const flat = sortMode !== 'canton';
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
+  const sectionLabel = sortMode === 'name' ? t.byName : sortMode === 'distance' ? t.byDistance : t.byCanton;
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
   // Desktop/tablet: fixed-width column.
@@ -441,6 +459,93 @@ export const Sidebar = ({
         </div>
       </div>
 
+      {isAdmin && (
+        <div style={{ padding: '12px 15px 4px', flex: 'none' }} data-testid="admin-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                fontFamily: theme.font.display,
+                fontSize: '11px',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: theme.color.muted,
+                fontWeight: 700,
+                flex: 1,
+              }}
+            >
+              {t.adminSection}
+            </span>
+            <button
+              type="button"
+              onClick={onAdd}
+              aria-label={t.add}
+              title={t.add}
+              style={{
+                width: '30px',
+                height: '30px',
+                border: 'none',
+                borderRadius: theme.radius.sm,
+                background: theme.color.accent,
+                color: theme.color.accentInk,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 'none',
+              }}
+            >
+              <Plus size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={toggleAdmin}
+              aria-label={t.adminToggle}
+              aria-expanded={adminOpen}
+              title={t.adminToggle}
+              style={{
+                width: '30px',
+                height: '30px',
+                border: '1px solid ' + theme.color.line,
+                borderRadius: theme.radius.sm,
+                background: theme.color.bg,
+                color: theme.color.ink,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 'none',
+              }}
+            >
+              {adminOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+          </div>
+          {adminOpen && (
+            <div style={{ display: 'flex', gap: '7px', marginTop: '10px' }}>
+              <button onClick={onExportJSON} style={exportBtnStyle}>
+                <Download size={13} /> JSON
+              </button>
+              <button onClick={onExportCSV} style={exportBtnStyle}>
+                <Download size={13} /> CSV
+              </button>
+              <label style={exportBtnStyle}>
+                <Upload size={13} /> {t.import}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".json,.csv,application/json,text/csv"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onImport(f);
+                    if (fileRef.current) fileRef.current.value = '';
+                  }}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ padding: '15px 15px 11px', flex: 'none' }}>
         <div
           style={{
@@ -526,62 +631,6 @@ export const Sidebar = ({
         })}
       </div>
 
-      {isAdmin && (
-        <div
-          style={{
-            padding: '0 15px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            flex: 'none',
-          }}
-        >
-          <button
-            onClick={onAdd}
-            style={{
-              width: '100%',
-              border: 'none',
-              background: theme.color.accent,
-              color: theme.color.accentInk,
-              fontWeight: 600,
-              fontSize: '13px',
-              padding: '10px',
-              borderRadius: theme.radius.sm,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '7px',
-            }}
-          >
-            <Plus size={16} />
-            {t.add}
-          </button>
-          <div style={{ display: 'flex', gap: '7px' }}>
-            <button onClick={onExportJSON} style={exportBtnStyle}>
-              <Download size={13} /> JSON
-            </button>
-            <button onClick={onExportCSV} style={exportBtnStyle}>
-              <Download size={13} /> CSV
-            </button>
-            <label style={exportBtnStyle}>
-              <Upload size={13} /> {t.import}
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".json,.csv,application/json,text/csv"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onImport(f);
-                  if (fileRef.current) fileRef.current.value = '';
-                }}
-                style={{ display: 'none' }}
-              />
-            </label>
-          </div>
-        </div>
-      )}
-
       <div style={{ padding: '0 15px 10px', flex: 'none' }} role="radiogroup" aria-label={t.sortBy}>
         <div style={{ display: 'flex', gap: '2px', background: theme.color.paper, padding: '4px', borderRadius: theme.radius.pill }}>
           {([['canton', t.sortCanton], ['name', t.sortName], ['distance', t.sortDistance]] as const)
@@ -613,15 +662,7 @@ export const Sidebar = ({
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 18px 9px',
-          flex: 'none',
-        }}
-      >
+      <div style={{ padding: '0 18px 9px', flex: 'none' }}>
         <span
           style={{
             fontFamily: theme.font.display,
@@ -632,9 +673,8 @@ export const Sidebar = ({
             fontWeight: 700,
           }}
         >
-          {t.byCanton}
+          {sectionLabel}
         </span>
-        <span style={{ fontSize: '11px', color: theme.color.muted }}>{totalText}</span>
       </div>
 
       <div
