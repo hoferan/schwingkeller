@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCSV, toCSV, normalizeVenue } from './importExport';
+import { parseCSV, toCSV, normalizeVenue, toJSON } from './importExport';
 
 describe('parseCSV', () => {
   it('parses header + rows with quoted commas', () => {
@@ -37,5 +37,33 @@ describe('normalizeVenue', () => {
     const n = normalizeVenue({ name: 'X' }, 1);
     expect(n.lat).toBe(46.8);
     expect(n.lng).toBe(8.2);
+  });
+});
+
+describe('normalizeVenue photos', () => {
+  it('parses a photos: string[] field into VenuePhoto[]', () => {
+    const n = normalizeVenue({ name: 'X', photos: ['https://a', 'https://b'] }, 0);
+    expect(n.photos).toEqual([
+      { id: 'import_0_0', url: 'https://a', position: 0 },
+      { id: 'import_0_1', url: 'https://b', position: 1 },
+    ]);
+  });
+
+  it('falls back to a legacy single photo_url field', () => {
+    const n = normalizeVenue({ name: 'X', photo_url: 'https://legacy' }, 2);
+    expect(n.photos).toEqual([{ id: 'import_2_0', url: 'https://legacy', position: 0 }]);
+  });
+
+  it('defaults to an empty gallery when no photo field is present', () => {
+    const n = normalizeVenue({ name: 'X' }, 0);
+    expect(n.photos).toEqual([]);
+  });
+});
+
+describe('toJSON', () => {
+  it('serializes photos as a plain array of URLs', () => {
+    const venue = normalizeVenue({ name: 'X', photos: ['https://a'] }, 0);
+    const json = JSON.parse(toJSON([venue]));
+    expect(json[0].photos).toEqual(['https://a']);
   });
 });

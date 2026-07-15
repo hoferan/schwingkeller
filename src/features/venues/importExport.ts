@@ -1,24 +1,35 @@
-import type { Venue } from './types';
+import type { Venue, VenuePhoto } from './types';
 
 const truthy = (v: unknown) =>
   v === true || /^(true|1|ja|yes|x)$/i.test(String(v ?? ''));
 
-export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => ({
-  id: (v.id != null && v.id !== '' ? String(v.id) : '') || `import_${i}`,
-  name: String(v.name ?? ''),
-  canton: String(v.canton ?? 'BE').toUpperCase(),
-  address: String(v.address ?? ''),
-  lat: parseFloat(String(v.lat)) || 46.8,
-  lng: parseFloat(String(v.lng)) || 8.2,
-  indoor: truthy(v.indoor),
-  outdoor: truthy(v.outdoor),
-  person: String(v.person ?? ''),
-  phone: String(v.phone ?? ''),
-  website: String(v.website ?? ''),
-  photo_url: (v.photo_url as string) || (v.photo as string) || null,
-});
+const parsePhotoUrls = (v: Record<string, unknown>): string[] => {
+  if (Array.isArray(v.photos)) return v.photos.filter((u): u is string => typeof u === 'string');
+  const legacy = (v.photo_url as string) || (v.photo as string) || '';
+  return legacy ? [legacy] : [];
+};
 
-const CSV_COLS: (keyof Venue)[] = [
+export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => {
+  const photos: VenuePhoto[] = parsePhotoUrls(v).map((url, idx) => (
+    { id: `import_${i}_${idx}`, url, position: idx }
+  ));
+  return {
+    id: (v.id != null && v.id !== '' ? String(v.id) : '') || `import_${i}`,
+    name: String(v.name ?? ''),
+    canton: String(v.canton ?? 'BE').toUpperCase(),
+    address: String(v.address ?? ''),
+    lat: parseFloat(String(v.lat)) || 46.8,
+    lng: parseFloat(String(v.lng)) || 8.2,
+    indoor: truthy(v.indoor),
+    outdoor: truthy(v.outdoor),
+    person: String(v.person ?? ''),
+    phone: String(v.phone ?? ''),
+    website: String(v.website ?? ''),
+    photos,
+  };
+};
+
+const CSV_COLS: (keyof Omit<Venue, 'photos'>)[] = [
   'id', 'name', 'canton', 'address', 'lat', 'lng',
   'indoor', 'outdoor', 'person', 'phone', 'website',
 ];
@@ -35,7 +46,12 @@ export const toCSV = (venues: Venue[]): string => {
   return '\uFEFF' + rows.join('\n');
 };
 
-export const toJSON = (venues: Venue[]): string => JSON.stringify(venues, null, 2);
+export const toJSON = (venues: Venue[]): string =>
+  JSON.stringify(
+    venues.map((v) => ({ ...v, photos: v.photos.map((p) => p.url) })),
+    null,
+    2,
+  );
 
 const splitLine = (line: string): string[] => {
   const out: string[] = [];
