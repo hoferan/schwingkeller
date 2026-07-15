@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('./imageCompression', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./imageCompression')>();
+  return { ...actual, compressImageIfNeeded: vi.fn(async (f: File) => f) };
+});
+
 const { order, from, rpc, select, insert, update, del, eq, single } = vi.hoisted(() => {
   const single = vi.fn();
   const eq = vi.fn(() => ({ select, single }));
@@ -16,8 +21,10 @@ vi.mock('../../lib/supabase', () => ({ supabase: { from, rpc } }));
 
 import {
   listVenues, replaceAllVenues, insertVenuePhoto, deleteVenuePhoto,
-  updateVenuePhotoPosition, syncVenuePhotos,
+  updateVenuePhotoPosition, syncVenuePhotos, uploadPhoto,
 } from './api';
+import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
+import { supabase } from '../../lib/supabase';
 import type { VenueInput, VenuePhoto } from './types';
 
 beforeEach(() => { vi.clearAllMocks(); });
@@ -142,5 +149,33 @@ describe('replaceAllVenues', () => {
   it('propagates pg_safeupdate 21000 error when DELETE lacks WHERE clause', async () => {
     rpc.mockResolvedValue({ error: { message: 'DELETE requires a WHERE clause', code: '21000' } });
     await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[21000] DELETE requires a WHERE clause');
+  });
+});
+
+describe('uploadPhoto', () => {
+  const upload = vi.fn();
+  const getPublicUrl = vi.fn();
+  beforeEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).storage = { from: vi.fn(() => ({ upload, getPublicUrl })) };
+    upload.mockResolvedValue({ error: null });
+    getPublicUrl.mockReturnValue({ data: { publicUrl: 'https://cdn.example.com/x.jpg' } });
+  });
+
+  it('compresses, uploads, and returns the public URL', async () => {
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+    const url = await uploadPhoto(file);
+    expect(compressImageIfNeeded).toHaveBeenCalledWith(file);
+    expect(upload).toHaveBeenCalled();
+    expect(url).toBe('https://cdn.example.com/x.jpg');
+  });
+
+  it('throws PhotoTooLargeError when the compressed file is still over 5MB', async () => {
+    vi.mocked(compressImageIfNeeded).mockResolvedValueOnce(
+      new File([new Uint8Array(6 * 1024 * 1024)], 'big.jpg', { type: 'image/jpeg' }),
+    );
+    const file = new File(['x'], 'big.jpg', { type: 'image/jpeg' });
+    await expect(uploadPhoto(file)).rejects.toBeInstanceOf(PhotoTooLargeError);
+    expect(upload).not.toHaveBeenCalled();
   });
 });
