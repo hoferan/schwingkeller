@@ -501,7 +501,7 @@ export const Sidebar = ({
               onClick={toggleAdmin}
               aria-label={t.adminToggle}
               aria-expanded={adminOpen}
-              title={t.adminSection}
+              title={t.adminToggle}
               style={{
                 width: '30px',
                 height: '30px',

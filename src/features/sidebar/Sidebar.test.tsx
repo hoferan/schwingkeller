@@ -272,6 +272,21 @@ describe('Sidebar', () => {
     expect(screen.getByText('JSON')).toBeInTheDocument();
   });
 
+  it('collapses an open band and persists the closed state', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('sk-verwaltung-open', 'true');
+    renderAdminSidebar();
+    const toggle = await screen.findByRole('button', { name: STR.de.adminToggle });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('JSON')).toBeInTheDocument();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('JSON')).not.toBeInTheDocument();
+    expect(localStorage.getItem('sk-verwaltung-open')).toBe('false');
+  });
+
   it('closes the mobile drawer on tap outside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
