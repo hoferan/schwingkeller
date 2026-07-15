@@ -16,7 +16,7 @@ const venue: Venue = {
   person: '',
   phone: '',
   website: '',
-  photo_url: null,
+  photos: [],
 };
 
 describe('MarkerPopup', () => {
