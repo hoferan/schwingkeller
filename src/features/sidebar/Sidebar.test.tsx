@@ -47,6 +47,7 @@ interface HarnessProps {
   userPosition?: LatLng | null;
   geoStatus?: GeoStatus;
   onRequestLocation?: () => void;
+  onAdd?: () => void;
 }
 
 const Harness = ({
@@ -60,6 +61,7 @@ const Harness = ({
   userPosition = null,
   geoStatus = 'idle',
   onRequestLocation = () => {},
+  onAdd = () => {},
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -79,7 +81,7 @@ const Harness = ({
       sidebarOpen={sidebarOpen}
       onToggleSidebar={onToggleSidebar}
       onSetSidebarOpen={onSetSidebarOpen}
-      onAdd={vi.fn()}
+      onAdd={onAdd}
       onExportJSON={vi.fn()}
       onExportCSV={vi.fn()}
       onImport={vi.fn()}
@@ -101,9 +103,15 @@ const renderSidebar = (props: HarnessProps = {}) =>
     </AuthProvider>,
   );
 
+const renderAdminSidebar = (props: HarnessProps = {}) => {
+  getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'admin' } } } });
+  return renderSidebar(props);
+};
+
 describe('Sidebar', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('renders canton group names', async () => {
@@ -211,7 +219,57 @@ describe('Sidebar', () => {
   it('hides admin tools when not admin', async () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
-    expect(screen.queryByText(STR.de.add)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('admin-section')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: STR.de.add })).not.toBeInTheDocument();
+  });
+
+  it('renders the Verwaltung band above the search box when admin', async () => {
+    renderAdminSidebar();
+    const band = await screen.findByTestId('admin-section');
+    const searchInput = screen.getByPlaceholderText(STR.de.search);
+    // Band must appear before the search input in document order.
+    expect(band.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('collapses the Verwaltung band by default, hiding Export/Import', async () => {
+    renderAdminSidebar();
+    await screen.findByTestId('admin-section');
+    expect(screen.queryByText('JSON')).not.toBeInTheDocument();
+    expect(screen.queryByText('CSV')).not.toBeInTheDocument();
+    expect(screen.queryByText(STR.de.import)).not.toBeInTheDocument();
+  });
+
+  it('adds a venue in one click while the band is collapsed', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    renderAdminSidebar({ onAdd });
+    // Band is collapsed by default (Export/Import not rendered), yet Add is reachable directly.
+    const addBtn = await screen.findByRole('button', { name: STR.de.add });
+    expect(screen.queryByText('JSON')).not.toBeInTheDocument();
+
+    await user.click(addBtn);
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it('reveals Export/Import and persists open state when expanded', async () => {
+    const user = userEvent.setup();
+    renderAdminSidebar();
+    const toggle = await screen.findByRole('button', { name: STR.de.adminToggle });
+
+    await user.click(toggle);
+
+    expect(screen.getByText('JSON')).toBeInTheDocument();
+    expect(screen.getByText('CSV')).toBeInTheDocument();
+    expect(screen.getByText(STR.de.import)).toBeInTheDocument();
+    expect(localStorage.getItem('sk-verwaltung-open')).toBe('true');
+  });
+
+  it('restores the expanded band from localStorage on mount', async () => {
+    localStorage.setItem('sk-verwaltung-open', 'true');
+    renderAdminSidebar();
+    await screen.findByTestId('admin-section');
+    expect(screen.getByText('JSON')).toBeInTheDocument();
   });
 
   it('closes the mobile drawer on tap outside it', async () => {
