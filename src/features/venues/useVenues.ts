@@ -19,6 +19,9 @@ export const useVenueMutations = () => {
       onSuccess: invalidate,
     }),
     remove: useMutation({ mutationFn: (id: string) => removeVenue(id), onSuccess: invalidate }),
-    replaceAll: useMutation({ mutationFn: (v: VenueInput[]) => replaceAllVenues(v), onSuccess: invalidate }),
+    replaceAll: useMutation({
+      mutationFn: (v: (VenueInput & { photo_urls: string[] })[]) => replaceAllVenues(v),
+      onSuccess: invalidate,
+    }),
   };
 };

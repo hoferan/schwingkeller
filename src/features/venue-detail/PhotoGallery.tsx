@@ -33,9 +33,17 @@ export function PhotoGallery({ photos, venueName }: PhotoGalleryProps) {
 
   useEffect(() => {
     if (!emblaApi) return;
-    onSelect();
+    // No `startIndex` option is passed to useEmblaCarousel, so the carousel always
+    // mounts at snap 0 — matching the initial `selected` state above — so there's no
+    // need to sync eagerly here; subscribing to `select` (and `reInit`, in case the
+    // photo count changes and shifts the current snap) keeps `selected` in sync from
+    // then on.
     emblaApi.on('select', onSelect);
-    return () => emblaApi.off('select', onSelect);
+    emblaApi.on('reInit', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+      emblaApi.off('reInit', onSelect);
+    };
   }, [emblaApi, onSelect]);
 
   if (photos.length === 0) {

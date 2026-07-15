@@ -7,7 +7,7 @@ vi.mock('./imageCompression', async (importOriginal) => {
 
 const { order, from, rpc, select, insert, update, del, eq, single } = vi.hoisted(() => {
   const single = vi.fn();
-  const eq = vi.fn(() => ({ select, single }));
+  const eq = vi.fn((): { select: typeof select; single: typeof single } | { error: null } => ({ select, single }));
   const order = vi.fn();
   const select = vi.fn(() => ({ order, single, eq }));
   const insert = vi.fn(() => ({ select, eq }));
