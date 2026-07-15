@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { compressImageIfNeeded } from './imageCompression';
 
 const makeFile = (size: number, name = 'photo.jpg', type = 'image/jpeg') =>
@@ -24,14 +24,17 @@ describe('compressImageIfNeeded', () => {
     const drawImage = vi.fn();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
       .mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
-    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob')
+    const toBlob = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
       .mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
         cb(new Blob(['x'], { type: 'image/jpeg' }));
       });
 
     const result = await compressImageIfNeeded(file);
 
-    expect(drawImage).toHaveBeenCalled();
+    // 4000x3000 (4:3) with a 1920px max dimension scales to 1920x1440.
+    expect(drawImage.mock.calls[0].slice(1)).toEqual([0, 0, 1920, 1440]);
+    expect(toBlob.mock.calls[0].slice(1)).toEqual(['image/jpeg', 0.82]);
     expect(result.type).toBe('image/jpeg');
     expect(result.name).toBe('photo.jpg');
     expect(result.size).toBeLessThan(file.size);

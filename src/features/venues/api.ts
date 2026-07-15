@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
+import { compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError } from './imageCompression';
 import type { Venue, VenueInput, VenuePhoto } from './types';
 
 export { PhotoTooLargeError };
@@ -104,7 +104,7 @@ export const syncVenuePhotos = async (
 
 export const uploadPhoto = async (file: File): Promise<string> => {
   const processed = await compressImageIfNeeded(file);
-  if (processed.size > 5 * 1024 * 1024) throw new PhotoTooLargeError();
+  if (processed.size > COMPRESS_THRESHOLD_BYTES) throw new PhotoTooLargeError();
   const ext = processed.name.split('.').pop() || 'jpg';
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from('venue-photos').upload(path, processed, { upsert: false });

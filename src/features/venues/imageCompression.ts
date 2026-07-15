@@ -1,4 +1,4 @@
-const COMPRESS_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5MB — matches the Storage bucket cap
+export const COMPRESS_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5MB — matches the Storage bucket cap
 const MAX_DIMENSION = 1920;
 const JPEG_QUALITY = 0.82;
 
@@ -21,9 +21,12 @@ export const compressImageIfNeeded = async (file: File): Promise<File> => {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  bitmap.close();
-  if (!ctx) return file;
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
   ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0, width, height);
+  bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
   if (!blob) return file;
