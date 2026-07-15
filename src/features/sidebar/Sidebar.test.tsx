@@ -570,4 +570,29 @@ describe('Sidebar', () => {
     await waitFor(() => expect(screen.getByText(STR.de.sortName)).toBeInTheDocument());
     expect(screen.queryByText(STR.de.sortDistance)).not.toBeInTheDocument();
   });
+
+  it('labels the list section by canton in canton sort mode', async () => {
+    renderSidebar({ sortModeInit: 'canton' });
+    await waitFor(() => expect(screen.getByText(STR.de.byCanton)).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.byName)).not.toBeInTheDocument();
+  });
+
+  it('relabels the list section when sorting by name', async () => {
+    renderSidebar({ sortModeInit: 'name' });
+    await waitFor(() => expect(screen.getByText(STR.de.byName)).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.byCanton)).not.toBeInTheDocument();
+  });
+
+  it('relabels the list section when sorting by distance', async () => {
+    renderSidebar({ sortModeInit: 'distance', userPosition: { lat: 46.95, lng: 7.45 } });
+    await waitFor(() => expect(screen.getByText(STR.de.byDistance)).toBeInTheDocument());
+    expect(screen.queryByText(STR.de.byCanton)).not.toBeInTheDocument();
+  });
+
+  it('shows the total count only once (header pill, not the section header)', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    // "3 Schwingkeller" (venues fixture has 3) must appear exactly once — the dark header pill.
+    expect(screen.getAllByText(`3 ${STR.de.unitTotal}`)).toHaveLength(1);
+  });
 });

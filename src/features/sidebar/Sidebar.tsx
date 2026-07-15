@@ -336,6 +336,7 @@ export const Sidebar = ({
   const totalText = `${list.length} ${t.unitTotal}`;
   const flat = sortMode !== 'canton';
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
+  const sectionLabel = sortMode === 'name' ? t.byName : sortMode === 'distance' ? t.byDistance : t.byCanton;
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
   // Desktop/tablet: fixed-width column.
@@ -613,15 +614,7 @@ export const Sidebar = ({
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 18px 9px',
-          flex: 'none',
-        }}
-      >
+      <div style={{ padding: '0 18px 9px', flex: 'none' }}>
         <span
           style={{
             fontFamily: theme.font.display,
@@ -632,9 +625,8 @@ export const Sidebar = ({
             fontWeight: 700,
           }}
         >
-          {t.byCanton}
+          {sectionLabel}
         </span>
-        <span style={{ fontSize: '11px', color: theme.color.muted }}>{totalText}</span>
       </div>
 
       <div
