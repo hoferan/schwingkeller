@@ -1,6 +1,7 @@
 import { theme } from '../../theme';
+import { POSTER_SIZE, POSTER_LAYOUT } from './posterLayout';
 
-export const POSTER_SIZE = 1080;
+export { POSTER_SIZE };
 
 export const posterFilename = (code: string): string => `schwingkeller-${code.toLowerCase()}.png`;
 
@@ -77,11 +78,8 @@ export interface PosterOverlayOptions {
   qrImg?: HTMLImageElement | null;
 }
 
-const OVERLAY_PANEL_HEIGHT = 190;
-const FOOTER_HEIGHT = 46;
 const APP_NAME = 'Schwingkeller Schweiz';
-const QR_SIZE = 150;
-const QR_MARGIN = 28;
+const L = POSTER_LAYOUT;
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {
@@ -91,68 +89,62 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
 
   if (showHeader) {
     ctx.fillStyle = 'rgba(17,17,17,0.72)';
-    ctx.fillRect(0, 0, POSTER_SIZE, OVERLAY_PANEL_HEIGHT);
+    ctx.fillRect(0, 0, POSTER_SIZE, L.headerH);
 
-    let textX = 40;
+    let textX = L.padX;
     if (wappenImg) {
-      const wappenW = 64;
-      const wappenH = 80;
-      ctx.drawImage(wappenImg, 40, 55, wappenW, wappenH);
-      textX = 40 + wappenW + 24;
+      ctx.drawImage(wappenImg, L.wappenX, L.wappenY, L.wappenW, L.wappenH);
+      textX = L.padX + L.wappenW + L.wappenGap;
     }
 
     ctx.fillStyle = theme.color.bg;
-    ctx.font = '700 56px Oswald, sans-serif';
+    ctx.font = `700 ${L.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText((title || cantonName).toUpperCase(), textX, 110);
+    ctx.fillText((title || cantonName).toUpperCase(), textX, L.titleBaselineY);
 
     const pillText = `${count} ${unitLabel}`;
-    ctx.font = '700 24px Oswald, sans-serif';
-    const pillPaddingX = 18;
-    const pillWidth = ctx.measureText(pillText).width + pillPaddingX * 2;
-    const pillHeight = 40;
-    const pillY = 130;
+    ctx.font = `700 ${L.pillFont}px Oswald, sans-serif`;
+    const pillWidth = ctx.measureText(pillText).width + L.pillPadX * 2;
     ctx.fillStyle = theme.color.accent;
     ctx.beginPath();
-    ctx.roundRect(textX, pillY, pillWidth, pillHeight, pillHeight / 2);
+    ctx.roundRect(textX, L.pillY, pillWidth, L.pillH, L.pillH / 2);
     ctx.fill();
     ctx.fillStyle = theme.color.accentInk;
     ctx.textBaseline = 'middle';
-    ctx.fillText(pillText, textX + pillPaddingX, pillY + pillHeight / 2 + 1);
+    ctx.fillText(pillText, textX + L.pillPadX, L.pillY + L.pillH / 2 + 1);
   }
 
   // QR sits bottom-right, inset above the footer band area.
   if (qrImg) {
-    const qrX = POSTER_SIZE - QR_SIZE - QR_MARGIN;
-    const qrY = POSTER_SIZE - QR_SIZE - QR_MARGIN - FOOTER_HEIGHT;
+    const qrX = POSTER_SIZE - L.qrSize - L.qrMargin;
+    const qrY = POSTER_SIZE - L.qrSize - L.qrMargin - L.footerH;
     ctx.fillStyle = theme.color.bg;
-    ctx.fillRect(qrX - 8, qrY - 8, QR_SIZE + 16, QR_SIZE + 16);
-    ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
+    ctx.fillRect(qrX - L.qrPad, qrY - L.qrPad, L.qrSize + L.qrPad * 2, L.qrSize + L.qrPad * 2);
+    ctx.drawImage(qrImg, qrX, qrY, L.qrSize, L.qrSize);
   }
 
   if (showFooter) {
     ctx.fillStyle = 'rgba(17,17,17,0.72)';
-    ctx.fillRect(0, POSTER_SIZE - FOOTER_HEIGHT, POSTER_SIZE, FOOTER_HEIGHT);
+    ctx.fillRect(0, POSTER_SIZE - L.footerH, POSTER_SIZE, L.footerH);
     ctx.fillStyle = theme.color.bg;
-    ctx.font = "600 20px 'Work Sans', sans-serif";
+    ctx.font = `600 ${L.appNameFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(APP_NAME, 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
-    ctx.font = "400 14px 'Work Sans', sans-serif";
+    ctx.fillText(APP_NAME, L.appNameX, POSTER_SIZE - L.footerH / 2);
+    ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText(attribution, POSTER_SIZE - 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
+    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, POSTER_SIZE - L.footerH / 2);
     ctx.textAlign = 'left';
   } else {
     // Attribution is legally required even without the branding band — draw a
     // minimal credit with a subtle backing strip for legibility.
-    const stripH = 26;
     ctx.fillStyle = 'rgba(17,17,17,0.55)';
-    ctx.fillRect(0, POSTER_SIZE - stripH, POSTER_SIZE, stripH);
+    ctx.fillRect(0, POSTER_SIZE - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
     ctx.fillStyle = theme.color.bg;
-    ctx.font = "400 14px 'Work Sans', sans-serif";
+    ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
-    ctx.fillText(attribution, POSTER_SIZE - 24, POSTER_SIZE - stripH / 2);
+    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, POSTER_SIZE - L.minAttribStripH / 2);
     ctx.textAlign = 'left';
   }
 };

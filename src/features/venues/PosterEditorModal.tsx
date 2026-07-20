@@ -8,7 +8,7 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
 import { pinHtml } from '../map/markers';
 import { generateCantonPosterBlob } from './cantonPoster';
-import { POSTER_SIZE } from './posterCanvas';
+import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
 
@@ -126,10 +126,14 @@ export const PosterEditorModal = ({
   };
 
   const label: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: theme.color.ink };
-  // zIndex 800 keeps the chrome above Leaflet's tile/marker panes (≤700) but below its controls
-  // (1000), so the header/footer/QR are visible over the map (matching the export) while the zoom
-  // control stays on top. pointerEvents:none lets map drag/zoom pass through the overlays.
-  const chrome: React.CSSProperties = { position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)', color: theme.color.bg, padding: '8px 12px', fontFamily: theme.font.display, fontWeight: 700, zIndex: 800, pointerEvents: 'none' };
+  // The chrome is sized in cqw (percent of the preview square's width) from the SAME POSTER_LAYOUT
+  // numbers the canvas exporter uses, so the preview is a scaled replica of the PNG. zIndex 800
+  // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
+  // none lets map drag/zoom pass through.
+  const band: React.CSSProperties = {
+    position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)',
+    color: theme.color.bg, zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
+  };
 
   return (
     <Modal onClose={onClose} width={PREVIEW_SIZE + 300}>
@@ -140,28 +144,37 @@ export const PosterEditorModal = ({
 
         <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
           {/* Live editor square with DOM chrome overlays. aspectRatio keeps it 1:1 as the width
-              shrinks on narrow screens (so the preview always matches the square export); when the
-              controls wrap below, justifyContent:center keeps the square centered rather than
-              leaving a lopsided gap on one side. */}
-          <div style={{ position: 'relative', width: PREVIEW_SIZE, maxWidth: '100%', aspectRatio: '1 / 1', flex: '0 1 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line }}>
+              shrinks on narrow screens; containerType makes cqw resolve against this square so the
+              chrome scales exactly like the export; justifyContent:center on the row keeps the
+              square centered (no lopsided gap) when the controls wrap below. */}
+          <div style={{ position: 'relative', width: PREVIEW_SIZE, maxWidth: '100%', aspectRatio: '1 / 1', flex: '0 1 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
             {showHeader && (
-              <div style={{ ...chrome, top: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <img src={wappenUrl(code)} alt="" style={{ width: '22px', height: '28px', objectFit: 'contain', flex: 'none' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <div style={{ textTransform: 'uppercase' }}>{title}</div>
-                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.body, fontSize: '11px', fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, padding: '2px 9px', borderRadius: theme.radius.pill }}>
+              <div style={{ ...band, top: 0, height: cqw(PL.headerH), gap: cqw(PL.wappenGap), paddingLeft: cqw(PL.padX), paddingRight: cqw(PL.padX) }}>
+                <img src={wappenUrl(code)} alt="" style={{ width: cqw(PL.wappenW), height: cqw(PL.wappenH), objectFit: 'contain', flex: 'none' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: cqw(PL.titleGap), minWidth: 0 }}>
+                  <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(PL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {title || canton?.name}
+                  </div>
+                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(PL.pillFont), height: cqw(PL.pillH), lineHeight: cqw(PL.pillH), padding: `0 ${cqw(PL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
                     {cantonVenues.length} {unitLabel}
                   </span>
                 </div>
               </div>
             )}
             {showQr && qrDataUrl && (
-              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: 12, bottom: 40, width: 64, height: 64, background: theme.color.bg, padding: 4, borderRadius: 4, zIndex: 800, pointerEvents: 'none' }} />
+              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: cqw(PL.qrMargin), bottom: cqw(PL.qrMargin + PL.footerH), width: cqw(PL.qrSize), height: cqw(PL.qrSize), background: theme.color.bg, padding: cqw(PL.qrPad), borderRadius: '3px', zIndex: 800, pointerEvents: 'none' }} />
             )}
-            <div style={{ ...chrome, bottom: 0, fontFamily: theme.font.body, fontWeight: 400, fontSize: '11px', textAlign: 'right' }}>
-              {showFooter ? 'Schwingkeller Schweiz  ·  ' : ''}{TILE_ATTRIBUTION[baseKind]}
-            </div>
+            {showFooter ? (
+              <div style={{ ...band, bottom: 0, height: cqw(PL.footerH), justifyContent: 'space-between', paddingLeft: cqw(PL.appNameX), paddingRight: cqw(PL.attribMarginX) }}>
+                <span style={{ fontFamily: theme.font.display, fontWeight: 600, fontSize: cqw(PL.appNameFont), whiteSpace: 'nowrap' }}>Schwingkeller Schweiz</span>
+                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
+              </div>
+            ) : (
+              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: 'rgba(17,17,17,0.55)', justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
+                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
+              </div>
+            )}
           </div>
 
           {/* Controls */}
