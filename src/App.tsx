@@ -242,7 +242,7 @@ function AppShell() {
     setPosterLoadingCode(code);
     try {
       const canton = cantonByCode(code);
-      const { blob, filename } = await generateCantonPosterBlob(code, venues, baseKind, t.unitTotal);
+      const { blob, filename } = await generateCantonPosterBlob(code, venues, { baseKind, unitLabel: t.unitTotal });
       setPosterPreview({ cantonName: canton?.name ?? code, blob, filename });
     } catch (err) {
       showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
