@@ -700,11 +700,14 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
   });
 
-  it('disables the generate-poster icon for the canton currently loading', async () => {
+  it('disables ALL generate-poster icons while any canton is loading, not just the matching one', async () => {
     renderAdminSidebar({ posterLoadingCode: 'BE' });
-    const row = (await screen.findByText('Bern')).closest('div')!;
-    const button = within(row).getByRole('button', { name: STR.de.generatePoster });
+    const beRow = (await screen.findByText('Bern')).closest('div')!;
+    const beButton = within(beRow).getByRole('button', { name: STR.de.generatePoster });
+    const zugRow = (await screen.findByText('Zug')).closest('div')!;
+    const zugButton = within(zugRow).getByRole('button', { name: STR.de.generatePoster });
 
-    expect(button).toBeDisabled();
+    expect(beButton).toBeDisabled();
+    expect(zugButton).toBeDisabled();
   });
 });

@@ -129,6 +129,7 @@ describe('drawPin', () => {
 
     expect(ctx.arc).toHaveBeenCalledTimes(2);
     expect(ctx.arc).toHaveBeenNthCalledWith(1, 100, 200, 16, 0, Math.PI * 2);
+    expect(ctx.arc).toHaveBeenNthCalledWith(2, 100, 200, 16 * 0.32, 0, Math.PI * 2);
     expect(ctx.fill).toHaveBeenCalledTimes(2);
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });

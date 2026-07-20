@@ -184,9 +184,9 @@ export const STR = {
     locationError: 'Impossible de déterminer la position.',
     youAreHere: 'Votre position',
     generatePoster: 'Créer une image',
-    posterPreviewTitle: 'Aperçu de l\'image',
-    saveImage: 'Enregistrer l\'image',
-    posterGenerateFailed: 'Impossible de créer l\'image',
+    posterPreviewTitle: 'Aperçu de l’image',
+    saveImage: 'Enregistrer l’image',
+    posterGenerateFailed: 'Impossible de créer l’image',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -279,7 +279,7 @@ export const STR = {
     generatePoster: 'Crea immagine',
     posterPreviewTitle: 'Anteprima immagine',
     saveImage: 'Salva immagine',
-    posterGenerateFailed: 'Impossibile creare l\'immagine',
+    posterGenerateFailed: 'Impossibile creare l’immagine',
   },
 } as const;
 

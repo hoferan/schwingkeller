@@ -26,6 +26,12 @@ export const loadImage = (src: string, crossOrigin?: string): Promise<HTMLImageE
 
 export interface TileDraw { img: HTMLImageElement; x: number; y: number; size: number }
 
+// Reads each tile's own translate3d(...) offset and treats it as directly comparable to
+// map.latLngToContainerPoint()'s pin coordinates. That only holds because the capture map in
+// cantonPoster.ts calls fitBounds exactly once with no prior setView/pan/zoom and
+// fadeAnimation: false — so the tile layer and the pin projection share the same origin. If the
+// capture map's setup ever gains an initial view or an animated transition before fitBounds,
+// this alignment can silently break.
 export const extractTileDraws = (tilePane: HTMLElement): TileDraw[] => {
   const imgs = tilePane.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded');
   const tiles: TileDraw[] = [];

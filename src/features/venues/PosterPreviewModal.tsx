@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -18,8 +18,17 @@ const imgStyle: CSSProperties = {
 
 export const PosterPreviewModal = ({ blob, cantonName, onClose, onSave }: PosterPreviewModalProps) => {
   const { t } = useTranslation();
-  const url = URL.createObjectURL(blob);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    // Creating the object URL here (not in the render body) avoids leaking a URL from React
+    // StrictMode's double-invoked render, and avoids recreating it on every re-render with the
+    // same blob. The URL itself comes from an external system (the browser's Blob URL registry),
+    // not from render-derived state — safe to setState here.
+    const u = URL.createObjectURL(blob);
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
 
   return (
     <Modal onClose={onClose} width={480}>
