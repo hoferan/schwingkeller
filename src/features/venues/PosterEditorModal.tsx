@@ -1,0 +1,186 @@
+import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import { Modal } from '../../components/Modal';
+import { useTranslation } from '../../i18n/useTranslation';
+import { theme } from '../../theme';
+import { cantonByCode } from '../../data/cantons';
+import { boundsForCanton } from '../../data/cantonBounds';
+import { createTileLayer, type BaseKind } from '../map/tileLayers';
+import { pinHtml } from '../map/markers';
+import { generateCantonPosterBlob } from './cantonPoster';
+import { usePosterQr } from './usePosterQr';
+import type { Venue } from './types';
+
+interface PosterEditorModalProps {
+  code: string;
+  venues: Venue[];
+  initialBaseKind: BaseKind;
+  unitLabel: string;
+  onClose: () => void;
+  onSave: (blob: Blob, filename: string) => void;
+}
+
+const PREVIEW_SIZE = 460;
+
+export const PosterEditorModal = ({
+  code, venues, initialBaseKind, unitLabel, onClose, onSave,
+}: PosterEditorModalProps) => {
+  const { t } = useTranslation();
+  const canton = cantonByCode(code);
+  const cantonVenues = venues.filter((v) => v.canton === code);
+
+  const [baseKind, setBaseKind] = useState<BaseKind>(initialBaseKind);
+  const [title, setTitle] = useState<string>(canton?.name ?? code);
+  const [showHeader, setShowHeader] = useState(true);
+  const [showFooter, setShowFooter] = useState(true);
+  const [showQr, setShowQr] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const { url, dataUrl: qrDataUrl } = usePosterQr(code);
+
+  const mapElRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const tileRef = useRef<L.TileLayer | null>(null);
+
+  // Create the live editor map once.
+  useEffect(() => {
+    if (mapRef.current || !mapElRef.current) return;
+    const bounds = boundsForCanton(code);
+    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: true });
+    mapRef.current = map;
+    tileRef.current = createTileLayer(baseKind, 'anonymous');
+    tileRef.current.addTo(map);
+    if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
+
+    const pins = L.layerGroup().addTo(map);
+    cantonVenues.forEach((v) => {
+      L.marker([v.lat, v.lng], { icon: L.divIcon({ className: '', html: pinHtml(false), iconSize: [28, 28] }) })
+        .addTo(pins);
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      tileRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Swap the base layer live when toggled.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !tileRef.current) return;
+    map.removeLayer(tileRef.current);
+    tileRef.current = createTileLayer(baseKind, 'anonymous');
+    tileRef.current.addTo(map);
+  }, [baseKind]);
+
+  const resetFraming = () => {
+    const map = mapRef.current;
+    const bounds = boundsForCanton(code);
+    if (map && bounds) map.fitBounds(bounds, { padding: [20, 20] });
+  };
+
+  const download = async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const c = map.getCenter();
+    const view = { center: [c.lat, c.lng] as [number, number], zoom: map.getZoom() };
+    setBusy(true);
+    try {
+      const { blob, filename } = await generateCantonPosterBlob(code, venues, {
+        baseKind,
+        view,
+        unitLabel,
+        title,
+        showHeader,
+        showFooter,
+        qrDataUrl: showQr ? qrDataUrl : null,
+      });
+      onSave(blob, filename);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const label: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: theme.color.ink };
+  const chrome: React.CSSProperties = { position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)', color: theme.color.bg, padding: '8px 12px', fontFamily: theme.font.display, fontWeight: 700 };
+
+  return (
+    <Modal onClose={onClose} width={PREVIEW_SIZE + 300}>
+      <div style={{ padding: '18px 22px' }}>
+        <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700, fontSize: '18px', color: theme.color.ink }}>
+          {t.posterEditorTitle}: {canton?.name ?? code}
+        </div>
+
+        <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
+          {/* Live editor square with DOM chrome overlays */}
+          <div style={{ position: 'relative', width: PREVIEW_SIZE, height: PREVIEW_SIZE, maxWidth: '100%', flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line }}>
+            <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
+            {showHeader && (
+              <div style={{ ...chrome, top: 0, textTransform: 'uppercase' }}>{title}</div>
+            )}
+            {showQr && qrDataUrl && (
+              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: 12, bottom: 40, width: 64, height: 64, background: theme.color.bg, padding: 4, borderRadius: 4 }} />
+            )}
+            <div style={{ ...chrome, bottom: 0, fontFamily: theme.font.body, fontWeight: 400, fontSize: '11px', textAlign: 'right' }}>
+              {showFooter ? 'Schwingkeller Schweiz  ·  ' : ''}© OpenStreetMap / Esri
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <label style={label}>
+              {t.posterTitleLabel}
+              <input aria-label={t.posterTitleLabel} value={title} onChange={(e) => setTitle(e.target.value)}
+                style={{ flex: 1, padding: '8px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm }} />
+            </label>
+
+            <div style={label}>
+              {t.posterBaseLabel}
+              <button onClick={() => setBaseKind('map')} aria-pressed={baseKind === 'map'}
+                style={{ padding: '6px 10px', borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: baseKind === 'map' ? theme.color.ink : 'transparent', color: baseKind === 'map' ? theme.color.bg : theme.color.ink, cursor: 'pointer' }}>
+                {t.mapView}
+              </button>
+              <button onClick={() => setBaseKind('sat')} aria-pressed={baseKind === 'sat'}
+                style={{ padding: '6px 10px', borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: baseKind === 'sat' ? theme.color.ink : 'transparent', color: baseKind === 'sat' ? theme.color.bg : theme.color.ink, cursor: 'pointer' }}>
+                {t.satView}
+              </button>
+            </div>
+
+            <label style={label}>
+              <input type="checkbox" checked={showHeader} onChange={(e) => setShowHeader(e.target.checked)} />
+              {t.posterToggleHeader}
+            </label>
+            <label style={label}>
+              <input type="checkbox" checked={showFooter} onChange={(e) => setShowFooter(e.target.checked)} />
+              {t.posterToggleFooter}
+            </label>
+            <label style={label}>
+              <input type="checkbox" checked={showQr} onChange={(e) => setShowQr(e.target.checked)} />
+              {t.posterToggleQr}
+            </label>
+
+            <button onClick={resetFraming}
+              style={{ alignSelf: 'flex-start', padding: '8px 12px', border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, borderRadius: theme.radius.sm, cursor: 'pointer', fontSize: '13px' }}>
+              {t.posterResetFraming}
+            </button>
+
+            <div style={{ marginTop: 'auto' }} title={url} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '11px', marginTop: '18px' }}>
+          <button onClick={onClose}
+            style={{ flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer' }}>
+            {t.close}
+          </button>
+          <button onClick={() => { void download(); }} disabled={busy}
+            style={{ flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            {t.posterDownload}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
