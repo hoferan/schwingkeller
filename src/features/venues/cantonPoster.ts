@@ -28,12 +28,24 @@ export const waitForTilesLoad = (layer: OnceEmitter, timeoutMs: number): Promise
 
 export interface GeneratePosterResult { blob: Blob; filename: string }
 
+export interface PosterView { center: [number, number]; zoom: number }
+
+export interface GeneratePosterOptions {
+  baseKind: BaseKind;
+  view?: PosterView;
+  unitLabel: string;
+  title?: string;
+  showHeader?: boolean;
+  showFooter?: boolean;
+  qrDataUrl?: string | null;
+}
+
 export const generateCantonPosterBlob = async (
   code: string,
   venues: Venue[],
-  baseKind: BaseKind,
-  unitLabel: string,
+  options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
+  const { baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl } = options;
   const canton = cantonByCode(code);
   const bounds = boundsForCanton(code);
   if (!canton || !bounds) {
@@ -46,10 +58,15 @@ export const generateCantonPosterBlob = async (
   try {
     const tileLayer = createTileLayer(baseKind, 'anonymous');
     tileLayer.addTo(map);
-    map.fitBounds(bounds, { padding: [40, 40] });
+    if (view) {
+      map.setView(view.center, view.zoom);
+    } else {
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
     await waitForTilesLoad(tileLayer, TILE_LOAD_TIMEOUT_MS);
 
     const wappenImg = await loadImage(wappenUrl(code), 'anonymous');
+    const qrImg = qrDataUrl ? await loadImage(qrDataUrl) : null;
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready.catch(() => undefined);
     }
@@ -71,10 +88,14 @@ export const generateCantonPosterBlob = async (
 
     drawPosterOverlay(ctx, {
       cantonName: canton.name,
+      title,
       wappenImg,
       count: cantonVenues.length,
       unitLabel,
       attribution: TILE_ATTRIBUTION[baseKind],
+      showHeader,
+      showFooter,
+      qrImg,
     });
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
