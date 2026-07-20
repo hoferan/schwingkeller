@@ -44,7 +44,7 @@ export const generateCantonPosterBlob = async (
   const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false });
 
   try {
-    const tileLayer = createTileLayer(baseKind);
+    const tileLayer = createTileLayer(baseKind, 'anonymous');
     tileLayer.addTo(map);
     map.fitBounds(bounds, { padding: [40, 40] });
     await waitForTilesLoad(tileLayer, TILE_LOAD_TIMEOUT_MS);

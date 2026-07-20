@@ -94,7 +94,9 @@ describe('generateCantonPosterBlob', () => {
   it("builds the tile layer for the given base kind and fits the map to the canton's exact bounds", async () => {
     await generateCantonPosterBlob('BE', venues, 'map', 'Schwingkeller');
 
-    expect(createTileLayerMock).toHaveBeenCalledWith('map');
+    // 'anonymous' so the tile <img>s are fetched as CORS requests — otherwise drawing them
+    // onto the export canvas taints it and canvas.toBlob() throws a SecurityError in the browser.
+    expect(createTileLayerMock).toHaveBeenCalledWith('map', 'anonymous');
     expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [40, 40] });
   });
 
@@ -110,7 +112,7 @@ describe('generateCantonPosterBlob', () => {
   it('returns a PNG blob and the lowercase-canton filename', async () => {
     const result = await generateCantonPosterBlob('BE', venues, 'sat', 'Schwingkeller');
 
-    expect(createTileLayerMock).toHaveBeenCalledWith('sat');
+    expect(createTileLayerMock).toHaveBeenCalledWith('sat', 'anonymous');
     expect(result.filename).toBe('schwingkeller-be.png');
     expect(result.blob.type).toBe('image/png');
   });

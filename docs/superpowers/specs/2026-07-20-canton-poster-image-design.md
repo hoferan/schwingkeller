@@ -102,6 +102,27 @@ New module `src/features/venues/cantonPoster.ts`.
    translated flash-toast message (`showFlash('err', ...)`) — the existing
    pattern already used for import/export failures in `App.tsx`.
 
+> **CORS correction (post-implementation).** Two assumptions above proved
+> wrong in a real browser and were fixed:
+>
+> - *Tiles.* A provider sending `Access-Control-Allow-Origin: *` is
+>   necessary but **not sufficient** — the tile `<img>` must also be
+>   *requested* as a CORS request (`crossOrigin` attribute set), or the
+>   canvas is tainted and `toBlob()` throws. Leaflet does not set it by
+>   default. `createTileLayer(kind, crossOrigin?)` now takes an optional
+>   `crossOrigin`; the capture map passes `'anonymous'`, the live map
+>   leaves it unset. (jsdom does not enforce tainting, so unit tests could
+>   not catch this — the fix is asserted via the `crossOrigin` option
+>   instead.)
+> - *Wappen.* `wappenUrl()` pointed at `commons.wikimedia.org/.../
+>   Special:FilePath/...`, which **302-redirects without CORS headers**;
+>   only the final `upload.wikimedia.org` URL sends them, and a redirect
+>   hop that fails CORS blocks the whole `crossOrigin` load. The 26
+>   coat-of-arms SVGs are now bundled under `public/wappen/<code>.svg`
+>   (same-origin, no redirect, no rate limit, offline-safe); `wappenUrl()`
+>   returns that local path. `Canton.w` is retained only as fetch
+>   provenance.
+
 ## UI
 
 - **Entry point**: `Sidebar.tsx`'s canton group header (Wappen · name ·

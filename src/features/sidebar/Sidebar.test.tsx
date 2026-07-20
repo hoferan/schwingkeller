@@ -684,7 +684,9 @@ describe('Sidebar', () => {
   it('shows the generate-poster icon even for a canton with zero venues when admin', async () => {
     renderAdminSidebar();
     const row = (await screen.findByText('Zug')).closest('div')!;
-    expect(within(row).getByRole('button', { name: STR.de.generatePoster })).toBeInTheDocument();
+    expect(
+      await within(row).findByRole('button', { name: STR.de.generatePoster }),
+    ).toBeInTheDocument();
   });
 
   it('calls onGeneratePoster with the canton code and does not toggle the group', async () => {
@@ -692,7 +694,7 @@ describe('Sidebar', () => {
     const onGeneratePoster = vi.fn();
     renderAdminSidebar({ onGeneratePoster });
     const row = (await screen.findByText('Bern')).closest('div')!;
-    const button = within(row).getByRole('button', { name: STR.de.generatePoster });
+    const button = await within(row).findByRole('button', { name: STR.de.generatePoster });
 
     await user.click(button);
 
@@ -703,7 +705,7 @@ describe('Sidebar', () => {
   it('disables ALL generate-poster icons while any canton is loading, not just the matching one', async () => {
     renderAdminSidebar({ posterLoadingCode: 'BE' });
     const beRow = (await screen.findByText('Bern')).closest('div')!;
-    const beButton = within(beRow).getByRole('button', { name: STR.de.generatePoster });
+    const beButton = await within(beRow).findByRole('button', { name: STR.de.generatePoster });
     const zugRow = (await screen.findByText('Zug')).closest('div')!;
     const zugButton = within(zugRow).getByRole('button', { name: STR.de.generatePoster });
 

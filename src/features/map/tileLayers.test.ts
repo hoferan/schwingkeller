@@ -22,4 +22,14 @@ describe('createTileLayer', () => {
     expect(layer.options.attribution).toBe(TILE_ATTRIBUTION.sat);
     expect(layer.options.maxZoom).toBe(TILE_MAX_ZOOM.sat);
   });
+
+  it('does not request tiles cross-origin by default (live map needs no canvas export)', () => {
+    const layer = createTileLayer('map');
+    expect(layer.options.crossOrigin).toBeFalsy();
+  });
+
+  it('requests tiles cross-origin when asked, so the off-screen poster canvas is not tainted', () => {
+    const layer = createTileLayer('map', 'anonymous');
+    expect(layer.options.crossOrigin).toBe('anonymous');
+  });
 });

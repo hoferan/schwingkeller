@@ -9,8 +9,8 @@ describe('cantons', () => {
     expect(cantonByCode('BE')?.name).toBe('Bern');
     expect(cantonByCode('XX')).toBeUndefined();
   });
-  it('builds a wappen URL using the German Wikimedia name', () => {
-    expect(wappenUrl('VD')).toContain('Wappen_Waadt_matt.svg');
+  it('points the wappen URL at the bundled same-origin SVG for the canton code', () => {
+    expect(wappenUrl('VD')).toBe('/wappen/VD.svg');
     expect(wappenUrl('XX')).toBe('');
   });
 });
