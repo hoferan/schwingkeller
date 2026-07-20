@@ -151,33 +151,63 @@ describe('drawPosterOverlay', () => {
       textAlign: '',
     }) as unknown as CanvasRenderingContext2D;
 
-  it('draws the canton name (uppercased), the venue-count pill text, and the attribution', () => {
+  it('draws the canton name (uppercased), the count pill, and the attribution by default', () => {
     const ctx = makeCtx();
-
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors',
     });
-
     expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
     expect(ctx.fillText).toHaveBeenCalledWith('5 Schwingkeller', expect.any(Number), expect.any(Number));
     expect(ctx.fillText).toHaveBeenCalledWith(
       '© OpenStreetMap contributors', expect.any(Number), expect.any(Number),
     );
-    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it('draws the Wappen image when one is provided', () => {
+  it('uses the title override instead of the canton name when provided', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', title: 'Emmental 2026', wappenImg: null, count: 1,
+      unitLabel: 'Schwingkeller', attribution: '© OpenStreetMap contributors',
+    });
+    expect(ctx.fillText).toHaveBeenCalledWith('EMMENTAL 2026', expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).not.toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
+  });
+
+  it('skips the header (name + count pill) when showHeader is false', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', showHeader: false,
+    });
+    expect(ctx.fillText).not.toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).not.toHaveBeenCalledWith('5 Schwingkeller', expect.any(Number), expect.any(Number));
+  });
+
+  it('still draws attribution when the footer is hidden', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', showFooter: false,
+    });
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      '© OpenStreetMap contributors', expect.any(Number), expect.any(Number),
+    );
+  });
+
+  it('draws the Wappen and the QR image when both are provided', () => {
     const ctx = makeCtx();
     const wappenImg = {} as HTMLImageElement;
-
+    const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
       cantonName: 'Zug', wappenImg, count: 0, unitLabel: 'Schwingkeller',
-      attribution: '© Esri, Maxar, Earthstar Geographics',
+      attribution: '© Esri, Maxar, Earthstar Geographics', qrImg,
     });
-
     expect(ctx.drawImage).toHaveBeenCalledWith(
       wappenImg, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
+    );
+    expect(ctx.drawImage).toHaveBeenCalledWith(
+      qrImg, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
     );
   });
 });

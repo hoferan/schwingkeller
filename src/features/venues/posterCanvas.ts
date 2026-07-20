@@ -67,58 +67,92 @@ export const drawPin = (ctx: CanvasRenderingContext2D, x: number, y: number): vo
 
 export interface PosterOverlayOptions {
   cantonName: string;
+  title?: string;
   wappenImg: HTMLImageElement | null;
   count: number;
   unitLabel: string;
   attribution: string;
+  showHeader?: boolean;
+  showFooter?: boolean;
+  qrImg?: HTMLImageElement | null;
 }
 
 const OVERLAY_PANEL_HEIGHT = 190;
 const FOOTER_HEIGHT = 46;
 const APP_NAME = 'Schwingkeller Schweiz';
+const QR_SIZE = 150;
+const QR_MARGIN = 28;
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
-  const { cantonName, wappenImg, count, unitLabel, attribution } = opts;
+  const {
+    cantonName, title, wappenImg, count, unitLabel, attribution,
+    showHeader = true, showFooter = true, qrImg,
+  } = opts;
 
-  ctx.fillStyle = 'rgba(17,17,17,0.72)';
-  ctx.fillRect(0, 0, POSTER_SIZE, OVERLAY_PANEL_HEIGHT);
+  if (showHeader) {
+    ctx.fillStyle = 'rgba(17,17,17,0.72)';
+    ctx.fillRect(0, 0, POSTER_SIZE, OVERLAY_PANEL_HEIGHT);
 
-  let textX = 40;
-  if (wappenImg) {
-    const wappenW = 64;
-    const wappenH = 80;
-    ctx.drawImage(wappenImg, 40, 55, wappenW, wappenH);
-    textX = 40 + wappenW + 24;
+    let textX = 40;
+    if (wappenImg) {
+      const wappenW = 64;
+      const wappenH = 80;
+      ctx.drawImage(wappenImg, 40, 55, wappenW, wappenH);
+      textX = 40 + wappenW + 24;
+    }
+
+    ctx.fillStyle = theme.color.bg;
+    ctx.font = '700 56px Oswald, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText((title || cantonName).toUpperCase(), textX, 110);
+
+    const pillText = `${count} ${unitLabel}`;
+    ctx.font = '700 24px Oswald, sans-serif';
+    const pillPaddingX = 18;
+    const pillWidth = ctx.measureText(pillText).width + pillPaddingX * 2;
+    const pillHeight = 40;
+    const pillY = 130;
+    ctx.fillStyle = theme.color.accent;
+    ctx.beginPath();
+    ctx.roundRect(textX, pillY, pillWidth, pillHeight, pillHeight / 2);
+    ctx.fill();
+    ctx.fillStyle = theme.color.accentInk;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pillText, textX + pillPaddingX, pillY + pillHeight / 2 + 1);
   }
 
-  ctx.fillStyle = theme.color.bg;
-  ctx.font = "700 56px Oswald, sans-serif";
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(cantonName.toUpperCase(), textX, 110);
+  // QR sits bottom-right, inset above the footer band area.
+  if (qrImg) {
+    const qrX = POSTER_SIZE - QR_SIZE - QR_MARGIN;
+    const qrY = POSTER_SIZE - QR_SIZE - QR_MARGIN - FOOTER_HEIGHT;
+    ctx.fillStyle = theme.color.bg;
+    ctx.fillRect(qrX - 8, qrY - 8, QR_SIZE + 16, QR_SIZE + 16);
+    ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
+  }
 
-  const pillText = `${count} ${unitLabel}`;
-  ctx.font = "700 24px Oswald, sans-serif";
-  const pillPaddingX = 18;
-  const pillWidth = ctx.measureText(pillText).width + pillPaddingX * 2;
-  const pillHeight = 40;
-  const pillY = 130;
-  ctx.fillStyle = theme.color.accent;
-  ctx.beginPath();
-  ctx.roundRect(textX, pillY, pillWidth, pillHeight, pillHeight / 2);
-  ctx.fill();
-  ctx.fillStyle = theme.color.accentInk;
-  ctx.textBaseline = 'middle';
-  ctx.fillText(pillText, textX + pillPaddingX, pillY + pillHeight / 2 + 1);
-
-  ctx.fillStyle = 'rgba(17,17,17,0.72)';
-  ctx.fillRect(0, POSTER_SIZE - FOOTER_HEIGHT, POSTER_SIZE, FOOTER_HEIGHT);
-  ctx.fillStyle = theme.color.bg;
-  ctx.font = "600 20px 'Work Sans', sans-serif";
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText(APP_NAME, 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
-  ctx.font = "400 14px 'Work Sans', sans-serif";
-  ctx.textAlign = 'right';
-  ctx.fillText(attribution, POSTER_SIZE - 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
-  ctx.textAlign = 'left';
+  if (showFooter) {
+    ctx.fillStyle = 'rgba(17,17,17,0.72)';
+    ctx.fillRect(0, POSTER_SIZE - FOOTER_HEIGHT, POSTER_SIZE, FOOTER_HEIGHT);
+    ctx.fillStyle = theme.color.bg;
+    ctx.font = "600 20px 'Work Sans', sans-serif";
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(APP_NAME, 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
+    ctx.font = "400 14px 'Work Sans', sans-serif";
+    ctx.textAlign = 'right';
+    ctx.fillText(attribution, POSTER_SIZE - 24, POSTER_SIZE - FOOTER_HEIGHT / 2);
+    ctx.textAlign = 'left';
+  } else {
+    // Attribution is legally required even without the branding band — draw a
+    // minimal credit with a subtle backing strip for legibility.
+    const stripH = 26;
+    ctx.fillStyle = 'rgba(17,17,17,0.55)';
+    ctx.fillRect(0, POSTER_SIZE - stripH, POSTER_SIZE, stripH);
+    ctx.fillStyle = theme.color.bg;
+    ctx.font = "400 14px 'Work Sans', sans-serif";
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.fillText(attribution, POSTER_SIZE - 24, POSTER_SIZE - stripH / 2);
+    ctx.textAlign = 'left';
+  }
 };
