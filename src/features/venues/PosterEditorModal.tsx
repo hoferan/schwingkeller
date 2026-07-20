@@ -6,9 +6,8 @@ import { theme } from '../../theme';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
-import { pinHtml } from '../map/markers';
 import { generateCantonPosterBlob } from './cantonPoster';
-import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw } from './posterLayout';
+import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
 
@@ -22,7 +21,12 @@ interface PosterEditorModalProps {
   onError?: (err: unknown) => void;
 }
 
-const PREVIEW_SIZE = 460;
+// The live preview map is locked to a power-of-2 fraction of POSTER_SIZE (1080): 540 on wider
+// screens, 270 on small ones. That makes the export zoom exactly previewZoom + log2(1080/size)
+// — an INTEGER (1 or 2) — so the off-screen capture uses whole-number Leaflet zoom levels. Whole
+// zooms are what the tile-capture assumes; a fractional zoom makes Leaflet CSS-scale the tile pane,
+// which the capture can't reproduce (misframed export + missing-tile black bars).
+const previewSizeFor = (w: number): number => (w >= 700 ? 540 : 270);
 
 export const PosterEditorModal = ({
   code, venues, initialBaseKind, unitLabel, onClose, onSave, onError,
@@ -30,6 +34,8 @@ export const PosterEditorModal = ({
   const { t } = useTranslation();
   const canton = cantonByCode(code);
   const cantonVenues = venues.filter((v) => v.canton === code);
+  // Frozen at mount (lazy initial state) — the map is created once at this size.
+  const [previewSize] = useState(() => previewSizeFor(typeof window !== 'undefined' ? window.innerWidth : 1024));
 
   const [baseKind, setBaseKind] = useState<BaseKind>(initialBaseKind);
   const [title, setTitle] = useState<string>(canton?.name ?? code);
@@ -58,10 +64,16 @@ export const PosterEditorModal = ({
     tileRef.current.addTo(map);
     if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
 
+    // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
+    const p = previewPin(previewSize);
+    const pinIcon = L.divIcon({
+      className: '',
+      iconSize: [p.d, p.d],
+      html: `<div style="width:${p.d}px;height:${p.d}px;border-radius:50%;background:${theme.color.accent};border:${p.ring}px solid ${theme.color.bg};box-sizing:border-box;display:flex;align-items:center;justify-content:center;"><span style="width:${p.dot}px;height:${p.dot}px;border-radius:50%;background:${theme.color.bg};display:block;"></span></div>`,
+    });
     const pins = L.layerGroup().addTo(map);
     cantonVenues.forEach((v) => {
-      L.marker([v.lat, v.lng], { icon: L.divIcon({ className: '', html: pinHtml(false), iconSize: [28, 28] }) })
-        .addTo(pins);
+      L.marker([v.lat, v.lng], { icon: pinIcon }).addTo(pins);
     });
 
     return () => {
@@ -94,17 +106,14 @@ export const PosterEditorModal = ({
 
   const download = async () => {
     const map = mapRef.current;
-    const el = mapElRef.current;
-    if (!map || !el) return;
-    map.invalidateSize({ animate: false });
-    // Frame the 1080² export on exactly the area the square preview shows. The canvas is far wider
-    // in pixels than the on-screen preview, so bump the zoom by log2(POSTER_SIZE / previewWidth):
-    // more pixels at a higher zoom cover the identical ground area (raw center+zoom would show ~2×).
-    const previewPx = el.clientWidth || PREVIEW_SIZE;
+    if (!map) return;
+    // Frame the 1080² export on exactly the area the (square, power-of-2-sized) preview shows: the
+    // canvas is POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 — an integer, so the
+    // capture stays on whole Leaflet zoom levels.
     const c = map.getCenter();
     const view = {
       center: [c.lat, c.lng] as [number, number],
-      zoom: map.getZoom() + Math.log2(POSTER_SIZE / previewPx),
+      zoom: map.getZoom() + Math.log2(POSTER_SIZE / previewSize),
     };
     setBusy(true);
     try {
@@ -125,7 +134,6 @@ export const PosterEditorModal = ({
     }
   };
 
-  const label: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: theme.color.ink };
   // The chrome is sized in cqw (percent of the preview square's width) from the SAME POSTER_LAYOUT
   // numbers the canvas exporter uses, so the preview is a scaled replica of the PNG. zIndex 800
   // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
@@ -134,20 +142,35 @@ export const PosterEditorModal = ({
     position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)',
     color: theme.color.bg, zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
   };
+  const fieldLabel: React.CSSProperties = {
+    fontSize: '11.5px', letterSpacing: '.07em', textTransform: 'uppercase',
+    color: theme.color.muted, fontWeight: 700, fontFamily: theme.font.display,
+  };
+
+  const toggle = (key: string, text: string, checked: boolean, set: (v: boolean) => void) => (
+    <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', cursor: 'pointer', fontSize: '14.5px', color: theme.color.ink, fontWeight: 500 }}>
+      <span>{text}</span>
+      <span style={{ position: 'relative', width: '46px', height: '28px', borderRadius: '999px', background: checked ? theme.color.accent : theme.color.line, transition: 'background .18s ease', flex: 'none' }}>
+        <input type="checkbox" aria-label={text} checked={checked} onChange={(e) => set(e.target.checked)}
+          style={{ position: 'absolute', inset: 0, margin: 0, opacity: 0, cursor: 'pointer' }} />
+        <span style={{ position: 'absolute', top: '3px', left: checked ? '21px' : '3px', width: '22px', height: '22px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.35)', transition: 'left .18s ease' }} />
+      </span>
+    </label>
+  );
 
   return (
-    <Modal onClose={onClose} width={PREVIEW_SIZE + 300}>
+    <Modal onClose={onClose} width={previewSize + 340}>
       <div style={{ padding: '18px 22px' }}>
         <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700, fontSize: '18px', color: theme.color.ink }}>
           {t.posterEditorTitle}: {canton?.name ?? code}
         </div>
 
         <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
-          {/* Live editor square with DOM chrome overlays. aspectRatio keeps it 1:1 as the width
-              shrinks on narrow screens; containerType makes cqw resolve against this square so the
-              chrome scales exactly like the export; justifyContent:center on the row keeps the
-              square centered (no lopsided gap) when the controls wrap below. */}
-          <div style={{ position: 'relative', width: PREVIEW_SIZE, maxWidth: '100%', aspectRatio: '1 / 1', flex: '0 1 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
+          {/* Live editor square, fixed at a power-of-2 fraction of 1080 so the export is an
+              integer zoom step away (exact framing, no fractional-zoom tile gaps). containerType
+              makes the chrome's cqw units resolve against this square so it scales like the export;
+              justifyContent:center on the row keeps it centered when the controls wrap below. */}
+          <div style={{ position: 'relative', width: previewSize, height: previewSize, flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
             {showHeader && (
               <div style={{ ...band, top: 0, height: cqw(PL.headerH), gap: cqw(PL.wappenGap), paddingLeft: cqw(PL.padX), paddingRight: cqw(PL.padX) }}>
@@ -178,64 +201,45 @@ export const PosterEditorModal = ({
           </div>
 
           {/* Controls */}
-          <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label style={label}>
-              {t.posterTitleLabel}
+          <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              <span style={fieldLabel}>{t.posterTitleLabel}</span>
               <input aria-label={t.posterTitleLabel} value={title} onChange={(e) => setTitle(e.target.value)}
-                style={{ flex: 1, padding: '8px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm }} />
-            </label>
-
-            <div style={label}>
-              {t.posterBaseLabel}
-              <button onClick={() => setBaseKind('map')} aria-pressed={baseKind === 'map'}
-                style={{ padding: '6px 10px', borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: baseKind === 'map' ? theme.color.ink : 'transparent', color: baseKind === 'map' ? theme.color.bg : theme.color.ink, cursor: 'pointer' }}>
-                {t.mapView}
-              </button>
-              <button onClick={() => setBaseKind('sat')} aria-pressed={baseKind === 'sat'}
-                style={{ padding: '6px 10px', borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: baseKind === 'sat' ? theme.color.ink : 'transparent', color: baseKind === 'sat' ? theme.color.bg : theme.color.ink, cursor: 'pointer' }}>
-                {t.satView}
-              </button>
+                style={{ padding: '10px 12px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm, fontSize: '14.5px', color: theme.color.ink, background: theme.color.bg, fontFamily: theme.font.body }} />
             </div>
 
-            <div style={label}>
-              {t.posterZoom}
-              <button type="button" aria-label={t.posterZoomOut} onClick={() => mapRef.current?.zoomOut()}
-                style={{ width: 32, height: 32, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>
-                −
-              </button>
-              <button type="button" aria-label={t.posterZoomIn} onClick={() => mapRef.current?.zoomIn()}
-                style={{ width: 32, height: 32, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>
-                +
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              <span style={fieldLabel}>{t.posterBaseLabel}</span>
+              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
+                {(['map', 'sat'] as const).map((k) => (
+                  <button key={k} type="button" aria-pressed={baseKind === k} onClick={() => setBaseKind(k)}
+                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: baseKind === k ? theme.color.bg : 'transparent', color: baseKind === k ? theme.color.ink : theme.color.muted, boxShadow: baseKind === k ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+                    {k === 'map' ? t.mapView : t.satView}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <label style={label}>
-              <input type="checkbox" checked={showHeader} onChange={(e) => setShowHeader(e.target.checked)} />
-              {t.posterToggleHeader}
-            </label>
-            <label style={label}>
-              <input type="checkbox" checked={showFooter} onChange={(e) => setShowFooter(e.target.checked)} />
-              {t.posterToggleFooter}
-            </label>
-            <label style={label}>
-              <input type="checkbox" checked={showQr} onChange={(e) => setShowQr(e.target.checked)} />
-              {t.posterToggleQr}
-            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+              {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
+              {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
+              {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
+            </div>
 
-            <button onClick={resetFraming}
-              style={{ alignSelf: 'flex-start', padding: '8px 12px', border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, borderRadius: theme.radius.sm, cursor: 'pointer', fontSize: '13px' }}>
+            <button type="button" onClick={resetFraming}
+              style={{ alignSelf: 'flex-start', padding: '6px 0', border: 'none', background: 'transparent', color: theme.color.accent, fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}>
               {t.posterResetFraming}
             </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '11px', marginTop: '18px' }}>
-          <button onClick={onClose}
-            style={{ flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', gap: '11px', marginTop: '22px' }}>
+          <button type="button" onClick={onClose}
+            style={{ flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, fontWeight: 600, fontSize: '14px', padding: '13px', borderRadius: theme.radius.sm, cursor: 'pointer' }}>
             {t.close}
           </button>
-          <button onClick={() => { void download(); }} disabled={busy}
-            style={{ flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          <button type="button" onClick={() => { void download(); }} disabled={busy}
+            style={{ flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 700, fontSize: '14px', padding: '13px', borderRadius: theme.radius.sm, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>
             {t.posterDownload}
           </button>
         </div>

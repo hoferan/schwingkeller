@@ -56,9 +56,10 @@ export const generateCantonPosterBlob = async (
   }
 
   const container = createOffscreenContainer(POSTER_SIZE);
-  // zoomSnap: 0 so the map honors the exact fractional `view.zoom` computed by the editor rather
-  // than rounding to an integer level (which would zoom out and show more area than was framed).
-  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false, zoomSnap: 0 });
+  // Integer zoom only: the editor passes an integer `view.zoom` (previewZoom + log2(1080/previewSize),
+  // and previewSize is a power-of-2 fraction of 1080). A fractional zoom would make Leaflet CSS-scale
+  // the tile pane, which the tile-capture below cannot reproduce (misframed export + missing tiles).
+  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false });
 
   try {
     const tileLayer = createTileLayer(baseKind, 'anonymous');

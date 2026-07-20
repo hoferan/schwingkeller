@@ -3,6 +3,8 @@ import { POSTER_SIZE, POSTER_LAYOUT } from './posterLayout';
 
 export { POSTER_SIZE };
 
+const L = POSTER_LAYOUT;
+
 export const posterFilename = (code: string): string => `schwingkeller-${code.toLowerCase()}.png`;
 
 export const createOffscreenContainer = (size: number = POSTER_SIZE): HTMLDivElement => {
@@ -49,19 +51,16 @@ export const drawTiles = (ctx: CanvasRenderingContext2D, tiles: TileDraw[]): voi
   tiles.forEach(({ img, x, y, size }) => ctx.drawImage(img, x, y, size, size));
 };
 
-const PIN_RADIUS = 16;
-const PIN_RING = 5;
-
 export const drawPin = (ctx: CanvasRenderingContext2D, x: number, y: number): void => {
   ctx.beginPath();
-  ctx.arc(x, y, PIN_RADIUS, 0, Math.PI * 2);
+  ctx.arc(x, y, L.pinRadius, 0, Math.PI * 2);
   ctx.fillStyle = theme.color.accent;
   ctx.fill();
-  ctx.lineWidth = PIN_RING;
+  ctx.lineWidth = L.pinRing;
   ctx.strokeStyle = theme.color.bg;
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(x, y, PIN_RADIUS * 0.32, 0, Math.PI * 2);
+  ctx.arc(x, y, L.pinRadius * L.pinDotRatio, 0, Math.PI * 2);
   ctx.fillStyle = theme.color.bg;
   ctx.fill();
 };
@@ -79,7 +78,6 @@ export interface PosterOverlayOptions {
 }
 
 const APP_NAME = 'Schwingkeller Schweiz';
-const L = POSTER_LAYOUT;
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {

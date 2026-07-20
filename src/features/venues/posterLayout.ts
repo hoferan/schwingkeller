@@ -30,8 +30,22 @@ export const POSTER_LAYOUT = {
   qrSize: 150,
   qrMargin: 28,
   qrPad: 8, // white backing inset around the QR
+  pinRadius: 16, // venue pin (canvas drawPin)
+  pinRing: 5,
+  pinDotRatio: 0.32, // inner white dot radius = pinRadius * this
 } as const;
 
 // Convert a 1080-space px measurement into a container-query-width unit for the DOM preview, so the
 // preview chrome scales with the (square) preview container to match the export exactly.
 export const cqw = (px: number): string => `${(px / POSTER_SIZE) * 100}cqw`;
+
+// Venue-pin dimensions (px) for the DOM preview at a given square size — scaled from the same
+// canvas geometry (drawPin) so the preview pins match the exported pins proportionally.
+export const previewPin = (size: number) => {
+  const k = size / POSTER_SIZE;
+  return {
+    d: POSTER_LAYOUT.pinRadius * 2 * k,
+    ring: POSTER_LAYOUT.pinRing * k,
+    dot: POSTER_LAYOUT.pinRadius * 2 * POSTER_LAYOUT.pinDotRatio * k,
+  };
+};

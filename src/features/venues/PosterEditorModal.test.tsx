@@ -90,12 +90,12 @@ describe('PosterEditorModal', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
-    // jsdom reports clientWidth 0, so the editor falls back to PREVIEW_SIZE (460); the export zoom
-    // is preview zoom (11) bumped by log2(1080/460) so the 1080² canvas frames the same ground area.
+    // jsdom's window is 1024px wide, so the preview locks to 540; the export zoom is the preview
+    // zoom (11) bumped by log2(1080/540) = 1, i.e. an exact integer 12, framing the same area.
     expect(generateCantonPosterBlob).toHaveBeenCalledWith('BE', expect.any(Array), expect.objectContaining({
       baseKind: 'map',
       unitLabel: 'Schwingkeller',
-      view: { center: [46.9, 7.4], zoom: expect.closeTo(11 + Math.log2(1080 / 460), 5) },
+      view: { center: [46.9, 7.4], zoom: 12 },
       title: 'Bern',
       showHeader: true,
       showFooter: true,

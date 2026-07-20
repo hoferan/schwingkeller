@@ -100,9 +100,6 @@ export const STR = {
     posterToggleQr: 'QR-Code',
     posterResetFraming: 'Ausschnitt zurücksetzen',
     posterDownload: 'PNG herunterladen',
-    posterZoom: 'Zoom',
-    posterZoomIn: 'Vergrössern',
-    posterZoomOut: 'Verkleinern',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -202,9 +199,6 @@ export const STR = {
     posterToggleQr: 'Code QR',
     posterResetFraming: 'Réinitialiser le cadrage',
     posterDownload: 'Télécharger le PNG',
-    posterZoom: 'Zoom',
-    posterZoomIn: 'Zoomer',
-    posterZoomOut: 'Dézoomer',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -304,9 +298,6 @@ export const STR = {
     posterToggleQr: 'Codice QR',
     posterResetFraming: 'Reimposta inquadratura',
     posterDownload: 'Scarica PNG',
-    posterZoom: 'Zoom',
-    posterZoomIn: 'Ingrandisci',
-    posterZoomOut: 'Riduci',
   },
 } as const;
 
