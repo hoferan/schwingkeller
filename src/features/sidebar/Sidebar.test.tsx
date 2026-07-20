@@ -49,7 +49,6 @@ interface HarnessProps {
   onRequestLocation?: () => void;
   onAdd?: () => void;
   onGeneratePoster?: (code: string) => void;
-  posterLoadingCode?: string | null;
 }
 
 const Harness = ({
@@ -65,7 +64,6 @@ const Harness = ({
   onRequestLocation = () => {},
   onAdd = () => {},
   onGeneratePoster = () => {},
-  posterLoadingCode = null,
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -95,7 +93,6 @@ const Harness = ({
       geoStatus={geoStatus}
       onRequestLocation={onRequestLocation}
       onGeneratePoster={onGeneratePoster}
-      posterLoadingCode={posterLoadingCode}
     />
   );
 };
@@ -700,16 +697,5 @@ describe('Sidebar', () => {
 
     expect(onGeneratePoster).toHaveBeenCalledWith('BE');
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
-  });
-
-  it('disables ALL generate-poster icons while any canton is loading, not just the matching one', async () => {
-    renderAdminSidebar({ posterLoadingCode: 'BE' });
-    const beRow = (await screen.findByText('Bern')).closest('div')!;
-    const beButton = await within(beRow).findByRole('button', { name: STR.de.generatePoster });
-    const zugRow = (await screen.findByText('Zug')).closest('div')!;
-    const zugButton = within(zugRow).getByRole('button', { name: STR.de.generatePoster });
-
-    expect(beButton).toBeDisabled();
-    expect(zugButton).toBeDisabled();
   });
 });

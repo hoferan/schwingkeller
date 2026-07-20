@@ -32,7 +32,6 @@ interface SidebarProps {
   geoStatus: GeoStatus;
   onRequestLocation: () => void;
   onGeneratePoster: (code: string) => void;
-  posterLoadingCode: string | null;
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
@@ -125,7 +124,6 @@ export const Sidebar = ({
   geoStatus,
   onRequestLocation,
   onGeneratePoster,
-  posterLoadingCode,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
   const { isAdmin } = useAuth();
@@ -689,7 +687,6 @@ export const Sidebar = ({
       >
         {!flat && groups.map((group) => {
           const exp = filtering || !!expanded[group.code];
-          const isLoading = posterLoadingCode !== null;
           return (
             <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
               <div
@@ -741,14 +738,12 @@ export const Sidebar = ({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onGeneratePoster(group.code); }}
-                    disabled={isLoading}
                     aria-label={t.generatePoster}
                     title={t.generatePoster}
                     style={{
                       width: '26px', height: '26px', border: 'none', background: 'transparent',
-                      color: theme.color.ink, cursor: isLoading ? 'default' : 'pointer',
+                      color: theme.color.ink, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
-                      opacity: isLoading ? 0.4 : 1,
                     }}
                   >
                     <Camera size={15} />

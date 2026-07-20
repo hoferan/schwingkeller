@@ -17,9 +17,7 @@ import { theme } from './theme';
 import { parseCantonParam, parseVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
-import { generateCantonPosterBlob } from './features/venues/cantonPoster';
-import { PosterPreviewModal } from './features/venues/PosterPreviewModal';
-import { cantonByCode } from './data/cantons';
+import { PosterEditorModal } from './features/venues/PosterEditorModal';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
@@ -117,8 +115,7 @@ function AppShell() {
     { count: number; inputs: (VenueInput & { photo_urls: string[] })[] } | null
   >(null);
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [posterLoadingCode, setPosterLoadingCode] = useState<string | null>(null);
-  const [posterPreview, setPosterPreview] = useState<{ cantonName: string; blob: Blob; filename: string } | null>(null);
+  const [posterEditorCode, setPosterEditorCode] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
   const showFlash = (kind: 'ok' | 'err', text: string) => {
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
@@ -238,23 +235,11 @@ function AppShell() {
     }
   };
 
-  const generatePoster = async (code: string) => {
-    setPosterLoadingCode(code);
-    try {
-      const canton = cantonByCode(code);
-      const { blob, filename } = await generateCantonPosterBlob(code, venues, { baseKind, unitLabel: t.unitTotal });
-      setPosterPreview({ cantonName: canton?.name ?? code, blob, filename });
-    } catch (err) {
-      showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
-    } finally {
-      setPosterLoadingCode(null);
-    }
-  };
-  const closePosterPreview = () => setPosterPreview(null);
-  const savePoster = (blob: Blob) => {
-    if (!posterPreview) return;
-    downloadBlob(posterPreview.filename, blob);
-    closePosterPreview();
+  const openPosterEditor = (code: string) => setPosterEditorCode(code);
+  const closePosterEditor = () => setPosterEditorCode(null);
+  const savePoster = (blob: Blob, filename: string) => {
+    downloadBlob(filename, blob);
+    closePosterEditor();
   };
 
   const toggleCanton = (code: string) =>
@@ -346,8 +331,7 @@ function AppShell() {
           userPosition={geo.position}
           geoStatus={geo.status}
           onRequestLocation={geo.request}
-          onGeneratePoster={(code) => { void generatePoster(code); }}
-          posterLoadingCode={posterLoadingCode}
+          onGeneratePoster={openPosterEditor}
         />
 
         <div style={mapWrapStyle}>
@@ -395,11 +379,13 @@ function AppShell() {
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
-      {posterPreview && (
-        <PosterPreviewModal
-          blob={posterPreview.blob}
-          cantonName={posterPreview.cantonName}
-          onClose={closePosterPreview}
+      {posterEditorCode && (
+        <PosterEditorModal
+          code={posterEditorCode}
+          venues={venues}
+          initialBaseKind={baseKind}
+          unitLabel={t.unitTotal}
+          onClose={closePosterEditor}
           onSave={savePoster}
         />
       )}
