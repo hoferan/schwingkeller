@@ -5,7 +5,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
-import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
+import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
 import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
@@ -36,6 +36,11 @@ export const PosterEditorModal = ({
   const cantonVenues = venues.filter((v) => v.canton === code);
   // Frozen at mount (lazy initial state) — the map is created once at this size.
   const [previewSize] = useState(() => previewSizeFor(typeof window !== 'undefined' ? window.innerWidth : 1024));
+  // Integer zoom gap between the preview and the 1080² export (1 for 540, 2 for 270).
+  const deltaZoom = Math.log2(POSTER_SIZE / previewSize);
+  // Cap the preview zoom so previewZoom + deltaZoom can never exceed the base layer's max zoom —
+  // otherwise the export map would clamp to the max and silently show more area than the preview.
+  const maxPreviewZoom = (kind: BaseKind): number => TILE_MAX_ZOOM[kind] - deltaZoom;
 
   const [baseKind, setBaseKind] = useState<BaseKind>(initialBaseKind);
   const [title, setTitle] = useState<string>(canton?.name ?? code);
@@ -58,7 +63,7 @@ export const PosterEditorModal = ({
     // zoomControl:false — the header/footer chrome span the full width top and bottom, so any
     // on-map corner control would collide with them. Zoom lives in the controls panel instead
     // (the map still zooms via scroll/pinch).
-    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: false });
+    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: false, maxZoom: maxPreviewZoom(baseKind) });
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
@@ -96,6 +101,9 @@ export const PosterEditorModal = ({
     map.removeLayer(tileRef.current);
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
+    // Satellite (max 18) caps lower than street (19); re-clamp so the export never over-zooms.
+    map.setMaxZoom(maxPreviewZoom(baseKind));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseKind]);
 
   const resetFraming = () => {
@@ -106,14 +114,17 @@ export const PosterEditorModal = ({
 
   const download = async () => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map) {
+      onError?.(new Error('[NO_MAP] Poster editor map is not ready.'));
+      return;
+    }
     // Frame the 1080² export on exactly the area the (square, power-of-2-sized) preview shows: the
-    // canvas is POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 — an integer, so the
-    // capture stays on whole Leaflet zoom levels.
+    // canvas is POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). Math.round
+    // defends the integer invariant even if Leaflet's zoomSnap is ever changed to a fractional value.
     const c = map.getCenter();
     const view = {
       center: [c.lat, c.lng] as [number, number],
-      zoom: map.getZoom() + Math.log2(POSTER_SIZE / previewSize),
+      zoom: Math.round(map.getZoom() + deltaZoom),
     };
     setBusy(true);
     try {
