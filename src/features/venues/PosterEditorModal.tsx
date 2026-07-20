@@ -8,6 +8,7 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
 import { pinHtml } from '../map/markers';
 import { generateCantonPosterBlob } from './cantonPoster';
+import { POSTER_SIZE } from './posterCanvas';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
 
@@ -48,7 +49,10 @@ export const PosterEditorModal = ({
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
     const bounds = boundsForCanton(code);
-    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: true });
+    // zoomControl:false — the header/footer chrome span the full width top and bottom, so any
+    // on-map corner control would collide with them. Zoom lives in the controls panel instead
+    // (the map still zooms via scroll/pinch).
+    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: false });
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
@@ -90,16 +94,23 @@ export const PosterEditorModal = ({
 
   const download = async () => {
     const map = mapRef.current;
-    if (!map) return;
-    // Capture the exact geographic rectangle currently visible in the (square) preview, so the
-    // 1080² export frames the same area — passing center+zoom instead would show ~2.3x more area
-    // because the export canvas is far larger in pixels than the preview at the same zoom level.
-    const viewBounds = map.getBounds();
+    const el = mapElRef.current;
+    if (!map || !el) return;
+    map.invalidateSize({ animate: false });
+    // Frame the 1080² export on exactly the area the square preview shows. The canvas is far wider
+    // in pixels than the on-screen preview, so bump the zoom by log2(POSTER_SIZE / previewWidth):
+    // more pixels at a higher zoom cover the identical ground area (raw center+zoom would show ~2×).
+    const previewPx = el.clientWidth || PREVIEW_SIZE;
+    const c = map.getCenter();
+    const view = {
+      center: [c.lat, c.lng] as [number, number],
+      zoom: map.getZoom() + Math.log2(POSTER_SIZE / previewPx),
+    };
     setBusy(true);
     try {
       const { blob, filename } = await generateCantonPosterBlob(code, venues, {
         baseKind,
-        viewBounds,
+        view,
         unitLabel,
         title,
         showHeader,
@@ -170,6 +181,18 @@ export const PosterEditorModal = ({
               <button onClick={() => setBaseKind('sat')} aria-pressed={baseKind === 'sat'}
                 style={{ padding: '6px 10px', borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: baseKind === 'sat' ? theme.color.ink : 'transparent', color: baseKind === 'sat' ? theme.color.bg : theme.color.ink, cursor: 'pointer' }}>
                 {t.satView}
+              </button>
+            </div>
+
+            <div style={label}>
+              {t.posterZoom}
+              <button type="button" aria-label={t.posterZoomOut} onClick={() => mapRef.current?.zoomOut()}
+                style={{ width: 32, height: 32, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>
+                −
+              </button>
+              <button type="button" aria-label={t.posterZoomIn} onClick={() => mapRef.current?.zoomIn()}
+                style={{ width: 32, height: 32, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>
+                +
               </button>
             </div>
 

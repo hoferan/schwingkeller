@@ -22,16 +22,15 @@ vi.mock('./usePosterQr', () => ({
 }));
 
 // Mock Leaflet: a fake map that records center/zoom and supports the calls the editor makes.
-// `bounds` is an opaque sentinel — the editor reads it from map.getBounds() and passes it straight
-// through to the capture; we assert it round-trips as `viewBounds`.
-const FAKE_BOUNDS = { _sentinel: 'bounds' };
 const { fakeMap } = vi.hoisted(() => ({
   fakeMap: {
     setView: vi.fn().mockReturnThis(),
     fitBounds: vi.fn().mockReturnThis(),
     getCenter: vi.fn().mockReturnValue({ lat: 46.9, lng: 7.4 }),
     getZoom: vi.fn().mockReturnValue(11),
-    getBounds: vi.fn().mockReturnValue({ _sentinel: 'bounds' }),
+    invalidateSize: vi.fn(),
+    zoomIn: vi.fn(),
+    zoomOut: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     remove: vi.fn(),
@@ -83,7 +82,7 @@ describe('PosterEditorModal', () => {
     expect(screen.getByRole('img', { name: /qr/i })).toBeInTheDocument();
   });
 
-  it('captures the current preview bounds + options and reports the blob via onSave', async () => {
+  it('captures the preview center with a pixel-scaled zoom and reports the blob via onSave', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     renderEditor({ onSave });
@@ -91,10 +90,12 @@ describe('PosterEditorModal', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
+    // jsdom reports clientWidth 0, so the editor falls back to PREVIEW_SIZE (460); the export zoom
+    // is preview zoom (11) bumped by log2(1080/460) so the 1080² canvas frames the same ground area.
     expect(generateCantonPosterBlob).toHaveBeenCalledWith('BE', expect.any(Array), expect.objectContaining({
       baseKind: 'map',
       unitLabel: 'Schwingkeller',
-      viewBounds: FAKE_BOUNDS,
+      view: { center: [46.9, 7.4], zoom: expect.closeTo(11 + Math.log2(1080 / 460), 5) },
       title: 'Bern',
       showHeader: true,
       showFooter: true,

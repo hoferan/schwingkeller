@@ -152,12 +152,4 @@ describe('generateCantonPosterBlob', () => {
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('fits the supplied viewBounds exactly (padding 0) and does not setView, when viewBounds given', async () => {
-    const viewBounds: [[number, number], [number, number]] = [[46.5, 7.0], [47.2, 7.9]];
-    await generateCantonPosterBlob('BE', venues, {
-      baseKind: 'map', unitLabel: 'Schwingkeller', viewBounds,
-    });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(viewBounds, { padding: [0, 0] });
-    expect(fakeMap.setView).not.toHaveBeenCalled();
-  });
 });
