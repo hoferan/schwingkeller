@@ -91,13 +91,15 @@ export const PosterEditorModal = ({
   const download = async () => {
     const map = mapRef.current;
     if (!map) return;
-    const c = map.getCenter();
-    const view = { center: [c.lat, c.lng] as [number, number], zoom: map.getZoom() };
+    // Capture the exact geographic rectangle currently visible in the (square) preview, so the
+    // 1080² export frames the same area — passing center+zoom instead would show ~2.3x more area
+    // because the export canvas is far larger in pixels than the preview at the same zoom level.
+    const viewBounds = map.getBounds();
     setBusy(true);
     try {
       const { blob, filename } = await generateCantonPosterBlob(code, venues, {
         baseKind,
-        view,
+        viewBounds,
         unitLabel,
         title,
         showHeader,
@@ -113,7 +115,10 @@ export const PosterEditorModal = ({
   };
 
   const label: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: theme.color.ink };
-  const chrome: React.CSSProperties = { position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)', color: theme.color.bg, padding: '8px 12px', fontFamily: theme.font.display, fontWeight: 700 };
+  // zIndex 800 keeps the chrome above Leaflet's tile/marker panes (≤700) but below its controls
+  // (1000), so the header/footer/QR are visible over the map (matching the export) while the zoom
+  // control stays on top. pointerEvents:none lets map drag/zoom pass through the overlays.
+  const chrome: React.CSSProperties = { position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)', color: theme.color.bg, padding: '8px 12px', fontFamily: theme.font.display, fontWeight: 700, zIndex: 800, pointerEvents: 'none' };
 
   return (
     <Modal onClose={onClose} width={PREVIEW_SIZE + 300}>
@@ -122,9 +127,12 @@ export const PosterEditorModal = ({
           {t.posterEditorTitle}: {canton?.name ?? code}
         </div>
 
-        <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
-          {/* Live editor square with DOM chrome overlays */}
-          <div style={{ position: 'relative', width: PREVIEW_SIZE, height: PREVIEW_SIZE, maxWidth: '100%', flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line }}>
+        <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
+          {/* Live editor square with DOM chrome overlays. aspectRatio keeps it 1:1 as the width
+              shrinks on narrow screens (so the preview always matches the square export); when the
+              controls wrap below, justifyContent:center keeps the square centered rather than
+              leaving a lopsided gap on one side. */}
+          <div style={{ position: 'relative', width: PREVIEW_SIZE, maxWidth: '100%', aspectRatio: '1 / 1', flex: '0 1 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
             {showHeader && (
               <div style={{ ...chrome, top: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -138,7 +146,7 @@ export const PosterEditorModal = ({
               </div>
             )}
             {showQr && qrDataUrl && (
-              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: 12, bottom: 40, width: 64, height: 64, background: theme.color.bg, padding: 4, borderRadius: 4 }} />
+              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: 12, bottom: 40, width: 64, height: 64, background: theme.color.bg, padding: 4, borderRadius: 4, zIndex: 800, pointerEvents: 'none' }} />
             )}
             <div style={{ ...chrome, bottom: 0, fontFamily: theme.font.body, fontWeight: 400, fontSize: '11px', textAlign: 'right' }}>
               {showFooter ? 'Schwingkeller Schweiz  ·  ' : ''}{TILE_ATTRIBUTION[baseKind]}

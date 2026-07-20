@@ -22,12 +22,16 @@ vi.mock('./usePosterQr', () => ({
 }));
 
 // Mock Leaflet: a fake map that records center/zoom and supports the calls the editor makes.
+// `bounds` is an opaque sentinel — the editor reads it from map.getBounds() and passes it straight
+// through to the capture; we assert it round-trips as `viewBounds`.
+const FAKE_BOUNDS = { _sentinel: 'bounds' };
 const { fakeMap } = vi.hoisted(() => ({
   fakeMap: {
     setView: vi.fn().mockReturnThis(),
     fitBounds: vi.fn().mockReturnThis(),
     getCenter: vi.fn().mockReturnValue({ lat: 46.9, lng: 7.4 }),
     getZoom: vi.fn().mockReturnValue(11),
+    getBounds: vi.fn().mockReturnValue({ _sentinel: 'bounds' }),
     on: vi.fn(),
     off: vi.fn(),
     remove: vi.fn(),
@@ -79,7 +83,7 @@ describe('PosterEditorModal', () => {
     expect(screen.getByRole('img', { name: /qr/i })).toBeInTheDocument();
   });
 
-  it('captures with the current view + options and reports the blob via onSave', async () => {
+  it('captures the current preview bounds + options and reports the blob via onSave', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     renderEditor({ onSave });
@@ -90,7 +94,7 @@ describe('PosterEditorModal', () => {
     expect(generateCantonPosterBlob).toHaveBeenCalledWith('BE', expect.any(Array), expect.objectContaining({
       baseKind: 'map',
       unitLabel: 'Schwingkeller',
-      view: { center: [46.9, 7.4], zoom: 11 },
+      viewBounds: FAKE_BOUNDS,
       title: 'Bern',
       showHeader: true,
       showFooter: true,

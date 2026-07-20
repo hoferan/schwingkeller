@@ -32,6 +32,11 @@ export interface PosterView { center: [number, number]; zoom: number }
 
 export interface GeneratePosterOptions {
   baseKind: BaseKind;
+  // Preferred framing: the exact geographic rectangle the editor's live map shows. Because both
+  // the editor square and this export are 1:1, fitting these bounds (with zoomSnap:0 for an exact,
+  // non-integer zoom) makes the export match what the user framed. Falls back to `view`, then the
+  // canton's default bounds.
+  viewBounds?: L.LatLngBoundsExpression;
   view?: PosterView;
   unitLabel: string;
   title?: string;
@@ -45,7 +50,7 @@ export const generateCantonPosterBlob = async (
   venues: Venue[],
   options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
-  const { baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl } = options;
+  const { baseKind, viewBounds, view, unitLabel, title, showHeader, showFooter, qrDataUrl } = options;
   const canton = cantonByCode(code);
   const bounds = boundsForCanton(code);
   if (!canton || !bounds) {
@@ -53,12 +58,16 @@ export const generateCantonPosterBlob = async (
   }
 
   const container = createOffscreenContainer(POSTER_SIZE);
-  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false });
+  // zoomSnap: 0 lets fitBounds pick a fractional zoom so `viewBounds` fits the square canvas
+  // exactly (no rounding down to the next integer zoom, which would show more area than framed).
+  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false, zoomSnap: 0 });
 
   try {
     const tileLayer = createTileLayer(baseKind, 'anonymous');
     tileLayer.addTo(map);
-    if (view) {
+    if (viewBounds) {
+      map.fitBounds(viewBounds, { padding: [0, 0] });
+    } else if (view) {
       map.setView(view.center, view.zoom);
     } else {
       map.fitBounds(bounds, { padding: [40, 40] });
