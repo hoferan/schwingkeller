@@ -3,9 +3,9 @@ import L from 'leaflet';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
-import { cantonByCode } from '../../data/cantons';
+import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
-import { createTileLayer, type BaseKind } from '../map/tileLayers';
+import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
 import { pinHtml } from '../map/markers';
 import { generateCantonPosterBlob } from './cantonPoster';
 import { usePosterQr } from './usePosterQr';
@@ -18,12 +18,13 @@ interface PosterEditorModalProps {
   unitLabel: string;
   onClose: () => void;
   onSave: (blob: Blob, filename: string) => void;
+  onError?: (err: unknown) => void;
 }
 
 const PREVIEW_SIZE = 460;
 
 export const PosterEditorModal = ({
-  code, venues, initialBaseKind, unitLabel, onClose, onSave,
+  code, venues, initialBaseKind, unitLabel, onClose, onSave, onError,
 }: PosterEditorModalProps) => {
   const { t } = useTranslation();
   const canton = cantonByCode(code);
@@ -36,11 +37,12 @@ export const PosterEditorModal = ({
   const [showQr, setShowQr] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const { url, dataUrl: qrDataUrl } = usePosterQr(code);
+  const { dataUrl: qrDataUrl } = usePosterQr(code);
 
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
+  const didMountBaseKindRef = useRef(false);
 
   // Create the live editor map once.
   useEffect(() => {
@@ -66,8 +68,13 @@ export const PosterEditorModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap the base layer live when toggled.
+  // Swap the base layer live when toggled. Skip the initial mount — the create-map effect above
+  // already builds the first tile layer, so re-running here on mount would rebuild it redundantly.
   useEffect(() => {
+    if (!didMountBaseKindRef.current) {
+      didMountBaseKindRef.current = true;
+      return;
+    }
     const map = mapRef.current;
     if (!map || !tileRef.current) return;
     map.removeLayer(tileRef.current);
@@ -98,6 +105,8 @@ export const PosterEditorModal = ({
         qrDataUrl: showQr ? qrDataUrl : null,
       });
       onSave(blob, filename);
+    } catch (err) {
+      onError?.(err);
     } finally {
       setBusy(false);
     }
@@ -118,13 +127,21 @@ export const PosterEditorModal = ({
           <div style={{ position: 'relative', width: PREVIEW_SIZE, height: PREVIEW_SIZE, maxWidth: '100%', flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
             {showHeader && (
-              <div style={{ ...chrome, top: 0, textTransform: 'uppercase' }}>{title}</div>
+              <div style={{ ...chrome, top: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img src={wappenUrl(code)} alt="" style={{ width: '22px', height: '28px', objectFit: 'contain', flex: 'none' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <div style={{ textTransform: 'uppercase' }}>{title}</div>
+                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.body, fontSize: '11px', fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, padding: '2px 9px', borderRadius: theme.radius.pill }}>
+                    {cantonVenues.length} {unitLabel}
+                  </span>
+                </div>
+              </div>
             )}
             {showQr && qrDataUrl && (
               <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: 12, bottom: 40, width: 64, height: 64, background: theme.color.bg, padding: 4, borderRadius: 4 }} />
             )}
             <div style={{ ...chrome, bottom: 0, fontFamily: theme.font.body, fontWeight: 400, fontSize: '11px', textAlign: 'right' }}>
-              {showFooter ? 'Schwingkeller Schweiz  ·  ' : ''}© OpenStreetMap / Esri
+              {showFooter ? 'Schwingkeller Schweiz  ·  ' : ''}{TILE_ATTRIBUTION[baseKind]}
             </div>
           </div>
 
@@ -165,8 +182,6 @@ export const PosterEditorModal = ({
               style={{ alignSelf: 'flex-start', padding: '8px 12px', border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink, borderRadius: theme.radius.sm, cursor: 'pointer', fontSize: '13px' }}>
               {t.posterResetFraming}
             </button>
-
-            <div style={{ marginTop: 'auto' }} title={url} />
           </div>
         </div>
 

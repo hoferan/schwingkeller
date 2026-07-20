@@ -107,4 +107,19 @@ describe('PosterEditorModal', () => {
     await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
     expect(generateCantonPosterBlob.mock.calls[0][2].qrDataUrl).toBeNull();
   });
+
+  it('reports capture failures via onError and resets the busy state', async () => {
+    generateCantonPosterBlob.mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onError = vi.fn();
+    renderEditor({ onSave, onError });
+
+    const downloadButton = screen.getByRole('button', { name: STR.de.posterDownload });
+    await user.click(downloadButton);
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error)));
+    expect(onSave).not.toHaveBeenCalled();
+    await waitFor(() => expect(downloadButton).not.toBeDisabled());
+  });
 });

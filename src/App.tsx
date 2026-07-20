@@ -387,6 +387,7 @@ function AppShell() {
           unitLabel={t.unitTotal}
           onClose={closePosterEditor}
           onSave={savePoster}
+          onError={(err) => showFlash('err', captureAndFormat(err, t.posterGenerateFailed))}
         />
       )}
 
