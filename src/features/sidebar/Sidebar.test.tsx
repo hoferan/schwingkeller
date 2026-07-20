@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => {
@@ -48,6 +48,8 @@ interface HarnessProps {
   geoStatus?: GeoStatus;
   onRequestLocation?: () => void;
   onAdd?: () => void;
+  onGeneratePoster?: (code: string) => void;
+  posterLoadingCode?: string | null;
 }
 
 const Harness = ({
@@ -62,6 +64,8 @@ const Harness = ({
   geoStatus = 'idle',
   onRequestLocation = () => {},
   onAdd = () => {},
+  onGeneratePoster = () => {},
+  posterLoadingCode = null,
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -90,6 +94,8 @@ const Harness = ({
       userPosition={userPosition}
       geoStatus={geoStatus}
       onRequestLocation={onRequestLocation}
+      onGeneratePoster={onGeneratePoster}
+      posterLoadingCode={posterLoadingCode}
     />
   );
 };
@@ -667,5 +673,38 @@ describe('Sidebar', () => {
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
     // "3 Schwingkeller" (venues fixture has 3) must appear exactly once — the dark header pill.
     expect(screen.getAllByText(`3 ${STR.de.unitTotal}`)).toHaveLength(1);
+  });
+
+  it('does not show a generate-poster icon for non-admins', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: STR.de.generatePoster })).not.toBeInTheDocument();
+  });
+
+  it('shows the generate-poster icon even for a canton with zero venues when admin', async () => {
+    renderAdminSidebar();
+    const row = (await screen.findByText('Zug')).closest('div')!;
+    expect(within(row).getByRole('button', { name: STR.de.generatePoster })).toBeInTheDocument();
+  });
+
+  it('calls onGeneratePoster with the canton code and does not toggle the group', async () => {
+    const user = userEvent.setup();
+    const onGeneratePoster = vi.fn();
+    renderAdminSidebar({ onGeneratePoster });
+    const row = (await screen.findByText('Bern')).closest('div')!;
+    const button = within(row).getByRole('button', { name: STR.de.generatePoster });
+
+    await user.click(button);
+
+    expect(onGeneratePoster).toHaveBeenCalledWith('BE');
+    expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
+  });
+
+  it('disables the generate-poster icon for the canton currently loading', async () => {
+    renderAdminSidebar({ posterLoadingCode: 'BE' });
+    const row = (await screen.findByText('Bern')).closest('div')!;
+    const button = within(row).getByRole('button', { name: STR.de.generatePoster });
+
+    expect(button).toBeDisabled();
   });
 });

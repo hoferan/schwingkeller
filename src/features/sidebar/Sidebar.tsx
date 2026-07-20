@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, ChevronDown, Plus, Download, Upload, Home, Mountain } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, ChevronDown, Plus, Download, Upload, Home, Mountain, Camera } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton, flatSorted, type SortMode, type Facets } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
@@ -31,6 +31,8 @@ interface SidebarProps {
   userPosition: LatLng | null;
   geoStatus: GeoStatus;
   onRequestLocation: () => void;
+  onGeneratePoster: (code: string) => void;
+  posterLoadingCode: string | null;
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
@@ -122,6 +124,8 @@ export const Sidebar = ({
   userPosition,
   geoStatus,
   onRequestLocation,
+  onGeneratePoster,
+  posterLoadingCode,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
   const { isAdmin } = useAuth();
@@ -732,6 +736,23 @@ export const Sidebar = ({
                 >
                   {group.count}
                 </span>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onGeneratePoster(group.code); }}
+                    disabled={posterLoadingCode === group.code}
+                    aria-label={t.generatePoster}
+                    title={t.generatePoster}
+                    style={{
+                      width: '26px', height: '26px', border: 'none', background: 'transparent',
+                      color: theme.color.ink, cursor: posterLoadingCode === group.code ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+                      opacity: posterLoadingCode === group.code ? 0.4 : 1,
+                    }}
+                  >
+                    <Camera size={15} />
+                  </button>
+                )}
                 <span style={{ color: theme.color.ink, width: '12px', display: 'flex', justifyContent: 'center' }}>
                   <ChevronRight
                     size={12}
