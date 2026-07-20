@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage } from './posterCanvas';
+import { POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles, drawPin, drawPosterOverlay } from './posterCanvas';
 
 describe('posterFilename', () => {
   it('lowercases the canton code into the filename', () => {
@@ -73,5 +73,110 @@ describe('loadImage', () => {
     created!.onerror?.();
 
     await expect(promise).resolves.toBeNull();
+  });
+});
+
+describe('extractTileDraws', () => {
+  it('reads position and size from loaded Leaflet tile images, skipping unloaded ones', () => {
+    const pane = document.createElement('div');
+    pane.innerHTML = `
+      <img class="leaflet-tile leaflet-tile-loaded" style="transform: translate3d(12px, 34px, 0px);" width="256" height="256" />
+      <img class="leaflet-tile" style="transform: translate3d(99px, 99px, 0px);" width="256" height="256" />
+    `;
+
+    const tiles = extractTileDraws(pane);
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]).toMatchObject({ x: 12, y: 34, size: 256 });
+  });
+
+  it('returns an empty array when there are no loaded tiles', () => {
+    const pane = document.createElement('div');
+    expect(extractTileDraws(pane)).toEqual([]);
+  });
+});
+
+describe('drawTiles', () => {
+  it('draws each tile image at its recorded position and size', () => {
+    const drawImage = vi.fn();
+    const ctx = { drawImage } as unknown as CanvasRenderingContext2D;
+    const imgA = {} as HTMLImageElement;
+    const imgB = {} as HTMLImageElement;
+
+    drawTiles(ctx, [
+      { img: imgA, x: 0, y: 0, size: 256 },
+      { img: imgB, x: 256, y: 0, size: 256 },
+    ]);
+
+    expect(drawImage).toHaveBeenNthCalledWith(1, imgA, 0, 0, 256, 256);
+    expect(drawImage).toHaveBeenNthCalledWith(2, imgB, 256, 0, 256, 256);
+  });
+});
+
+describe('drawPin', () => {
+  it('draws a filled circle with a ring and a center dot', () => {
+    const ctx = {
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 0,
+    } as unknown as CanvasRenderingContext2D;
+
+    drawPin(ctx, 100, 200);
+
+    expect(ctx.arc).toHaveBeenCalledTimes(2);
+    expect(ctx.arc).toHaveBeenNthCalledWith(1, 100, 200, 16, 0, Math.PI * 2);
+    expect(ctx.fill).toHaveBeenCalledTimes(2);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('drawPosterOverlay', () => {
+  const makeCtx = (): CanvasRenderingContext2D =>
+    ({
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn().mockReturnValue({ width: 80 }),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      fill: vi.fn(),
+      drawImage: vi.fn(),
+      fillStyle: '',
+      font: '',
+      textBaseline: '',
+      textAlign: '',
+    }) as unknown as CanvasRenderingContext2D;
+
+  it('draws the canton name (uppercased), the venue-count pill text, and the attribution', () => {
+    const ctx = makeCtx();
+
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors',
+    });
+
+    expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith('5 Schwingkeller', expect.any(Number), expect.any(Number));
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      '© OpenStreetMap contributors', expect.any(Number), expect.any(Number),
+    );
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it('draws the Wappen image when one is provided', () => {
+    const ctx = makeCtx();
+    const wappenImg = {} as HTMLImageElement;
+
+    drawPosterOverlay(ctx, {
+      cantonName: 'Zug', wappenImg, count: 0, unitLabel: 'Schwingkeller',
+      attribution: '© Esri, Maxar, Earthstar Geographics',
+    });
+
+    expect(ctx.drawImage).toHaveBeenCalledWith(
+      wappenImg, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
+    );
   });
 });
