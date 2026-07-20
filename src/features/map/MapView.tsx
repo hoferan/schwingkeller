@@ -10,6 +10,7 @@ import { pinHtml, popupHtml, clusterIcon, userPinHtml } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
+import { createTileLayer } from './tileLayers';
 
 interface MapViewProps {
   venues: Venue[];
@@ -120,13 +121,8 @@ export function MapView({
     const map = mapRef.current;
     if (!map) return;
     if (tileRef.current) { map.removeLayer(tileRef.current); tileRef.current = null; }
-    if (kind === 'sat') {
-      tileRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 18 });
-      tileRef.current.addTo(map); tileRef.current.bringToBack();
-    } else {
-      tileRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 });
-      tileRef.current.addTo(map); tileRef.current.bringToBack();
-    }
+    tileRef.current = createTileLayer(kind);
+    tileRef.current.addTo(map); tileRef.current.bringToBack();
     const pane = map.getPane('tilePane'); if (pane) pane.style.filter = 'none';
   };
 
