@@ -207,7 +207,12 @@ export function MapView({
     map.on('click', onMapClick);
 
     map.whenReady(() => {
-      if (!mapRef.current) return;
+      // Under React StrictMode (dev) the mount effect runs twice: the first map is
+      // created and removed, then a second is created. This deferred callback closes
+      // over the *first* map, so guard on identity — `!mapRef.current` isn't enough
+      // because by now it points at the second map. Calling invalidateSize() on the
+      // removed map crashes in Leaflet (its panes are gone → `_leaflet_pos` of undefined).
+      if (mapRef.current !== map) return;
       map.invalidateSize();
       const zoomEl = map.zoomControl.getContainer();
       if (zoomEl) {
@@ -218,7 +223,7 @@ export function MapView({
         setFitAllBgClip(zoomStyle.backgroundClip);
       }
       window.setTimeout(() => {
-        if (!mapRef.current || !markerGroupRef.current) return;
+        if (mapRef.current !== map || !markerGroupRef.current) return;
         map.invalidateSize();
         if (!map.hasLayer(markerGroupRef.current)) markerGroupRef.current.addTo(map);
         refreshMarkers();
