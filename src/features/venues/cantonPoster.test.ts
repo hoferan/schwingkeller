@@ -1,0 +1,142 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Venue } from './types';
+import { boundsForCanton } from '../../data/cantonBounds';
+
+const { tileLayerOnceMock, createTileLayerMock, fakeMap } = vi.hoisted(() => {
+  const tileLayerOnceMock = vi.fn();
+  return {
+    tileLayerOnceMock,
+    createTileLayerMock: vi.fn(() => ({ addTo: vi.fn(), once: tileLayerOnceMock })),
+    fakeMap: {
+      fitBounds: vi.fn(),
+      getPane: vi.fn(),
+      latLngToContainerPoint: vi.fn().mockReturnValue({ x: 10, y: 20 }),
+      remove: vi.fn(),
+    },
+  };
+});
+
+vi.mock('leaflet', () => ({
+  default: { map: vi.fn(() => fakeMap) },
+}));
+
+vi.mock('../map/tileLayers', async () => {
+  const actual = await vi.importActual<typeof import('../map/tileLayers')>('../map/tileLayers');
+  return { ...actual, createTileLayer: createTileLayerMock };
+});
+
+const { drawTilesMock, drawPinMock, drawPosterOverlayMock, extractTileDrawsMock } = vi.hoisted(() => ({
+  drawTilesMock: vi.fn(),
+  drawPinMock: vi.fn(),
+  drawPosterOverlayMock: vi.fn(),
+  extractTileDrawsMock: vi.fn().mockReturnValue([]),
+}));
+vi.mock('./posterCanvas', async () => {
+  const actual = await vi.importActual<typeof import('./posterCanvas')>('./posterCanvas');
+  return {
+    ...actual,
+    loadImage: vi.fn().mockResolvedValue(null),
+    drawTiles: drawTilesMock,
+    drawPin: drawPinMock,
+    drawPosterOverlay: drawPosterOverlayMock,
+    extractTileDraws: extractTileDrawsMock,
+  };
+});
+
+import { generateCantonPosterBlob, waitForTilesLoad } from './cantonPoster';
+
+const v = (over: Partial<Venue>): Venue => ({
+  id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
+});
+const venues = [v({ id: '1', canton: 'BE' }), v({ id: '2', canton: 'BE' }), v({ id: '3', canton: 'LU' })];
+
+describe('waitForTilesLoad', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('resolves once the layer fires "load"', async () => {
+    const handlers: Record<string, () => void> = {};
+    const layer = { once: (evt: string, cb: () => void) => { handlers[evt] = cb; } };
+
+    const promise = waitForTilesLoad(layer, 5000);
+    handlers.load();
+
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it('rejects with a [TILE_TIMEOUT] error if "load" never fires in time', async () => {
+    vi.useFakeTimers();
+    const layer = { once: vi.fn() };
+
+    const promise = waitForTilesLoad(layer, 5000);
+    vi.advanceTimersByTime(5000);
+
+    await expect(promise).rejects.toThrow('[TILE_TIMEOUT]');
+  });
+});
+
+describe('generateCantonPosterBlob', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = '';
+    fakeMap.getPane.mockReturnValue(document.createElement('div'));
+    fakeMap.latLngToContainerPoint.mockReturnValue({ x: 10, y: 20 });
+    tileLayerOnceMock.mockImplementation((evt: string, cb: () => void) => { if (evt === 'load') cb(); });
+    extractTileDrawsMock.mockReturnValue([]);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+      this: HTMLCanvasElement, cb: BlobCallback,
+    ) {
+      cb(new Blob(['x'], { type: 'image/png' }));
+    });
+  });
+
+  it("builds the tile layer for the given base kind and fits the map to the canton's exact bounds", async () => {
+    await generateCantonPosterBlob('BE', venues, 'map', 'Schwingkeller');
+
+    expect(createTileLayerMock).toHaveBeenCalledWith('map');
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [40, 40] });
+  });
+
+  it("plots a pin for each of the canton's venues and none from other cantons", async () => {
+    await generateCantonPosterBlob('BE', venues, 'map', 'Schwingkeller');
+
+    // Fixture has 2 BE venues and 1 LU venue — only the 2 BE ones should be projected/drawn.
+    expect(fakeMap.latLngToContainerPoint).toHaveBeenCalledTimes(2);
+    expect(drawPinMock).toHaveBeenCalledTimes(2);
+    expect(drawTilesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a PNG blob and the lowercase-canton filename', async () => {
+    const result = await generateCantonPosterBlob('BE', venues, 'sat', 'Schwingkeller');
+
+    expect(createTileLayerMock).toHaveBeenCalledWith('sat');
+    expect(result.filename).toBe('schwingkeller-be.png');
+    expect(result.blob.type).toBe('image/png');
+  });
+
+  it('tears down the off-screen map and detaches the container on success', async () => {
+    await generateCantonPosterBlob('BE', venues, 'map', 'Schwingkeller');
+
+    expect(fakeMap.remove).toHaveBeenCalledTimes(1);
+    expect(document.body.children.length).toBe(0);
+  });
+
+  it('tears down the off-screen map and container on failure too (tile timeout)', async () => {
+    vi.useFakeTimers();
+    tileLayerOnceMock.mockImplementation(() => {}); // 'load' never fires
+
+    const promise = generateCantonPosterBlob('BE', venues, 'map', 'Schwingkeller');
+    vi.advanceTimersByTime(8000);
+
+    await expect(promise).rejects.toThrow('[TILE_TIMEOUT]');
+    expect(fakeMap.remove).toHaveBeenCalledTimes(1);
+    expect(document.body.children.length).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it('rejects with [UNKNOWN_CANTON] for an unrecognized code', async () => {
+    await expect(generateCantonPosterBlob('XX', venues, 'map', 'Schwingkeller'))
+      .rejects.toThrow('[UNKNOWN_CANTON]');
+  });
+});
