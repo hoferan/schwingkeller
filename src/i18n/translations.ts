@@ -90,6 +90,10 @@ export const STR = {
     locationDenied: 'Standortzugriff verweigert.',
     locationError: 'Standort konnte nicht ermittelt werden.',
     youAreHere: 'Ihr Standort',
+    generatePoster: 'Bild erstellen',
+    posterPreviewTitle: 'Bild-Vorschau',
+    saveImage: 'Bild speichern',
+    posterGenerateFailed: 'Bild konnte nicht erstellt werden',
   },
   fr: {
     tagline: 'Halles et caves de lutte suisse',
@@ -179,6 +183,10 @@ export const STR = {
     locationDenied: 'Accès à la position refusé.',
     locationError: 'Impossible de déterminer la position.',
     youAreHere: 'Votre position',
+    generatePoster: 'Créer une image',
+    posterPreviewTitle: 'Aperçu de l\'image',
+    saveImage: 'Enregistrer l\'image',
+    posterGenerateFailed: 'Impossible de créer l\'image',
   },
   it: {
     tagline: 'Sedi e cantine di lotta svizzera',
@@ -268,6 +276,10 @@ export const STR = {
     locationDenied: 'Accesso alla posizione negato.',
     locationError: 'Impossibile determinare la posizione.',
     youAreHere: 'La tua posizione',
+    generatePoster: 'Crea immagine',
+    posterPreviewTitle: 'Anteprima immagine',
+    saveImage: 'Salva immagine',
+    posterGenerateFailed: 'Impossibile creare l\'immagine',
   },
 } as const;
 
