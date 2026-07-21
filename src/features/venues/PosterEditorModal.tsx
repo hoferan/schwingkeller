@@ -10,6 +10,7 @@ import { generateCantonPosterBlob } from './cantonPoster';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, type PosterAspectRatio,
+  type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
@@ -93,6 +94,11 @@ export const PosterEditorModal = ({
   const [showFooter, setShowFooter] = useState(true);
   const [showQr, setShowQr] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<PosterAspectRatio>('square');
+  const [headerPosition, setHeaderPosition] = useState<ChromePosition>('top');
+  const [footerPosition, setFooterPosition] = useState<ChromePosition>('bottom');
+  const [chromeStyle, setChromeStyle] = useState<ChromeStyle>('solid');
+  const [chromeSize, setChromeSize] = useState<ChromeSize>('normal');
+  const [qrCorner, setQrCorner] = useState<QrCorner>('bottom-right');
   const [busy, setBusy] = useState(false);
 
   const { dataUrl: qrDataUrl } = usePosterQr(code);
@@ -195,6 +201,11 @@ export const PosterEditorModal = ({
         showFooter,
         qrDataUrl: showQr ? qrDataUrl : null,
         aspectRatio,
+        headerPosition,
+        footerPosition,
+        chromeStyle,
+        chromeSize,
+        qrCorner,
       });
       onSave(blob, filename);
     } catch (err) {
@@ -226,6 +237,22 @@ export const PosterEditorModal = ({
         <span style={{ position: 'absolute', top: '3px', left: checked ? '21px' : '3px', width: '22px', height: '22px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.35)', transition: 'left .18s ease' }} />
       </span>
     </label>
+  );
+
+  const segmented = <T extends string>(
+    key: string, label: string, options: readonly T[], value: T, set: (v: T) => void, labelFor: (v: T) => string,
+  ) => (
+    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <span style={fieldLabel}>{label}</span>
+      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px', flexWrap: 'wrap' }}>
+        {options.map((opt) => (
+          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)}
+            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+            {labelFor(opt)}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   return (
@@ -278,35 +305,33 @@ export const PosterEditorModal = ({
                 style={{ padding: '10px 12px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm, fontSize: '14.5px', color: theme.color.ink, background: theme.color.bg, fontFamily: theme.font.body }} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <span style={fieldLabel}>{t.posterBaseLabel}</span>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
-                {(['map', 'sat'] as const).map((k) => (
-                  <button key={k} type="button" aria-pressed={baseKind === k} onClick={() => setBaseKind(k)}
-                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: baseKind === k ? theme.color.bg : 'transparent', color: baseKind === k ? theme.color.ink : theme.color.muted, boxShadow: baseKind === k ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
-                    {k === 'map' ? t.mapView : t.satView}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
+              (k) => (k === 'map' ? t.mapView : t.satView))}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <span style={fieldLabel}>{t.posterFormatLabel}</span>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
-                {(['square', 'portrait'] as const).map((r) => (
-                  <button key={r} type="button" aria-pressed={aspectRatio === r} onClick={() => setAspectRatio(r)}
-                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: aspectRatio === r ? theme.color.bg : 'transparent', color: aspectRatio === r ? theme.color.ink : theme.color.muted, boxShadow: aspectRatio === r ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
-                    {r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
+              (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
               {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
+              {segmented('headerPos', t.posterHeaderPositionLabel, ['top', 'bottom'] as const, headerPosition, setHeaderPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom))}
               {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
+              {segmented('footerPos', t.posterFooterPositionLabel, ['top', 'bottom'] as const, footerPosition, setFooterPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom))}
               {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
+              {segmented('qrCorner', t.posterQrCornerLabel,
+                ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const, qrCorner, setQrCorner,
+                (c) => ({
+                  'top-left': t.posterQrCornerTopLeft, 'top-right': t.posterQrCornerTopRight,
+                  'bottom-left': t.posterQrCornerBottomLeft, 'bottom-right': t.posterQrCornerBottomRight,
+                }[c]))}
             </div>
+
+            {segmented('style', t.posterStyleLabel, ['solid', 'transparent', 'light'] as const, chromeStyle, setChromeStyle,
+              (s) => ({ solid: t.posterStyleSolid, transparent: t.posterStyleTransparent, light: t.posterStyleLight }[s]))}
+
+            {segmented('size', t.posterSizeLabel, ['normal', 'compact'] as const, chromeSize, setChromeSize,
+              (s) => (s === 'normal' ? t.posterSizeNormal : t.posterSizeCompact))}
 
             <button type="button" onClick={resetFraming}
               style={{ alignSelf: 'flex-start', padding: '6px 0', border: 'none', background: 'transparent', color: theme.color.accent, fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}>

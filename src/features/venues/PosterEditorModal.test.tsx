@@ -236,3 +236,33 @@ describe('aspect ratio', () => {
     expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'portrait' });
   });
 });
+
+describe('header/footer customization controls', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("renders position, style, size, and QR-corner controls with today's defaults selected", () => {
+    renderEditor();
+    // Both the header-position and footer-position pickers render a "Oben" (Top) button, so this
+    // just confirms both pickers are present rather than asserting on a single ambiguous match.
+    expect(screen.getAllByRole('button', { name: STR.de.posterPositionTop })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: STR.de.posterStyleSolid })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STR.de.posterSizeNormal })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('forwards the current header/footer/style/size/QR-corner selections to generateCantonPosterBlob', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterStyleTransparent }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterSizeCompact }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerTopLeft }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({
+      chromeStyle: 'transparent', chromeSize: 'compact', qrCorner: 'top-left',
+      headerPosition: 'top', footerPosition: 'bottom',
+    });
+  });
+});
