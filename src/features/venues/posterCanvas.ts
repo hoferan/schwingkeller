@@ -138,14 +138,16 @@ export interface PosterOverlayOptions {
 
 export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; text: string; shadow: boolean }> = {
   solid: { fill: 'rgba(17,17,17,0.72)', text: theme.color.bg, shadow: false },
-  transparent: { fill: null, text: theme.color.bg, shadow: true },
+  // Dark ink over the bare map — most basemap area is light, and a light halo keeps it readable
+  // where it isn't. Light text washed out entirely on bright tiles (smoke-test finding).
+  transparent: { fill: null, text: theme.color.ink, shadow: true },
   light: { fill: 'rgba(255,255,255,0.85)', text: theme.color.ink, shadow: false },
 };
 
 const applyChromeShadow = (ctx: CanvasRenderingContext2D, on: boolean): void => {
-  ctx.shadowColor = on ? 'rgba(0,0,0,0.6)' : 'transparent';
-  ctx.shadowBlur = on ? 4 : 0;
-  ctx.shadowOffsetY = on ? 1 : 0;
+  ctx.shadowColor = on ? 'rgba(255,255,255,0.85)' : 'transparent';
+  ctx.shadowBlur = on ? 5 : 0;
+  ctx.shadowOffsetY = 0;
 };
 
 const APP_NAME = 'Schwingkeller Schweiz';

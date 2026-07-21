@@ -233,7 +233,8 @@ export const PosterEditorModal = ({
   const chromeColors = CHROME_STYLE_COLORS[chromeStyle];
   const bandTextStyle: React.CSSProperties = {
     color: chromeColors.text,
-    textShadow: chromeColors.shadow ? '0 1px 4px rgba(0,0,0,0.6)' : 'none',
+    // Light halo matching the canvas exporter's shadow (dark text over the bare map).
+    textShadow: chromeColors.shadow ? '0 0 5px rgba(255,255,255,0.85), 0 0 2px rgba(255,255,255,0.85)' : 'none',
   };
 
   const band: React.CSSProperties = {
