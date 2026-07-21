@@ -86,8 +86,9 @@ function AppShell() {
     venueParam ? null : parseCantonParam(window.location.search),
   );
   const [search, setSearch] = useState('');
+  // No canton expanded by default — only a ?ctn= permalink pre-expands its canton.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    ctnParam ? { [ctnParam]: true } : { BE: true },
+    ctnParam ? { [ctnParam]: true } : {},
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);

@@ -7,9 +7,11 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
+import { computeChromeLayout, CHROME_STYLE_COLORS, type ChromeLayoutResult } from './posterCanvas';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
-  POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, type PosterAspectRatio,
+  POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
+  type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
@@ -36,14 +38,14 @@ const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the canton-bound
 // Default framing for the live editor map: fit tightly to the canton's own venues (not the whole
 // canton outline) so exported labels aren't shrunk by empty terrain, while keeping a sensible view
 // for cantons with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
-// framing" button so both apply identical logic.
+// framing" button so both apply identical logic. Padding derives from computeChromeLayout's
+// per-edge occupancy so it stays correct wherever the bands are positioned and at either size.
 const applyDefaultFraming = (
   map: L.Map,
   code: string,
   venues: Venue[],
   previewSize: number,
-  showHeader: boolean,
-  showFooter: boolean,
+  chrome: ChromeLayoutResult,
 ): void => {
   const cantonVenues = venues.filter((v) => v.canton === code);
 
@@ -62,8 +64,8 @@ const applyDefaultFraming = (
   const venueBounds = venueBoundsForCanton(code, venues);
   if (!venueBounds) return;
   const scale = previewSize / POSTER_SIZE;
-  const topPad = DEFAULT_FIT_PADDING + (showHeader ? PL.headerH * scale : 0);
-  const bottomPad = DEFAULT_FIT_PADDING + (showFooter ? PL.footerH * scale : 0);
+  const topPad = DEFAULT_FIT_PADDING + chrome.topOccupied * scale;
+  const bottomPad = DEFAULT_FIT_PADDING + chrome.bottomOccupied * scale;
   map.fitBounds(venueBounds, {
     paddingTopLeft: [DEFAULT_FIT_PADDING, topPad],
     paddingBottomRight: [DEFAULT_FIT_PADDING, bottomPad],
@@ -93,9 +95,24 @@ export const PosterEditorModal = ({
   const [showFooter, setShowFooter] = useState(true);
   const [showQr, setShowQr] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<PosterAspectRatio>('square');
+  const [headerPosition, setHeaderPosition] = useState<ChromePosition>('top');
+  const [footerPosition, setFooterPosition] = useState<ChromePosition>('bottom');
+  const [chromeStyle, setChromeStyle] = useState<ChromeStyle>('solid');
+  const [chromeSize, setChromeSize] = useState<ChromeSize>('normal');
+  const [qrCorner, setQrCorner] = useState<QrCorner>('bottom-right');
   const [busy, setBusy] = useState(false);
 
   const { dataUrl: qrDataUrl } = usePosterQr(code);
+
+  // Chrome geometry for the current selections — the same pure functions the canvas exporter
+  // uses, so the preview stays an exact scaled replica and the venue-fit framing pads for the
+  // edges the bands actually occupy. Computed against the currently selected aspect ratio's
+  // height so bottom-anchored bands land correctly in portrait mode too.
+  const CL = chromeLayoutFor(chromeSize);
+  const chrome = computeChromeLayout({
+    showHeader, showFooter, headerPosition, footerPosition, chromeSize,
+    posterHeight: posterHeightFor(aspectRatio),
+  });
 
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -106,14 +123,19 @@ export const PosterEditorModal = ({
   // Create the live editor map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
-    // zoomControl:false — the header/footer chrome span the full width top and bottom, so any
-    // on-map corner control would collide with them. Zoom lives in the controls panel instead
-    // (the map still zooms via scroll/pinch).
-    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: false, maxZoom: maxPreviewZoom(baseKind) });
+    // zoomControl:false — the header/footer chrome can span the full width top and bottom, so any
+    // on-map corner control could collide with them. Zoom lives in the controls panel instead
+    // (the map also zooms via scroll/pinch). Quarter-step soft zoom (zoomSnap/zoomDelta 0.25, a
+    // gentler wheel ratio) so the admin can frame the poster precisely — the capture pipeline is
+    // scale-aware and reproduces fractional zooms exactly.
+    const map = L.map(mapElRef.current, {
+      attributionControl: false, zoomControl: false, maxZoom: maxPreviewZoom(baseKind),
+      zoomSnap: 0.25, zoomDelta: 0.25, wheelPxPerZoomLevel: 120,
+    });
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
-    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
+    applyDefaultFraming(map, code, venues, previewSize, chrome);
 
     // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
     const p = previewPin(previewSize);
@@ -167,7 +189,13 @@ export const PosterEditorModal = ({
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
-    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
+    applyDefaultFraming(map, code, venues, previewSize, chrome);
+  };
+
+  // Quarter-step zoom for precise framing; Leaflet clamps to the map's own min/max zoom.
+  const stepZoom = (delta: number) => {
+    const map = mapRef.current;
+    if (map) map.setZoom(map.getZoom() + delta);
   };
 
   const download = async () => {
@@ -176,13 +204,14 @@ export const PosterEditorModal = ({
       onError?.(new Error('[NO_MAP] Poster editor map is not ready.'));
       return;
     }
-    // Frame the 1080² export on exactly the area the (square, power-of-2-sized) preview shows: the
-    // canvas is POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). Math.round
-    // defends the integer invariant even if Leaflet's zoomSnap is ever changed to a fractional value.
+    // Frame the export on exactly the area the (power-of-2-sized) preview shows: the canvas is
+    // POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). The preview zoom
+    // itself may be fractional (quarter-step soft zoom) and is forwarded exactly — the capture map
+    // runs with zoomSnap: 0 and the tile capture is scale-aware, so no rounding is needed.
     const c = map.getCenter();
     const view = {
       center: [c.lat, c.lng] as [number, number],
-      zoom: Math.round(map.getZoom() + deltaZoom),
+      zoom: map.getZoom() + deltaZoom,
     };
     setBusy(true);
     try {
@@ -195,6 +224,11 @@ export const PosterEditorModal = ({
         showFooter,
         qrDataUrl: showQr ? qrDataUrl : null,
         aspectRatio,
+        headerPosition,
+        footerPosition,
+        chromeStyle,
+        chromeSize,
+        qrCorner,
       });
       onSave(blob, filename);
     } catch (err) {
@@ -208,9 +242,12 @@ export const PosterEditorModal = ({
   // numbers the canvas exporter uses, so the preview is a scaled replica of the PNG. zIndex 800
   // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
   // none lets map drag/zoom pass through.
+  const chromeColors = CHROME_STYLE_COLORS[chromeStyle];
+  const bandTextStyle: React.CSSProperties = { color: chromeColors.text };
+
   const band: React.CSSProperties = {
-    position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)',
-    color: theme.color.bg, zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
+    position: 'absolute', left: 0, right: 0,
+    zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
   };
   const fieldLabel: React.CSSProperties = {
     fontSize: '11.5px', letterSpacing: '.07em', textTransform: 'uppercase',
@@ -228,6 +265,60 @@ export const PosterEditorModal = ({
     </label>
   );
 
+  const segmented = <T extends string>(
+    key: string, label: string, options: readonly T[], value: T, set: (v: T) => void, labelFor: (v: T) => string,
+  ) => (
+    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <span style={fieldLabel}>{label}</span>
+      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px', flexWrap: 'wrap' }}>
+        {options.map((opt) => (
+          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)}
+            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+            {labelFor(opt)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // 2×2 corner grid for the QR position: a miniature poster outline with one dot per corner —
+  // one glance shows where the code will sit, without four wrapping text buttons.
+  const qrCornerLabels: Record<QrCorner, string> = {
+    'top-left': t.posterQrCornerTopLeft, 'top-right': t.posterQrCornerTopRight,
+    'bottom-left': t.posterQrCornerBottomLeft, 'bottom-right': t.posterQrCornerBottomRight,
+  };
+  const cornerPicker = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <span style={fieldLabel}>{t.posterQrCornerLabel}</span>
+      <div data-testid="qr-corner-picker" style={{ position: 'relative', width: '64px', height: '64px', background: theme.color.paper, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line }}>
+        {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((c) => {
+          const active = qrCorner === c;
+          return (
+            <button key={c} type="button" aria-pressed={active} aria-label={qrCornerLabels[c]}
+              onClick={() => setQrCorner(c)}
+              style={{
+                position: 'absolute',
+                [c.startsWith('top') ? 'top' : 'bottom']: '6px',
+                [c.endsWith('left') ? 'left' : 'right']: '6px',
+                width: '18px', height: '18px', padding: 0, borderRadius: '5px', border: 'none',
+                cursor: 'pointer', transition: 'all .15s ease',
+                background: active ? theme.color.accent : theme.color.line,
+                boxShadow: active ? '0 1px 3px rgba(0,0,0,.25)' : 'none',
+              } as React.CSSProperties} />
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // Sub-control that belongs to the toggle directly above it — indented behind a hairline so the
+  // hierarchy is visible; rendered only while its element is enabled (keeps the panel short,
+  // especially on mobile).
+  const subControl = (node: React.ReactNode) => (
+    <div style={{ paddingLeft: '14px', borderLeft: '2px solid ' + theme.color.line }}>{node}</div>
+  );
+  const divider = <div style={{ height: '1px', background: theme.color.line, opacity: 0.6 }} />;
+
   return (
     <Modal onClose={onClose} width={previewSize + 340}>
       <div style={{ padding: '18px 22px' }}>
@@ -242,29 +333,42 @@ export const PosterEditorModal = ({
               justifyContent:center on the row keeps it centered when the controls wrap below. */}
           <div data-testid="poster-preview-square" style={{ position: 'relative', width: previewSize, height: previewSize * (posterHeightFor(aspectRatio) / POSTER_SIZE), flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
-            {showHeader && (
-              <div style={{ ...band, top: 0, height: cqw(PL.headerH), gap: cqw(PL.wappenGap), paddingLeft: cqw(PL.padX), paddingRight: cqw(PL.padX) }}>
-                <img src={wappenUrl(code)} alt="" style={{ width: cqw(PL.wappenW), height: cqw(PL.wappenH), objectFit: 'contain', flex: 'none' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: cqw(PL.titleGap), minWidth: 0 }}>
-                  <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(PL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {showHeader && chrome.headerY !== null && (
+              <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
+                <img src={wappenUrl(code)} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
+                {/* Compact: pill inline next to the title (band too short to stack); normal: stacked. */}
+                <div style={{ display: 'flex', flexDirection: chromeSize === 'compact' ? 'row' : 'column', alignItems: chromeSize === 'compact' ? 'center' : undefined, gap: cqw(chromeSize === 'compact' ? CL.pillPadX : CL.titleGap), minWidth: 0 }}>
+                  <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(CL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {title || canton?.name}
                   </div>
-                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(PL.pillFont), height: cqw(PL.pillH), lineHeight: cqw(PL.pillH), padding: `0 ${cqw(PL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
+                  <span style={{ alignSelf: chromeSize === 'compact' ? 'center' : 'flex-start', flex: 'none', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH), padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
                     {cantonVenues.length} {unitLabel}
                   </span>
                 </div>
               </div>
             )}
-            {showQr && qrDataUrl && (
-              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: cqw(PL.qrMargin), bottom: cqw(PL.qrMargin + PL.footerH), width: cqw(PL.qrSize), height: cqw(PL.qrSize), background: theme.color.bg, padding: cqw(PL.qrPad), borderRadius: '3px', zIndex: 800, pointerEvents: 'none' }} />
-            )}
-            {showFooter ? (
-              <div style={{ ...band, bottom: 0, height: cqw(PL.footerH), justifyContent: 'space-between', paddingLeft: cqw(PL.appNameX), paddingRight: cqw(PL.attribMarginX) }}>
-                <span style={{ fontFamily: theme.font.display, fontWeight: 600, fontSize: cqw(PL.appNameFont), whiteSpace: 'nowrap' }}>Schwingkeller Schweiz</span>
-                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
+            {showQr && qrDataUrl && (() => {
+              const isTop = qrCorner.startsWith('top');
+              const isLeft = qrCorner.endsWith('left');
+              // chrome.bottomOccupied already includes the attribution strip when the footer is off.
+              const occupied = isTop ? chrome.topOccupied : chrome.bottomOccupied;
+              return (
+                <img src={qrDataUrl} alt="QR" style={{
+                  position: 'absolute',
+                  [isLeft ? 'left' : 'right']: cqw(CL.qrMargin),
+                  [isTop ? 'top' : 'bottom']: cqw(occupied + CL.qrMargin),
+                  width: cqw(CL.qrSize), height: cqw(CL.qrSize), background: theme.color.bg,
+                  padding: cqw(CL.qrPad), borderRadius: '3px', zIndex: 800, pointerEvents: 'none',
+                } as React.CSSProperties} />
+              );
+            })()}
+            {showFooter && chrome.footerY !== null ? (
+              <div data-testid="poster-preview-footer" style={{ ...band, top: cqw(chrome.footerY), height: cqw(CL.footerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, justifyContent: 'space-between', paddingLeft: cqw(CL.appNameX), paddingRight: cqw(CL.attribMarginX) }}>
+                <span style={{ fontFamily: theme.font.display, fontWeight: 600, fontSize: cqw(CL.appNameFont), whiteSpace: 'nowrap' }}>Schwingkeller Schweiz</span>
+                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(CL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             ) : (
-              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: 'rgba(17,17,17,0.55)', justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
+              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: chromeColors.fill ?? 'transparent', color: chromeColors.text, justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
                 <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             )}
@@ -278,34 +382,47 @@ export const PosterEditorModal = ({
                 style={{ padding: '10px 12px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm, fontSize: '14.5px', color: theme.color.ink, background: theme.color.bg, fontFamily: theme.font.body }} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <span style={fieldLabel}>{t.posterBaseLabel}</span>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
-                {(['map', 'sat'] as const).map((k) => (
-                  <button key={k} type="button" aria-pressed={baseKind === k} onClick={() => setBaseKind(k)}
-                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: baseKind === k ? theme.color.bg : 'transparent', color: baseKind === k ? theme.color.ink : theme.color.muted, boxShadow: baseKind === k ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
-                    {k === 'map' ? t.mapView : t.satView}
-                  </button>
-                ))}
+            {/* Map settings side by side (wrap to a column on narrow screens). */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
+                (k) => (k === 'map' ? t.mapView : t.satView))}
+              {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
+                (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <span style={fieldLabel}>{t.posterZoomLabel}</span>
+                <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
+                  {([['-', t.posterZoomOut, -0.25], ['+', t.posterZoomIn, 0.25]] as const).map(([glyph, label, delta]) => (
+                    <button key={glyph} type="button" aria-label={label} onClick={() => stepZoom(delta)}
+                      style={{ border: 'none', borderRadius: '999px', padding: '7px 16px', fontSize: '15px', fontWeight: 700, lineHeight: 1, cursor: 'pointer', background: 'transparent', color: theme.color.ink }}>
+                      {glyph}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <span style={fieldLabel}>{t.posterFormatLabel}</span>
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
-                {(['square', 'portrait'] as const).map((r) => (
-                  <button key={r} type="button" aria-pressed={aspectRatio === r} onClick={() => setAspectRatio(r)}
-                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: aspectRatio === r ? theme.color.bg : 'transparent', color: aspectRatio === r ? theme.color.ink : theme.color.muted, boxShadow: aspectRatio === r ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
-                    {r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {divider}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+            {/* Poster elements: each toggle reveals its own settings right beneath it. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
+              {showHeader && subControl(segmented('headerPos', t.posterHeaderPositionLabel, ['top', 'bottom'] as const, headerPosition, setHeaderPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom)))}
               {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
+              {showFooter && subControl(segmented('footerPos', t.posterFooterPositionLabel, ['top', 'bottom'] as const, footerPosition, setFooterPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom)))}
               {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
+              {showQr && subControl(cornerPicker)}
+            </div>
+
+            {divider}
+
+            {/* Appearance, shared by both bands. */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              {segmented('style', t.posterStyleLabel, ['solid', 'transparent', 'light'] as const, chromeStyle, setChromeStyle,
+                (s) => ({ solid: t.posterStyleSolid, transparent: t.posterStyleTransparent, light: t.posterStyleLight }[s]))}
+              {segmented('size', t.posterSizeLabel, ['normal', 'compact'] as const, chromeSize, setChromeSize,
+                (s) => (s === 'normal' ? t.posterSizeNormal : t.posterSizeCompact))}
             </div>
 
             <button type="button" onClick={resetFraming}

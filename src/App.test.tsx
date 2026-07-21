@@ -33,8 +33,13 @@ vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: strin
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
 vi.mock('./features/map/MapView', () => ({ MapView: () => <div data-testid="mapview" /> }));
 vi.mock('./features/sidebar/Sidebar', () => ({
-  Sidebar: ({ onGeneratePoster }: { onGeneratePoster: (code: string) => void }) => (
-    <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
+  Sidebar: ({ onGeneratePoster, expanded }: {
+    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>;
+  }) => (
+    <div>
+      <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
+      <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
+    </div>
   ),
 }));
 vi.mock('./features/venues/PosterEditorModal', () => ({
@@ -51,6 +56,13 @@ vi.mock('./features/venues/PosterEditorModal', () => ({
 }));
 
 import App from './App';
+
+describe('App — sidebar default state', () => {
+  it('starts with no canton expanded', () => {
+    render(<App />);
+    expect(screen.getByTestId('expanded-state')).toHaveTextContent('{}');
+  });
+});
 
 describe('App — poster editor wiring', () => {
   beforeEach(() => { localStorage.clear(); });

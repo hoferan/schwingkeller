@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
@@ -55,9 +55,14 @@ vi.mock('leaflet', () => ({
   },
 }));
 
+import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+// Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
+// directly alongside this file's `leaflet` mock is safe.
+import { computeChromeLayout } from './posterCanvas';
+import { cqw, POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
@@ -234,5 +239,137 @@ describe('aspect ratio', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
     await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
     expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'portrait' });
+  });
+});
+
+describe('header/footer customization controls', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("renders position, style, size, and QR-corner controls with today's defaults selected", () => {
+    renderEditor();
+    // Both the header-position and footer-position pickers render a "Oben" (Top) button, so this
+    // just confirms both pickers are present rather than asserting on a single ambiguous match.
+    expect(screen.getAllByRole('button', { name: STR.de.posterPositionTop })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: STR.de.posterStyleSolid })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STR.de.posterSizeNormal })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('forwards the current header/footer/style/size/QR-corner selections to generateCantonPosterBlob', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterStyleTransparent }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterSizeCompact }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerTopLeft }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({
+      chromeStyle: 'transparent', chromeSize: 'compact', qrCorner: 'top-left',
+      headerPosition: 'top', footerPosition: 'bottom',
+    });
+  });
+
+  it('positions the DOM preview header/footer to match computeChromeLayout for a non-default combination', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterSizeCompact }));
+    // Both the header-position and footer-position pickers have a "Oben" (Top) button, so the
+    // plain screen-wide query would match two elements — scope it to the footer picker via its
+    // preceding label instead.
+    const footerPositionGroup = screen.getByText(STR.de.posterFooterPositionLabel).parentElement as HTMLElement;
+    await user.click(within(footerPositionGroup).getByRole('button', { name: STR.de.posterPositionTop }));
+
+    // Both header and footer now share the top edge (header stacked closer to it) at compact
+    // size. `cqw()` renders a CSS container-query-width unit string, not a pixel value, so compute
+    // the expected style with the same functions the component uses rather than hand-computing a
+    // decimal string (which would be brittle against floating-point stringification).
+    const expected = computeChromeLayout({
+      showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'top',
+      chromeSize: 'compact', posterHeight: POSTER_SIZE,
+    });
+    const header = screen.getByTestId('poster-preview-header');
+    const footer = screen.getByTestId('poster-preview-footer');
+    expect(header).toHaveStyle({ top: cqw(expected.headerY as number) });
+    expect(footer).toHaveStyle({ top: cqw(expected.footerY as number) });
+  });
+
+  it('reset framing pads for the actual chrome edges (footer moved to top), not fixed header/footer constants', async () => {
+    const user = userEvent.setup();
+    const venues2 = [
+      v({ id: '1', lat: 46.9, lng: 7.4 }),
+      v({ id: '2', lat: 46.95, lng: 7.45 }),
+    ];
+    renderEditor({ venues: venues2 });
+
+    const footerPositionGroup = screen.getByText(STR.de.posterFooterPositionLabel).parentElement as HTMLElement;
+    await user.click(within(footerPositionGroup).getByRole('button', { name: STR.de.posterPositionTop }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    // Header (190) and footer (46) both occupy the top edge at normal size; scale 0.5 →
+    // top pad = 20 + 236*0.5 = 138, bottom pad drops to the base 20 (nothing occupies that edge).
+    const [, options] = fakeMap.fitBounds.mock.calls[fakeMap.fitBounds.mock.calls.length - 1];
+    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20] });
+  });
+
+  it('renders the QR corner picker as a 4-corner grid with one button per corner', () => {
+    renderEditor();
+    const cornerPicker = screen.getByTestId('qr-corner-picker');
+    const buttons = within(cornerPicker).getAllByRole('button');
+    expect(buttons).toHaveLength(4);
+    expect(within(cornerPicker).getByRole('button', { name: STR.de.posterQrCornerTopLeft })).toBeInTheDocument();
+    expect(within(cornerPicker).getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows the position and QR-corner sub-controls only while their element is enabled', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    // All elements start enabled → all sub-controls visible.
+    expect(screen.getByText(STR.de.posterHeaderPositionLabel)).toBeInTheDocument();
+    expect(screen.getByText(STR.de.posterFooterPositionLabel)).toBeInTheDocument();
+    expect(screen.getByTestId('qr-corner-picker')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(STR.de.posterToggleHeader));
+    expect(screen.queryByText(STR.de.posterHeaderPositionLabel)).not.toBeInTheDocument();
+    // The footer is still on, so its picker stays visible.
+    expect(screen.getByText(STR.de.posterFooterPositionLabel)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(STR.de.posterToggleQr));
+    expect(screen.queryByTestId('qr-corner-picker')).not.toBeInTheDocument();
+  });
+});
+
+describe('soft zoom', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('creates the editor map with quarter-step soft zoom options', () => {
+    renderEditor();
+    expect(L.map).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      zoomSnap: 0.25, zoomDelta: 0.25, wheelPxPerZoomLevel: 120,
+    }));
+  });
+
+  it('exports the exact fractional framing without rounding the zoom', async () => {
+    const user = userEvent.setup();
+    fakeMap.getZoom.mockReturnValueOnce(11.25);
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    // previewSize 540 → deltaZoom 1; 11.25 + 1 = 12.25, forwarded exactly (no Math.round).
+    expect(generateCantonPosterBlob.mock.calls[0][2].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
+  });
+
+  it('steps the zoom by 0.25 via the precise +/- control', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterZoomIn }));
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(11.25); // mocked getZoom() is 11
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterZoomOut }));
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(10.75);
   });
 });

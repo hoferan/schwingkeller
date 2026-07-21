@@ -40,6 +40,50 @@ export const POSTER_LAYOUT = {
   pinDotRatio: 0.32, // inner white dot radius = pinRadius * this
 } as const;
 
+export type ChromePosition = 'top' | 'bottom';
+export type ChromeStyle = 'solid' | 'transparent' | 'light';
+export type ChromeSize = 'normal' | 'compact';
+export type QrCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+// The chrome-only subset of POSTER_LAYOUT (everything except venue-pin geometry, which never
+// scales with the admin's header/footer size choice).
+export interface ChromeLayoutConstants {
+  headerH: number; footerH: number; minAttribStripH: number; padX: number;
+  wappenX: number; wappenY: number; wappenW: number; wappenH: number; wappenGap: number;
+  titleGap: number; titleFont: number; titleBaselineY: number;
+  pillFont: number; pillPadX: number; pillH: number; pillY: number;
+  appNameFont: number; appNameX: number; attribFont: number; attribMarginX: number;
+  qrSize: number; qrMargin: number; qrPad: number;
+}
+
+const CHROME_KEYS: (keyof ChromeLayoutConstants)[] = [
+  'headerH', 'footerH', 'minAttribStripH', 'padX', 'wappenX', 'wappenY', 'wappenW', 'wappenH',
+  'wappenGap', 'titleGap', 'titleFont', 'titleBaselineY', 'pillFont', 'pillPadX', 'pillH', 'pillY',
+  'appNameFont', 'appNameX', 'attribFont', 'attribMarginX', 'qrSize', 'qrMargin', 'qrPad',
+];
+
+const CHROME_LAYOUT_NORMAL: ChromeLayoutConstants = CHROME_KEYS.reduce((acc, key) => {
+  acc[key] = POSTER_LAYOUT[key];
+  return acc;
+}, {} as ChromeLayoutConstants);
+
+// "Compact" reduces the bands' footprint without scaling any content: fonts, pill, Wappen, and QR
+// keep their normal size (scaling them down made the chrome illegible — smoke-test finding); only
+// the band heights and the vertical anchors inside them change. The count pill moves inline next
+// to the canton name (drawPosterOverlay/preview branch on chromeSize for that), which is what
+// lets the header drop to Wappen height + inset.
+const CHROME_LAYOUT_COMPACT: ChromeLayoutConstants = {
+  ...CHROME_LAYOUT_NORMAL,
+  headerH: 120, // wappenH (80) + 2 * wappenY inset
+  wappenY: 20, // centers the full-size 80px Wappen in the 120px band
+  titleBaselineY: 80, // 56px title optically centered in the 120px band
+  pillY: 40, // (headerH - pillH) / 2 — pill vertically centered, inline after the title
+  footerH: 34, // just enough for the 20px app name / 14px attribution line
+};
+
+export const chromeLayoutFor = (size: ChromeSize): ChromeLayoutConstants =>
+  size === 'compact' ? CHROME_LAYOUT_COMPACT : CHROME_LAYOUT_NORMAL;
+
 // Convert a 1080-space px measurement into a container-query-width unit for the DOM preview, so the
 // preview chrome scales with the (square) preview container to match the export exactly.
 export const cqw = (px: number): string => `${(px / POSTER_SIZE) * 100}cqw`;
