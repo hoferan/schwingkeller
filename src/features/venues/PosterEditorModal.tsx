@@ -356,7 +356,7 @@ export const PosterEditorModal = ({
                 <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(CL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             ) : (
-              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: 'rgba(17,17,17,0.55)', color: theme.color.bg, justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
+              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: chromeColors.fill ?? 'transparent', color: chromeColors.text, justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
                 <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             )}

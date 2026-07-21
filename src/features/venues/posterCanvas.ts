@@ -226,13 +226,15 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     ctx.textAlign = 'left';
   } else {
     // Attribution is legally required even without the branding band — draw a minimal credit
-    // with a subtle backing strip for legibility. Always at the bottom, at NORMAL size (uses `L`,
-    // not `CL`), and unaffected by footerPosition/chromeStyle/chromeSize — a deliberate
-    // simplification so hiding the footer's content can never also relocate the legally-required
-    // attribution somewhere unexpected.
-    ctx.fillStyle = 'rgba(17,17,17,0.55)';
-    ctx.fillRect(0, posterHeight - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
-    ctx.fillStyle = theme.color.bg;
+    // strip. Always at the bottom, at NORMAL size (uses `L`, not `CL`) and unaffected by
+    // footerPosition/chromeSize, so hiding the footer's content can never relocate the
+    // legally-required attribution somewhere unexpected — but it follows the selected chrome
+    // STYLE (fill + text color) so it doesn't clash with the bands (smoke-test finding).
+    if (colors.fill) {
+      ctx.fillStyle = colors.fill;
+      ctx.fillRect(0, posterHeight - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
+    }
+    ctx.fillStyle = colors.text;
     ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';

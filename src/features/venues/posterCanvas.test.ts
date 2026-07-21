@@ -326,6 +326,29 @@ describe('drawPosterOverlay', () => {
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 1620 - 26, POSTER_SIZE, 26);
   });
 
+  it('styles the minimal attribution strip per the selected chrome style', () => {
+    // Transparent: no backing strip is drawn at all — just the dark attribution text.
+    const transparentCtx = makeCtx();
+    drawPosterOverlay(transparentCtx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      showFooter: false, chromeStyle: 'transparent',
+    });
+    expect(transparentCtx.fillRect).not.toHaveBeenCalledWith(0, POSTER_SIZE - 26, POSTER_SIZE, 26);
+    expect(transparentCtx.fillText).toHaveBeenCalledWith(
+      '© OpenStreetMap contributors', expect.any(Number), expect.any(Number),
+    );
+
+    // Light: the strip backing is drawn (with the light fill), like the bands.
+    const lightCtx = makeCtx();
+    drawPosterOverlay(lightCtx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      showFooter: false, chromeStyle: 'light',
+    });
+    expect(lightCtx.fillRect).toHaveBeenCalledWith(0, POSTER_SIZE - 26, POSTER_SIZE, 26);
+  });
+
   it('draws the header at its position-derived offset instead of always y=0', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
