@@ -322,20 +322,21 @@ describe('header/footer customization controls', () => {
     expect(within(cornerPicker).getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('disables the position and QR-corner pickers while their element is toggled off', async () => {
+  it('shows the position and QR-corner sub-controls only while their element is enabled', async () => {
     const user = userEvent.setup();
     renderEditor();
 
-    await user.click(screen.getByLabelText(STR.de.posterToggleHeader));
-    const headerPositionGroup = screen.getByText(STR.de.posterHeaderPositionLabel).parentElement as HTMLElement;
-    within(headerPositionGroup).getAllByRole('button').forEach((b) => expect(b).toBeDisabled());
+    // All elements start enabled → all sub-controls visible.
+    expect(screen.getByText(STR.de.posterHeaderPositionLabel)).toBeInTheDocument();
+    expect(screen.getByText(STR.de.posterFooterPositionLabel)).toBeInTheDocument();
+    expect(screen.getByTestId('qr-corner-picker')).toBeInTheDocument();
 
-    // The footer is still on, so its picker stays enabled.
-    const footerPositionGroup = screen.getByText(STR.de.posterFooterPositionLabel).parentElement as HTMLElement;
-    within(footerPositionGroup).getAllByRole('button').forEach((b) => expect(b).toBeEnabled());
+    await user.click(screen.getByLabelText(STR.de.posterToggleHeader));
+    expect(screen.queryByText(STR.de.posterHeaderPositionLabel)).not.toBeInTheDocument();
+    // The footer is still on, so its picker stays visible.
+    expect(screen.getByText(STR.de.posterFooterPositionLabel)).toBeInTheDocument();
 
     await user.click(screen.getByLabelText(STR.de.posterToggleQr));
-    const cornerPicker = screen.getByTestId('qr-corner-picker');
-    within(cornerPicker).getAllByRole('button').forEach((b) => expect(b).toBeDisabled());
+    expect(screen.queryByTestId('qr-corner-picker')).not.toBeInTheDocument();
   });
 });

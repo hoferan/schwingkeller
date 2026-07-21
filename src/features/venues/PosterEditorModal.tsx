@@ -255,14 +255,13 @@ export const PosterEditorModal = ({
 
   const segmented = <T extends string>(
     key: string, label: string, options: readonly T[], value: T, set: (v: T) => void, labelFor: (v: T) => string,
-    disabled = false,
   ) => (
-    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px', opacity: disabled ? 0.45 : 1, transition: 'opacity .15s ease' }}>
+    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <span style={fieldLabel}>{label}</span>
       <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px', flexWrap: 'wrap' }}>
         {options.map((opt) => (
-          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)} disabled={disabled}
-            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)}
+            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
             {labelFor(opt)}
           </button>
         ))}
@@ -277,20 +276,20 @@ export const PosterEditorModal = ({
     'bottom-left': t.posterQrCornerBottomLeft, 'bottom-right': t.posterQrCornerBottomRight,
   };
   const cornerPicker = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', opacity: showQr ? 1 : 0.45, transition: 'opacity .15s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <span style={fieldLabel}>{t.posterQrCornerLabel}</span>
       <div data-testid="qr-corner-picker" style={{ position: 'relative', width: '64px', height: '64px', background: theme.color.paper, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line }}>
         {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((c) => {
           const active = qrCorner === c;
           return (
             <button key={c} type="button" aria-pressed={active} aria-label={qrCornerLabels[c]}
-              disabled={!showQr} onClick={() => setQrCorner(c)}
+              onClick={() => setQrCorner(c)}
               style={{
                 position: 'absolute',
                 [c.startsWith('top') ? 'top' : 'bottom']: '6px',
                 [c.endsWith('left') ? 'left' : 'right']: '6px',
                 width: '18px', height: '18px', padding: 0, borderRadius: '5px', border: 'none',
-                cursor: showQr ? 'pointer' : 'default', transition: 'all .15s ease',
+                cursor: 'pointer', transition: 'all .15s ease',
                 background: active ? theme.color.accent : theme.color.line,
                 boxShadow: active ? '0 1px 3px rgba(0,0,0,.25)' : 'none',
               } as React.CSSProperties} />
@@ -299,6 +298,14 @@ export const PosterEditorModal = ({
       </div>
     </div>
   );
+
+  // Sub-control that belongs to the toggle directly above it — indented behind a hairline so the
+  // hierarchy is visible; rendered only while its element is enabled (keeps the panel short,
+  // especially on mobile).
+  const subControl = (node: React.ReactNode) => (
+    <div style={{ paddingLeft: '14px', borderLeft: '2px solid ' + theme.color.line }}>{node}</div>
+  );
+  const divider = <div style={{ height: '1px', background: theme.color.line, opacity: 0.6 }} />;
 
   return (
     <Modal onClose={onClose} width={previewSize + 340}>
@@ -363,28 +370,37 @@ export const PosterEditorModal = ({
                 style={{ padding: '10px 12px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm, fontSize: '14.5px', color: theme.color.ink, background: theme.color.bg, fontFamily: theme.font.body }} />
             </div>
 
-            {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
-              (k) => (k === 'map' ? t.mapView : t.satView))}
-
-            {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
-              (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
-              {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
-              {segmented('headerPos', t.posterHeaderPositionLabel, ['top', 'bottom'] as const, headerPosition, setHeaderPosition,
-                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom), !showHeader)}
-              {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
-              {segmented('footerPos', t.posterFooterPositionLabel, ['top', 'bottom'] as const, footerPosition, setFooterPosition,
-                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom), !showFooter)}
-              {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
-              {cornerPicker}
+            {/* Map settings side by side (wrap to a column on narrow screens). */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
+                (k) => (k === 'map' ? t.mapView : t.satView))}
+              {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
+                (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
             </div>
 
-            {segmented('style', t.posterStyleLabel, ['solid', 'transparent', 'light'] as const, chromeStyle, setChromeStyle,
-              (s) => ({ solid: t.posterStyleSolid, transparent: t.posterStyleTransparent, light: t.posterStyleLight }[s]))}
+            {divider}
 
-            {segmented('size', t.posterSizeLabel, ['normal', 'compact'] as const, chromeSize, setChromeSize,
-              (s) => (s === 'normal' ? t.posterSizeNormal : t.posterSizeCompact))}
+            {/* Poster elements: each toggle reveals its own settings right beneath it. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
+              {showHeader && subControl(segmented('headerPos', t.posterHeaderPositionLabel, ['top', 'bottom'] as const, headerPosition, setHeaderPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom)))}
+              {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
+              {showFooter && subControl(segmented('footerPos', t.posterFooterPositionLabel, ['top', 'bottom'] as const, footerPosition, setFooterPosition,
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom)))}
+              {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
+              {showQr && subControl(cornerPicker)}
+            </div>
+
+            {divider}
+
+            {/* Appearance, shared by both bands. */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              {segmented('style', t.posterStyleLabel, ['solid', 'transparent', 'light'] as const, chromeStyle, setChromeStyle,
+                (s) => ({ solid: t.posterStyleSolid, transparent: t.posterStyleTransparent, light: t.posterStyleLight }[s]))}
+              {segmented('size', t.posterSizeLabel, ['normal', 'compact'] as const, chromeSize, setChromeSize,
+                (s) => (s === 'normal' ? t.posterSizeNormal : t.posterSizeCompact))}
+            </div>
 
             <button type="button" onClick={resetFraming}
               style={{ alignSelf: 'flex-start', padding: '6px 0', border: 'none', background: 'transparent', color: theme.color.accent, fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}>
