@@ -259,16 +259,47 @@ export const PosterEditorModal = ({
 
   const segmented = <T extends string>(
     key: string, label: string, options: readonly T[], value: T, set: (v: T) => void, labelFor: (v: T) => string,
+    disabled = false,
   ) => (
-    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px', opacity: disabled ? 0.45 : 1, transition: 'opacity .15s ease' }}>
       <span style={fieldLabel}>{label}</span>
       <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px', flexWrap: 'wrap' }}>
         {options.map((opt) => (
-          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)}
-            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+          <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)} disabled={disabled}
+            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
             {labelFor(opt)}
           </button>
         ))}
+      </div>
+    </div>
+  );
+
+  // 2×2 corner grid for the QR position: a miniature poster outline with one dot per corner —
+  // one glance shows where the code will sit, without four wrapping text buttons.
+  const qrCornerLabels: Record<QrCorner, string> = {
+    'top-left': t.posterQrCornerTopLeft, 'top-right': t.posterQrCornerTopRight,
+    'bottom-left': t.posterQrCornerBottomLeft, 'bottom-right': t.posterQrCornerBottomRight,
+  };
+  const cornerPicker = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', opacity: showQr ? 1 : 0.45, transition: 'opacity .15s ease' }}>
+      <span style={fieldLabel}>{t.posterQrCornerLabel}</span>
+      <div data-testid="qr-corner-picker" style={{ position: 'relative', width: '64px', height: '64px', background: theme.color.paper, borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line }}>
+        {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((c) => {
+          const active = qrCorner === c;
+          return (
+            <button key={c} type="button" aria-pressed={active} aria-label={qrCornerLabels[c]}
+              disabled={!showQr} onClick={() => setQrCorner(c)}
+              style={{
+                position: 'absolute',
+                [c.startsWith('top') ? 'top' : 'bottom']: '6px',
+                [c.endsWith('left') ? 'left' : 'right']: '6px',
+                width: '18px', height: '18px', padding: 0, borderRadius: '5px', border: 'none',
+                cursor: showQr ? 'pointer' : 'default', transition: 'all .15s ease',
+                background: active ? theme.color.accent : theme.color.line,
+                boxShadow: active ? '0 1px 3px rgba(0,0,0,.25)' : 'none',
+              } as React.CSSProperties} />
+          );
+        })}
       </div>
     </div>
   );
@@ -345,17 +376,12 @@ export const PosterEditorModal = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
               {toggle('header', t.posterToggleHeader, showHeader, setShowHeader)}
               {segmented('headerPos', t.posterHeaderPositionLabel, ['top', 'bottom'] as const, headerPosition, setHeaderPosition,
-                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom))}
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom), !showHeader)}
               {toggle('footer', t.posterToggleFooter, showFooter, setShowFooter)}
               {segmented('footerPos', t.posterFooterPositionLabel, ['top', 'bottom'] as const, footerPosition, setFooterPosition,
-                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom))}
+                (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom), !showFooter)}
               {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
-              {segmented('qrCorner', t.posterQrCornerLabel,
-                ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const, qrCorner, setQrCorner,
-                (c) => ({
-                  'top-left': t.posterQrCornerTopLeft, 'top-right': t.posterQrCornerTopRight,
-                  'bottom-left': t.posterQrCornerBottomLeft, 'bottom-right': t.posterQrCornerBottomRight,
-                }[c]))}
+              {cornerPicker}
             </div>
 
             {segmented('style', t.posterStyleLabel, ['solid', 'transparent', 'light'] as const, chromeStyle, setChromeStyle,
