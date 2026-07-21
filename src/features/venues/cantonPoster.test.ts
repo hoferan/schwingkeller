@@ -198,4 +198,17 @@ describe('generateCantonPosterBlob', () => {
     );
   });
 
+  it('forwards the chrome position/style/size and QR corner options to drawPosterOverlay', async () => {
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller',
+      headerPosition: 'bottom', footerPosition: 'top', chromeStyle: 'light', chromeSize: 'compact',
+      qrCorner: 'top-left',
+    });
+
+    expect(drawPosterOverlayMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      headerPosition: 'bottom', footerPosition: 'top', chromeStyle: 'light', chromeSize: 'compact',
+      qrCorner: 'top-left',
+    }));
+  });
+
 });

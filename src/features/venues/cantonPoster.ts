@@ -7,7 +7,10 @@ import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage,
   extractTileDraws, drawTiles, drawPin, drawPosterOverlay,
 } from './posterCanvas';
-import { posterHeightFor, type PosterAspectRatio } from './posterLayout';
+import {
+  posterHeightFor,
+  type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
+} from './posterLayout';
 
 export class PosterGenerationError extends Error {}
 
@@ -43,6 +46,11 @@ export interface GeneratePosterOptions {
   showFooter?: boolean;
   qrDataUrl?: string | null;
   aspectRatio?: PosterAspectRatio; // defaults to 'square', matching today's output
+  headerPosition?: ChromePosition;
+  footerPosition?: ChromePosition;
+  chromeStyle?: ChromeStyle;
+  chromeSize?: ChromeSize;
+  qrCorner?: QrCorner;
 }
 
 export const generateCantonPosterBlob = async (
@@ -53,6 +61,7 @@ export const generateCantonPosterBlob = async (
   const {
     baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl,
     aspectRatio = 'square',
+    headerPosition, footerPosition, chromeStyle, chromeSize, qrCorner,
   } = options;
   const canton = cantonByCode(code);
   const bounds = boundsForCanton(code);
@@ -109,6 +118,11 @@ export const generateCantonPosterBlob = async (
       showHeader,
       showFooter,
       qrImg,
+      headerPosition,
+      footerPosition,
+      chromeStyle,
+      chromeSize,
+      qrCorner,
     });
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
