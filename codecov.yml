@@ -64,6 +64,18 @@ component_management:
       paths:
         - src/App.tsx
         - src/*.ts
+      # App.tsx is the composition root (glue: provider wiring, state setters, JSX that mounts
+      # feature components). It has no unit test and is verified via integration + browser testing,
+      # so its patch coverage is reported but non-blocking. Project coverage still applies.
+      statuses:
+        - type: project
+          target: auto
+          branches:
+            - "!main"
+        - type: patch
+          informational: true
+          branches:
+            - "!main"
 
 comment:
   layout: "reach,diff,flags,tree"

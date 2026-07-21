@@ -10,6 +10,7 @@ import { pinHtml, popupHtml, clusterIcon, userPinHtml } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
+import { createTileLayer } from './tileLayers';
 
 interface MapViewProps {
   venues: Venue[];
@@ -120,13 +121,8 @@ export function MapView({
     const map = mapRef.current;
     if (!map) return;
     if (tileRef.current) { map.removeLayer(tileRef.current); tileRef.current = null; }
-    if (kind === 'sat') {
-      tileRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 18 });
-      tileRef.current.addTo(map); tileRef.current.bringToBack();
-    } else {
-      tileRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 });
-      tileRef.current.addTo(map); tileRef.current.bringToBack();
-    }
+    tileRef.current = createTileLayer(kind);
+    tileRef.current.addTo(map); tileRef.current.bringToBack();
     const pane = map.getPane('tilePane'); if (pane) pane.style.filter = 'none';
   };
 
@@ -211,7 +207,12 @@ export function MapView({
     map.on('click', onMapClick);
 
     map.whenReady(() => {
-      if (!mapRef.current) return;
+      // Under React StrictMode (dev) the mount effect runs twice: the first map is
+      // created and removed, then a second is created. This deferred callback closes
+      // over the *first* map, so guard on identity — `!mapRef.current` isn't enough
+      // because by now it points at the second map. Calling invalidateSize() on the
+      // removed map crashes in Leaflet (its panes are gone → `_leaflet_pos` of undefined).
+      if (mapRef.current !== map) return;
       map.invalidateSize();
       const zoomEl = map.zoomControl.getContainer();
       if (zoomEl) {
@@ -222,7 +223,7 @@ export function MapView({
         setFitAllBgClip(zoomStyle.backgroundClip);
       }
       window.setTimeout(() => {
-        if (!mapRef.current || !markerGroupRef.current) return;
+        if (mapRef.current !== map || !markerGroupRef.current) return;
         map.invalidateSize();
         if (!map.hasLayer(markerGroupRef.current)) markerGroupRef.current.addTo(map);
         refreshMarkers();

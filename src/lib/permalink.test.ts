@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCantonParam, parseVenueParam, withVenueParam } from './permalink';
+import { parseCantonParam, parseVenueParam, withVenueParam, withCantonParam } from './permalink';
 
 describe('parseCantonParam', () => {
   it('returns the uppercase code for a valid canton', () => {
@@ -72,5 +72,12 @@ describe('withVenueParam', () => {
 
   it('strips an existing ctn param when clearing venue', () => {
     expect(withVenueParam('/?ctn=FR&venue=v1', null)).toBe('/');
+  });
+});
+
+describe('withCantonParam', () => {
+  it('sets ctn (uppercased) and drops any venue param', () => {
+    expect(withCantonParam('https://x.app/', 'be')).toBe('https://x.app/?ctn=BE');
+    expect(withCantonParam('https://x.app/?venue=v1', 'BE')).toBe('https://x.app/?ctn=BE');
   });
 });

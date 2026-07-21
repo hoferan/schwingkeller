@@ -32,3 +32,14 @@ export const withVenueParam = (url: string, id: string | null): string => {
   const next = params.toString();
   return next ? path + '?' + next : path;
 };
+
+// Inverse of withVenueParam: sets ?ctn=<code> (uppercased) and clears any
+// `venue` param. Used to build the poster QR link back to the canton view.
+export const withCantonParam = (url: string, code: string): string => {
+  const [path, search = ''] = url.split('?');
+  const params = new URLSearchParams(search);
+  params.delete('venue');
+  params.set('ctn', code.toUpperCase());
+  const next = params.toString();
+  return next ? path + '?' + next : path;
+};

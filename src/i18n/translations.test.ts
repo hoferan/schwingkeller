@@ -17,4 +17,10 @@ describe('translations', () => {
       expect(STR[lang].byDistance).toBeTruthy();
     }
   });
+  it('defines the canton-poster keys in every language', () => {
+    for (const lang of LANGS) {
+      expect(STR[lang].generatePoster).toBeTruthy();
+      expect(STR[lang].posterGenerateFailed).toBeTruthy();
+    }
+  });
 });
