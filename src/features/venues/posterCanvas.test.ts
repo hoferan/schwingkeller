@@ -1,9 +1,63 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles, drawPin, drawPosterOverlay } from './posterCanvas';
+import {
+  POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles,
+  drawPin, drawPosterOverlay, computeChromeLayout,
+} from './posterCanvas';
 
 describe('posterFilename', () => {
   it('lowercases the canton code into the filename', () => {
     expect(posterFilename('BE')).toBe('schwingkeller-be.png');
+  });
+});
+
+describe('computeChromeLayout', () => {
+  const base = { chromeSize: 'normal' as const, posterHeight: POSTER_SIZE };
+
+  it('places header at the top and footer at the bottom by default', () => {
+    const result = computeChromeLayout({
+      ...base, showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
+    });
+    expect(result).toEqual({ headerY: 0, footerY: 1034, topOccupied: 190, bottomOccupied: 46 });
+  });
+
+  it('stacks header and footer when both are assigned to the top edge, header closer to the edge', () => {
+    const result = computeChromeLayout({
+      ...base, showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'top',
+    });
+    expect(result).toEqual({ headerY: 0, footerY: 190, topOccupied: 236, bottomOccupied: 0 });
+  });
+
+  it('stacks header and footer when both are assigned to the bottom edge, header closer to the edge', () => {
+    const result = computeChromeLayout({
+      ...base, showHeader: true, showFooter: true, headerPosition: 'bottom', footerPosition: 'bottom',
+    });
+    expect(result).toEqual({ headerY: 890, footerY: 844, topOccupied: 0, bottomOccupied: 236 });
+  });
+
+  it('returns null for a hidden band and excludes it from the occupied totals', () => {
+    const result = computeChromeLayout({
+      ...base, showHeader: false, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
+    });
+    expect(result).toEqual({ headerY: null, footerY: 1034, topOccupied: 0, bottomOccupied: 46 });
+  });
+
+  it('uses compact chrome sizing when chromeSize is "compact"', () => {
+    const result = computeChromeLayout({
+      showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
+      chromeSize: 'compact', posterHeight: POSTER_SIZE,
+    });
+    expect(result.headerY).toBe(0);
+    expect(result.topOccupied).toBeCloseTo(190 * 0.62);
+    expect(result.bottomOccupied).toBeCloseTo(46 * 0.62);
+    expect(result.footerY).toBeCloseTo(POSTER_SIZE - 46 * 0.62);
+  });
+
+  it('anchors bottom bands to a taller posterHeight (portrait)', () => {
+    const result = computeChromeLayout({
+      ...base, posterHeight: 1620,
+      showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
+    });
+    expect(result).toEqual({ headerY: 0, footerY: 1620 - 46, topOccupied: 190, bottomOccupied: 46 });
   });
 });
 

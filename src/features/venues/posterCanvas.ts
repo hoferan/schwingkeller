@@ -1,5 +1,7 @@
 import { theme } from '../../theme';
-import { POSTER_SIZE, POSTER_LAYOUT } from './posterLayout';
+import {
+  POSTER_SIZE, POSTER_LAYOUT, chromeLayoutFor, type ChromePosition, type ChromeSize,
+} from './posterLayout';
 
 export { POSTER_SIZE };
 
@@ -63,6 +65,55 @@ export const drawPin = (ctx: CanvasRenderingContext2D, x: number, y: number): vo
   ctx.arc(x, y, L.pinRadius * L.pinDotRatio, 0, Math.PI * 2);
   ctx.fillStyle = theme.color.bg;
   ctx.fill();
+};
+
+export interface ChromeLayoutResult {
+  headerY: number | null;
+  footerY: number | null;
+  topOccupied: number;
+  bottomOccupied: number;
+}
+
+export interface ChromeLayoutOptions {
+  showHeader: boolean;
+  showFooter: boolean;
+  headerPosition: ChromePosition;
+  footerPosition: ChromePosition;
+  chromeSize: ChromeSize;
+  posterHeight: number;
+}
+
+// Header and footer each independently sit on the top or bottom edge; when both land on the same
+// edge they stack rather than overlap, with header always closer to the edge and footer stacked
+// adjacent to it. Pure geometry — no canvas/DOM access — so both the capture (drawPosterOverlay)
+// and the live DOM preview can share one source of truth for where each band actually is.
+export const computeChromeLayout = (opts: ChromeLayoutOptions): ChromeLayoutResult => {
+  const { showHeader, showFooter, headerPosition, footerPosition, chromeSize, posterHeight } = opts;
+  const CL = chromeLayoutFor(chromeSize);
+
+  let headerY: number | null = null;
+  let footerY: number | null = null;
+  let topOccupied = 0;
+  let bottomOccupied = 0;
+
+  if (showHeader && headerPosition === 'top') {
+    headerY = topOccupied;
+    topOccupied += CL.headerH;
+  }
+  if (showFooter && footerPosition === 'top') {
+    footerY = topOccupied;
+    topOccupied += CL.footerH;
+  }
+  if (showHeader && headerPosition === 'bottom') {
+    bottomOccupied += CL.headerH;
+    headerY = posterHeight - bottomOccupied;
+  }
+  if (showFooter && footerPosition === 'bottom') {
+    bottomOccupied += CL.footerH;
+    footerY = posterHeight - bottomOccupied;
+  }
+
+  return { headerY, footerY, topOccupied, bottomOccupied };
 };
 
 export interface PosterOverlayOptions {
