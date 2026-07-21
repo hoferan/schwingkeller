@@ -224,3 +224,21 @@ edge, and confirm no overlap.
 - Test coverage added/extended in `posterLayout.test.ts`,
   `posterCanvas.test.ts`, `cantonPoster.test.ts`,
   `PosterEditorModal.test.tsx`.
+
+## Revisions after admin smoke test (2026-07-21)
+
+Five findings from the first smoke test changed the design as follows:
+
+1. **Dependent controls disable** — the header/footer position pickers and the QR corner picker
+   are disabled (grayed, non-interactive) while their element's toggle is off.
+2. **Stacking order** — the footer now always reads *below* the header: on a shared top edge the
+   header takes the edge (unchanged), on a shared bottom edge the footer takes the edge and the
+   header stacks above it (reversed from the original "header always closer to the edge" rule).
+3. **QR corner control** — the four-button segmented control was replaced by a 2×2 corner-grid
+   picker: a miniature poster outline with one dot button per corner.
+4. **Transparent style** — uses dark ink text with a *light* halo shadow (light text with a dark
+   shadow was unreadable over bright basemaps).
+5. **Compact size** — no longer scales content. Fonts, pill, Wappen, and QR keep their normal
+   size; only the band heights shrink (header 190 → 120, footer 46 → 34) and the count pill moves
+   inline next to the canton name. `COMPACT_SCALE` was removed in favor of explicit compact
+   constants in `chromeLayoutFor`.
