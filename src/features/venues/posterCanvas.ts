@@ -85,9 +85,10 @@ export interface ChromeLayoutOptions {
 }
 
 // Header and footer each independently sit on the top or bottom edge; when both land on the same
-// edge they stack rather than overlap, with header always closer to the edge and footer stacked
-// adjacent to it. Pure geometry — no canvas/DOM access — so both the capture (drawPosterOverlay)
-// and the live DOM preview can share one source of truth for where each band actually is.
+// edge they stack rather than overlap, and the footer always reads BELOW the header: on the top
+// edge the header takes the edge with the footer under it, on the bottom edge the footer takes
+// the edge with the header above it. Pure geometry — no canvas/DOM access — so both the capture
+// (drawPosterOverlay) and the live DOM preview share one source of truth for where each band is.
 export const computeChromeLayout = (opts: ChromeLayoutOptions): ChromeLayoutResult => {
   const { showHeader, showFooter, headerPosition, footerPosition, chromeSize, posterHeight } = opts;
   const CL = chromeLayoutFor(chromeSize);
@@ -105,13 +106,13 @@ export const computeChromeLayout = (opts: ChromeLayoutOptions): ChromeLayoutResu
     footerY = topOccupied;
     topOccupied += CL.footerH;
   }
-  if (showHeader && headerPosition === 'bottom') {
-    bottomOccupied += CL.headerH;
-    headerY = posterHeight - bottomOccupied;
-  }
   if (showFooter && footerPosition === 'bottom') {
     bottomOccupied += CL.footerH;
     footerY = posterHeight - bottomOccupied;
+  }
+  if (showHeader && headerPosition === 'bottom') {
+    bottomOccupied += CL.headerH;
+    headerY = posterHeight - bottomOccupied;
   }
 
   return { headerY, footerY, topOccupied, bottomOccupied };

@@ -27,11 +27,13 @@ describe('computeChromeLayout', () => {
     expect(result).toEqual({ headerY: 0, footerY: 190, topOccupied: 236, bottomOccupied: 0 });
   });
 
-  it('stacks header and footer when both are assigned to the bottom edge, header closer to the edge', () => {
+  it('stacks header above footer when both are assigned to the bottom edge (footer takes the edge)', () => {
     const result = computeChromeLayout({
       ...base, showHeader: true, showFooter: true, headerPosition: 'bottom', footerPosition: 'bottom',
     });
-    expect(result).toEqual({ headerY: 890, footerY: 844, topOccupied: 0, bottomOccupied: 236 });
+    // Footer always reads below the header: footer sits on the bottom edge (1080-46=1034), header
+    // stacks directly above it (1034-190=844).
+    expect(result).toEqual({ headerY: 844, footerY: 1034, topOccupied: 0, bottomOccupied: 236 });
   });
 
   it('returns null for a hidden band and excludes it from the occupied totals', () => {
