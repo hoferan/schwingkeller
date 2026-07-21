@@ -6,6 +6,11 @@
 
 export const POSTER_SIZE = 1080;
 
+export type PosterAspectRatio = 'square' | 'portrait';
+
+export const posterHeightFor = (ratio: PosterAspectRatio): number =>
+  ratio === 'portrait' ? POSTER_SIZE * 1.5 : POSTER_SIZE; // 1620 : 1080 — exactly 2:3
+
 export const POSTER_LAYOUT = {
   headerH: 190, // top branding band height
   footerH: 46, // bottom branding band height

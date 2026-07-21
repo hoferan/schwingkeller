@@ -7,6 +7,7 @@ import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage,
   extractTileDraws, drawTiles, drawPin, drawPosterOverlay,
 } from './posterCanvas';
+import { posterHeightFor, type PosterAspectRatio } from './posterLayout';
 
 export class PosterGenerationError extends Error {}
 
@@ -41,6 +42,7 @@ export interface GeneratePosterOptions {
   showHeader?: boolean;
   showFooter?: boolean;
   qrDataUrl?: string | null;
+  aspectRatio?: PosterAspectRatio; // defaults to 'square', matching today's output
 }
 
 export const generateCantonPosterBlob = async (
@@ -48,14 +50,18 @@ export const generateCantonPosterBlob = async (
   venues: Venue[],
   options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
-  const { baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl } = options;
+  const {
+    baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl,
+    aspectRatio = 'square',
+  } = options;
   const canton = cantonByCode(code);
   const bounds = boundsForCanton(code);
   if (!canton || !bounds) {
     throw new PosterGenerationError(`[UNKNOWN_CANTON] No data for canton ${code}.`);
   }
+  const posterHeight = posterHeightFor(aspectRatio);
 
-  const container = createOffscreenContainer(POSTER_SIZE);
+  const container = createOffscreenContainer(POSTER_SIZE, posterHeight);
   // Integer zoom only: the editor passes an integer `view.zoom` (previewZoom + log2(1080/previewSize),
   // and previewSize is a power-of-2 fraction of 1080). A fractional zoom would make Leaflet CSS-scale
   // the tile pane, which the tile-capture below cannot reproduce (misframed export + missing tiles).
@@ -79,7 +85,7 @@ export const generateCantonPosterBlob = async (
 
     const canvas = document.createElement('canvas');
     canvas.width = POSTER_SIZE;
-    canvas.height = POSTER_SIZE;
+    canvas.height = posterHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new PosterGenerationError('[NO_CANVAS_CONTEXT] Canvas 2D context unavailable.');
 
@@ -99,6 +105,7 @@ export const generateCantonPosterBlob = async (
       count: cantonVenues.length,
       unitLabel,
       attribution: TILE_ATTRIBUTION[baseKind],
+      posterHeight,
       showHeader,
       showFooter,
       qrImg,

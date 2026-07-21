@@ -7,13 +7,13 @@ const L = POSTER_LAYOUT;
 
 export const posterFilename = (code: string): string => `schwingkeller-${code.toLowerCase()}.png`;
 
-export const createOffscreenContainer = (size: number = POSTER_SIZE): HTMLDivElement => {
+export const createOffscreenContainer = (width: number, height: number): HTMLDivElement => {
   const el = document.createElement('div');
   el.style.position = 'fixed';
   el.style.left = '-9999px';
   el.style.top = '0';
-  el.style.width = `${size}px`;
-  el.style.height = `${size}px`;
+  el.style.width = `${width}px`;
+  el.style.height = `${height}px`;
   document.body.appendChild(el);
   return el;
 };
@@ -72,6 +72,7 @@ export interface PosterOverlayOptions {
   count: number;
   unitLabel: string;
   attribution: string;
+  posterHeight: number;
   showHeader?: boolean;
   showFooter?: boolean;
   qrImg?: HTMLImageElement | null;
@@ -81,7 +82,7 @@ const APP_NAME = 'Schwingkeller Schweiz';
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {
-    cantonName, title, wappenImg, count, unitLabel, attribution,
+    cantonName, title, wappenImg, count, unitLabel, attribution, posterHeight,
     showHeader = true, showFooter = true, qrImg,
   } = opts;
 
@@ -115,7 +116,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
   // QR sits bottom-right, inset above the footer band area.
   if (qrImg) {
     const qrX = POSTER_SIZE - L.qrSize - L.qrMargin;
-    const qrY = POSTER_SIZE - L.qrSize - L.qrMargin - L.footerH;
+    const qrY = posterHeight - L.qrSize - L.qrMargin - L.footerH;
     ctx.fillStyle = theme.color.bg;
     ctx.fillRect(qrX - L.qrPad, qrY - L.qrPad, L.qrSize + L.qrPad * 2, L.qrSize + L.qrPad * 2);
     ctx.drawImage(qrImg, qrX, qrY, L.qrSize, L.qrSize);
@@ -123,26 +124,26 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
 
   if (showFooter) {
     ctx.fillStyle = 'rgba(17,17,17,0.72)';
-    ctx.fillRect(0, POSTER_SIZE - L.footerH, POSTER_SIZE, L.footerH);
+    ctx.fillRect(0, posterHeight - L.footerH, POSTER_SIZE, L.footerH);
     ctx.fillStyle = theme.color.bg;
     ctx.font = `600 ${L.appNameFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(APP_NAME, L.appNameX, POSTER_SIZE - L.footerH / 2);
+    ctx.fillText(APP_NAME, L.appNameX, posterHeight - L.footerH / 2);
     ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, POSTER_SIZE - L.footerH / 2);
+    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, posterHeight - L.footerH / 2);
     ctx.textAlign = 'left';
   } else {
     // Attribution is legally required even without the branding band — draw a
     // minimal credit with a subtle backing strip for legibility.
     ctx.fillStyle = 'rgba(17,17,17,0.55)';
-    ctx.fillRect(0, POSTER_SIZE - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
+    ctx.fillRect(0, posterHeight - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
     ctx.fillStyle = theme.color.bg;
     ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
-    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, POSTER_SIZE - L.minAttribStripH / 2);
+    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, posterHeight - L.minAttribStripH / 2);
     ctx.textAlign = 'left';
   }
 };

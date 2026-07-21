@@ -30,6 +30,7 @@ const { fakeMap } = vi.hoisted(() => ({
     getZoom: vi.fn().mockReturnValue(11),
     setZoom: vi.fn(),
     setMaxZoom: vi.fn(),
+    invalidateSize: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
     remove: vi.fn(),
@@ -193,5 +194,45 @@ describe('default framing', () => {
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
     expect(fakeMap.setZoom).toHaveBeenCalledWith(CANTON_POSTER_MAX_DEFAULT_ZOOM);
+  });
+});
+
+describe('aspect ratio', () => {
+  // clearAllMocks for the same reason as the 'default framing' block above: these tests assert on
+  // fakeMap call counts, which otherwise accumulate across every render in this file.
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('renders Square and Portrait controls, defaulting to Square', () => {
+    renderEditor();
+    expect(screen.getByRole('button', { name: STR.de.posterFormatSquare })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STR.de.posterFormatPortrait })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('resizes the preview container height when switching to Portrait, without moving the map', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const previewSquare = screen.getByTestId('poster-preview-square');
+    expect(previewSquare).toHaveStyle({ width: '540px', height: '540px' });
+
+    // Mount-time default framing (sub-project A) legitimately calls setView/fitBounds once; clear
+    // those so the assertions below isolate what the Portrait toggle itself does.
+    fakeMap.setView.mockClear();
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
+
+    expect(previewSquare).toHaveStyle({ width: '540px', height: '810px' });
+    expect(fakeMap.invalidateSize).toHaveBeenCalledTimes(1);
+    expect(fakeMap.setView).not.toHaveBeenCalled();
+    expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('forwards the current aspectRatio to generateCantonPosterBlob', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'portrait' });
   });
 });

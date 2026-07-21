@@ -8,7 +8,9 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
-import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin } from './posterLayout';
+import {
+  POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, type PosterAspectRatio,
+} from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
 
@@ -90,6 +92,7 @@ export const PosterEditorModal = ({
   const [showHeader, setShowHeader] = useState(true);
   const [showFooter, setShowFooter] = useState(true);
   const [showQr, setShowQr] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState<PosterAspectRatio>('square');
   const [busy, setBusy] = useState(false);
 
   const { dataUrl: qrDataUrl } = usePosterQr(code);
@@ -98,6 +101,7 @@ export const PosterEditorModal = ({
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
   const didMountBaseKindRef = useRef(false);
+  const didMountAspectRatioRef = useRef(false);
 
   // Create the live editor map once.
   useEffect(() => {
@@ -148,6 +152,18 @@ export const PosterEditorModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseKind]);
 
+  // Resize the live map's container when the aspect ratio changes; skip the initial mount (the
+  // create-map effect already sizes the container for the initial 'square' aspectRatio). Leaflet
+  // requires invalidateSize() after any container resize to keep its internal size cache correct.
+  // Per the design, this only resizes the container — it never re-fits or re-centers the view.
+  useEffect(() => {
+    if (!didMountAspectRatioRef.current) {
+      didMountAspectRatioRef.current = true;
+      return;
+    }
+    mapRef.current?.invalidateSize();
+  }, [aspectRatio]);
+
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -178,6 +194,7 @@ export const PosterEditorModal = ({
         showHeader,
         showFooter,
         qrDataUrl: showQr ? qrDataUrl : null,
+        aspectRatio,
       });
       onSave(blob, filename);
     } catch (err) {
@@ -223,7 +240,7 @@ export const PosterEditorModal = ({
               integer zoom step away (exact framing, no fractional-zoom tile gaps). containerType
               makes the chrome's cqw units resolve against this square so it scales like the export;
               justifyContent:center on the row keeps it centered when the controls wrap below. */}
-          <div style={{ position: 'relative', width: previewSize, height: previewSize, flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
+          <div data-testid="poster-preview-square" style={{ position: 'relative', width: previewSize, height: previewSize * (posterHeightFor(aspectRatio) / POSTER_SIZE), flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
             {showHeader && (
               <div style={{ ...band, top: 0, height: cqw(PL.headerH), gap: cqw(PL.wappenGap), paddingLeft: cqw(PL.padX), paddingRight: cqw(PL.padX) }}>
@@ -268,6 +285,18 @@ export const PosterEditorModal = ({
                   <button key={k} type="button" aria-pressed={baseKind === k} onClick={() => setBaseKind(k)}
                     style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: baseKind === k ? theme.color.bg : 'transparent', color: baseKind === k ? theme.color.ink : theme.color.muted, boxShadow: baseKind === k ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
                     {k === 'map' ? t.mapView : t.satView}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              <span style={fieldLabel}>{t.posterFormatLabel}</span>
+              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
+                {(['square', 'portrait'] as const).map((r) => (
+                  <button key={r} type="button" aria-pressed={aspectRatio === r} onClick={() => setAspectRatio(r)}
+                    style={{ border: 'none', borderRadius: '999px', padding: '7px 18px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: aspectRatio === r ? theme.color.bg : 'transparent', color: aspectRatio === r ? theme.color.ink : theme.color.muted, boxShadow: aspectRatio === r ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+                    {r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait}
                   </button>
                 ))}
               </div>
