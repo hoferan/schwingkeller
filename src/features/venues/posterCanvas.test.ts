@@ -12,8 +12,8 @@ describe('createOffscreenContainer', () => {
     document.body.innerHTML = '';
   });
 
-  it('appends a fixed, off-viewport container sized to POSTER_SIZE by default', () => {
-    const el = createOffscreenContainer();
+  it('appends a fixed, off-viewport container sized to the given width and height', () => {
+    const el = createOffscreenContainer(POSTER_SIZE, POSTER_SIZE);
     expect(document.body.contains(el)).toBe(true);
     expect(el.style.position).toBe('fixed');
     expect(el.style.left).toBe('-9999px');
@@ -21,10 +21,10 @@ describe('createOffscreenContainer', () => {
     expect(el.style.height).toBe(`${POSTER_SIZE}px`);
   });
 
-  it('honors a custom size', () => {
-    const el = createOffscreenContainer(500);
-    expect(el.style.width).toBe('500px');
-    expect(el.style.height).toBe('500px');
+  it('supports independent width and height, for a portrait canvas', () => {
+    const el = createOffscreenContainer(1080, 1620);
+    expect(el.style.width).toBe('1080px');
+    expect(el.style.height).toBe('1620px');
   });
 });
 
@@ -169,7 +169,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
     });
     expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
     expect(ctx.fillText).toHaveBeenCalledWith('5 Schwingkeller', expect.any(Number), expect.any(Number));
@@ -183,6 +183,7 @@ describe('drawPosterOverlay', () => {
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', title: 'Emmental 2026', wappenImg: null, count: 1,
       unitLabel: 'Schwingkeller', attribution: '© OpenStreetMap contributors',
+      posterHeight: POSTER_SIZE,
     });
     expect(ctx.fillText).toHaveBeenCalledWith('EMMENTAL 2026', expect.any(Number), expect.any(Number));
     expect(ctx.fillText).not.toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
@@ -192,7 +193,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
-      attribution: '© OpenStreetMap contributors', showHeader: false,
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, showHeader: false,
     });
     expect(ctx.fillText).not.toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
     expect(ctx.fillText).not.toHaveBeenCalledWith('5 Schwingkeller', expect.any(Number), expect.any(Number));
@@ -202,7 +203,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
-      attribution: '© OpenStreetMap contributors', showFooter: false,
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, showFooter: false,
     });
     expect(ctx.fillText).toHaveBeenCalledWith(
       '© OpenStreetMap contributors', expect.any(Number), expect.any(Number),
@@ -215,7 +216,7 @@ describe('drawPosterOverlay', () => {
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
       cantonName: 'Zug', wappenImg, count: 0, unitLabel: 'Schwingkeller',
-      attribution: '© Esri, Maxar, Earthstar Geographics', qrImg,
+      attribution: '© Esri, Maxar, Earthstar Geographics', posterHeight: POSTER_SIZE, qrImg,
     });
     expect(ctx.drawImage).toHaveBeenCalledWith(
       wappenImg, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
@@ -223,5 +224,39 @@ describe('drawPosterOverlay', () => {
     expect(ctx.drawImage).toHaveBeenCalledWith(
       qrImg, expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
     );
+  });
+
+  it('positions the footer band and QR backing relative to posterHeight (square)', () => {
+    const ctx = makeCtx();
+    const qrImg = {} as HTMLImageElement;
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, qrImg,
+    });
+    // footer band: fillRect(0, posterHeight - footerH, POSTER_SIZE, footerH) = fillRect(0, 1080-46, 1080, 46)
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 1034, POSTER_SIZE, 46);
+    // QR y = posterHeight - qrSize - qrMargin - footerH = 1080-150-28-46 = 856
+    expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 856, 150, 150);
+  });
+
+  it('shifts the footer band and QR backing down for a taller posterHeight (portrait)', () => {
+    const ctx = makeCtx();
+    const qrImg = {} as HTMLImageElement;
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: 1620, qrImg,
+    });
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 1620 - 46, POSTER_SIZE, 46);
+    expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 1620 - 150 - 28 - 46, 150, 150);
+  });
+
+  it('positions the minimal attribution strip relative to posterHeight when the footer is hidden', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: 1620, showFooter: false,
+    });
+    // minAttribStripH = 26; fillRect(0, posterHeight - minAttribStripH, POSTER_SIZE, minAttribStripH)
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 1620 - 26, POSTER_SIZE, 26);
   });
 });
