@@ -32,20 +32,45 @@ export const loadImage = (src: string, crossOrigin?: string): Promise<HTMLImageE
 
 export interface TileDraw { img: HTMLImageElement; x: number; y: number; size: number }
 
-// Reads each tile's own translate3d(...) offset and treats it as directly comparable to
+const TRANSLATE3D_RE = /translate3d\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px/;
+const SCALE_RE = /scale\((-?\d+(?:\.\d+)?)\)/;
+
+// Reads each tile's translate3d(...) offset — composed with its tile container's own
+// translate3d + scale(...) transform, which Leaflet uses at fractional zoom levels (the tile
+// pane is CSS-scaled from the nearest integer zoom) — into coordinates directly comparable to
 // map.latLngToContainerPoint()'s pin coordinates. That only holds because the capture map in
-// cantonPoster.ts calls fitBounds exactly once with no prior setView/pan/zoom and
+// cantonPoster.ts sets its view exactly once with no prior setView/pan/zoom and
 // fadeAnimation: false — so the tile layer and the pin projection share the same origin. If the
-// capture map's setup ever gains an initial view or an animated transition before fitBounds,
-// this alignment can silently break.
+// capture map's setup ever gains an initial view or an animated transition before the final
+// view, this alignment can silently break.
 export const extractTileDraws = (tilePane: HTMLElement): TileDraw[] => {
   const imgs = tilePane.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded');
   const tiles: TileDraw[] = [];
   imgs.forEach((img) => {
-    const match = img.style.transform.match(/translate3d\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px/);
+    const match = img.style.transform.match(TRANSLATE3D_RE);
     if (!match) return;
-    const size = img.width || 256;
-    tiles.push({ img, x: parseFloat(match[1]), y: parseFloat(match[2]), size });
+
+    let containerX = 0;
+    let containerY = 0;
+    let scale = 1;
+    const container = img.closest<HTMLElement>('.leaflet-tile-container');
+    if (container) {
+      const cMatch = container.style.transform.match(TRANSLATE3D_RE);
+      if (cMatch) {
+        containerX = parseFloat(cMatch[1]);
+        containerY = parseFloat(cMatch[2]);
+      }
+      const sMatch = container.style.transform.match(SCALE_RE);
+      if (sMatch) scale = parseFloat(sMatch[1]);
+    }
+
+    const size = (img.width || 256) * scale;
+    tiles.push({
+      img,
+      x: containerX + parseFloat(match[1]) * scale,
+      y: containerY + parseFloat(match[2]) * scale,
+      size,
+    });
   });
   return tiles;
 };

@@ -161,6 +161,36 @@ describe('extractTileDraws', () => {
     expect(extractTileDraws(pane)).toEqual([]);
   });
 
+  it('composes the tile container\'s fractional-zoom scale into position and size', () => {
+    // At a fractional zoom, Leaflet CSS-scales each tile container: the tile's on-screen position
+    // is containerOffset + tileOffset * scale, and its rendered size is tileSize * scale.
+    const pane = document.createElement('div');
+    pane.innerHTML = `
+      <div class="leaflet-tile-container" style="transform: translate3d(10px, 20px, 0px) scale(1.5);">
+        <img class="leaflet-tile leaflet-tile-loaded" style="transform: translate3d(12px, 34px, 0px);" width="256" height="256" />
+      </div>
+    `;
+
+    const tiles = extractTileDraws(pane);
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]).toMatchObject({ x: 10 + 12 * 1.5, y: 20 + 34 * 1.5, size: 256 * 1.5 });
+  });
+
+  it('applies the container translation even without a scale (integer zoom after a pan)', () => {
+    const pane = document.createElement('div');
+    pane.innerHTML = `
+      <div class="leaflet-tile-container" style="transform: translate3d(-5px, 7px, 0px);">
+        <img class="leaflet-tile leaflet-tile-loaded" style="transform: translate3d(100px, 200px, 0px);" width="256" height="256" />
+      </div>
+    `;
+
+    const tiles = extractTileDraws(pane);
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]).toMatchObject({ x: 95, y: 207, size: 256 });
+  });
+
   it('skips a loaded tile whose transform has no translate3d offset', () => {
     const pane = document.createElement('div');
     pane.innerHTML = `
