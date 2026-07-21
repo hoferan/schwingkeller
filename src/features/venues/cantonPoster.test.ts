@@ -119,6 +119,23 @@ describe('generateCantonPosterBlob', () => {
     expect(result.blob.type).toBe('image/png');
   });
 
+  it('waits for document.fonts.ready when the Font Loading API is available', async () => {
+    const original = Object.getOwnPropertyDescriptor(document, 'fonts');
+    let awaited = false;
+    Object.defineProperty(document, 'fonts', {
+      value: { ready: Promise.resolve().then(() => { awaited = true; }) },
+      configurable: true,
+    });
+    try {
+      const result = await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+      expect(awaited).toBe(true); // the fonts.ready promise was awaited before encoding
+      expect(result.blob.type).toBe('image/png');
+    } finally {
+      if (original) Object.defineProperty(document, 'fonts', original);
+      else delete (document as unknown as { fonts?: unknown }).fonts;
+    }
+  });
+
   it('tears down the off-screen map and detaches the container on success', async () => {
     await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
 

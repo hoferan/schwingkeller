@@ -94,6 +94,20 @@ describe('extractTileDraws', () => {
     const pane = document.createElement('div');
     expect(extractTileDraws(pane)).toEqual([]);
   });
+
+  it('skips a loaded tile whose transform has no translate3d offset', () => {
+    const pane = document.createElement('div');
+    pane.innerHTML = `
+      <img class="leaflet-tile leaflet-tile-loaded" style="transform: translate3d(5px, 6px, 0px);" width="256" height="256" />
+      <img class="leaflet-tile leaflet-tile-loaded" style="transform: none;" width="256" height="256" />
+    `;
+
+    const tiles = extractTileDraws(pane);
+
+    // The second tile (no translate3d) is dropped; only the positioned one is drawn.
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]).toMatchObject({ x: 5, y: 6 });
+  });
 });
 
 describe('drawTiles', () => {
