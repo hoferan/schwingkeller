@@ -331,8 +331,8 @@ export const PosterEditorModal = ({
             {showQr && qrDataUrl && (() => {
               const isTop = qrCorner.startsWith('top');
               const isLeft = qrCorner.endsWith('left');
-              const bottomOccupied = chrome.bottomOccupied + (!showFooter ? PL.minAttribStripH : 0);
-              const occupied = isTop ? chrome.topOccupied : bottomOccupied;
+              // chrome.bottomOccupied already includes the attribution strip when the footer is off.
+              const occupied = isTop ? chrome.topOccupied : chrome.bottomOccupied;
               return (
                 <img src={qrDataUrl} alt="QR" style={{
                   position: 'absolute',

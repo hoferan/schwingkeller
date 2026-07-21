@@ -96,7 +96,10 @@ export const computeChromeLayout = (opts: ChromeLayoutOptions): ChromeLayoutResu
   let headerY: number | null = null;
   let footerY: number | null = null;
   let topOccupied = 0;
-  let bottomOccupied = 0;
+  // When the footer band is hidden, the always-on minimal attribution strip owns the bottom edge
+  // (at its fixed normal size) — bottom-positioned bands stack above it, and QR/padding consumers
+  // of bottomOccupied clear it automatically.
+  let bottomOccupied = showFooter ? 0 : POSTER_LAYOUT.minAttribStripH;
 
   if (showHeader && headerPosition === 'top') {
     headerY = topOccupied;
@@ -197,10 +200,8 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
   if (qrImg) {
     const isTop = qrCorner.startsWith('top');
     const isLeft = qrCorner.endsWith('left');
-    // The minimal attribution strip (drawn below, when !showFooter) occupies the bottom edge too,
-    // even though it isn't tracked by computeChromeLayout — the QR must clear it as well.
-    const bottomOccupied = chrome.bottomOccupied + (!showFooter ? L.minAttribStripH : 0);
-    const occupied = isTop ? chrome.topOccupied : bottomOccupied;
+    // chrome.bottomOccupied already includes the minimal attribution strip when the footer is off.
+    const occupied = isTop ? chrome.topOccupied : chrome.bottomOccupied;
     const qrX = isLeft ? CL.qrMargin : POSTER_SIZE - CL.qrSize - CL.qrMargin;
     const qrY = isTop ? occupied + CL.qrMargin : posterHeight - occupied - CL.qrSize - CL.qrMargin;
     ctx.fillStyle = theme.color.bg;

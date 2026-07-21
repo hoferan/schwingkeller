@@ -54,6 +54,16 @@ describe('computeChromeLayout', () => {
     expect(result.footerY).toBe(POSTER_SIZE - 34);
   });
 
+  it('reserves the attribution strip on the bottom edge when the footer is hidden', () => {
+    const result = computeChromeLayout({
+      ...base, showHeader: true, showFooter: false, headerPosition: 'bottom', footerPosition: 'bottom',
+    });
+    // The always-on minimal attribution strip (26px) owns the bottom edge whenever the footer
+    // band is hidden — a bottom-positioned header must stack above it, not overlap it:
+    // headerY = 1080 - 26 - 190 = 864; bottomOccupied includes the strip (216).
+    expect(result).toEqual({ headerY: 864, footerY: null, topOccupied: 0, bottomOccupied: 216 });
+  });
+
   it('anchors bottom bands to a taller posterHeight (portrait)', () => {
     const result = computeChromeLayout({
       ...base, posterHeight: 1620,
@@ -323,10 +333,10 @@ describe('drawPosterOverlay', () => {
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       headerPosition: 'bottom', showFooter: false,
     });
-    // headerPosition 'bottom', showFooter false: header alone occupies the bottom edge, so
-    // headerY = POSTER_SIZE - headerH = 1080 - 190 = 890. The title baseline draws at
-    // headerY + titleBaselineY = 890 + 110 = 1000.
-    expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), 1000);
+    // headerPosition 'bottom', showFooter false: the attribution strip (26) owns the bottom edge
+    // and the header stacks above it — headerY = 1080 - 26 - 190 = 864. The title baseline draws
+    // at headerY + titleBaselineY = 864 + 110 = 974.
+    expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), 974);
   });
 
   it('stacks header and footer without overlapping when both share the top edge', () => {
