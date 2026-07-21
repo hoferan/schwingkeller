@@ -290,11 +290,12 @@ export const PosterEditorModal = ({
             {showHeader && chrome.headerY !== null && (
               <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
                 <img src={wappenUrl(code)} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: cqw(CL.titleGap), minWidth: 0 }}>
+                {/* Compact: pill inline next to the title (band too short to stack); normal: stacked. */}
+                <div style={{ display: 'flex', flexDirection: chromeSize === 'compact' ? 'row' : 'column', alignItems: chromeSize === 'compact' ? 'center' : undefined, gap: cqw(chromeSize === 'compact' ? CL.pillPadX : CL.titleGap), minWidth: 0 }}>
                   <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(CL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {title || canton?.name}
                   </div>
-                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH), padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
+                  <span style={{ alignSelf: chromeSize === 'compact' ? 'center' : 'flex-start', flex: 'none', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH), padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
                     {cantonVenues.length} {unitLabel}
                   </span>
                 </div>

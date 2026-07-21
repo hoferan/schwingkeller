@@ -180,10 +180,14 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       textX = CL.padX + CL.wappenW + CL.wappenGap;
     }
 
+    const titleText = (title || cantonName).toUpperCase();
     ctx.fillStyle = colors.text;
     ctx.font = `700 ${CL.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText((title || cantonName).toUpperCase(), textX, y + CL.titleBaselineY);
+    ctx.fillText(titleText, textX, y + CL.titleBaselineY);
+    // Compact: the pill sits inline after the title (the band is too short to stack them).
+    const titleWidth = chromeSize === 'compact' ? ctx.measureText(titleText).width : 0;
+    const pillX = chromeSize === 'compact' ? textX + titleWidth + CL.pillPadX : textX;
 
     const pillText = `${count} ${unitLabel}`;
     ctx.font = `700 ${CL.pillFont}px Oswald, sans-serif`;
@@ -191,11 +195,11 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     applyChromeShadow(ctx, false); // the count pill always keeps its own solid accent fill, never shadowed
     ctx.fillStyle = theme.color.accent;
     ctx.beginPath();
-    ctx.roundRect(textX, y + CL.pillY, pillWidth, CL.pillH, CL.pillH / 2);
+    ctx.roundRect(pillX, y + CL.pillY, pillWidth, CL.pillH, CL.pillH / 2);
     ctx.fill();
     ctx.fillStyle = theme.color.accentInk;
     ctx.textBaseline = 'middle';
-    ctx.fillText(pillText, textX + CL.pillPadX, y + CL.pillY + CL.pillH / 2 + 1);
+    ctx.fillText(pillText, pillX + CL.pillPadX, y + CL.pillY + CL.pillH / 2 + 1);
   }
 
   if (qrImg) {

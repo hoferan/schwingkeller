@@ -67,14 +67,19 @@ const CHROME_LAYOUT_NORMAL: ChromeLayoutConstants = CHROME_KEYS.reduce((acc, key
   return acc;
 }, {} as ChromeLayoutConstants);
 
-// Shrinks the chrome (header/footer band, fonts, Wappen, pill, QR, padding) for the admin's
-// "Compact" size option, keeping text legible while meaningfully reducing the branding footprint.
-export const COMPACT_SCALE = 0.62;
-
-const CHROME_LAYOUT_COMPACT: ChromeLayoutConstants = CHROME_KEYS.reduce((acc, key) => {
-  acc[key] = CHROME_LAYOUT_NORMAL[key] * COMPACT_SCALE;
-  return acc;
-}, {} as ChromeLayoutConstants);
+// "Compact" reduces the bands' footprint without scaling any content: fonts, pill, Wappen, and QR
+// keep their normal size (scaling them down made the chrome illegible — smoke-test finding); only
+// the band heights and the vertical anchors inside them change. The count pill moves inline next
+// to the canton name (drawPosterOverlay/preview branch on chromeSize for that), which is what
+// lets the header drop to Wappen height + inset.
+const CHROME_LAYOUT_COMPACT: ChromeLayoutConstants = {
+  ...CHROME_LAYOUT_NORMAL,
+  headerH: 120, // wappenH (80) + 2 * wappenY inset
+  wappenY: 20, // centers the full-size 80px Wappen in the 120px band
+  titleBaselineY: 80, // 56px title optically centered in the 120px band
+  pillY: 40, // (headerH - pillH) / 2 — pill vertically centered, inline after the title
+  footerH: 34, // just enough for the 20px app name / 14px attribution line
+};
 
 export const chromeLayoutFor = (size: ChromeSize): ChromeLayoutConstants =>
   size === 'compact' ? CHROME_LAYOUT_COMPACT : CHROME_LAYOUT_NORMAL;

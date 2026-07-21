@@ -43,15 +43,15 @@ describe('computeChromeLayout', () => {
     expect(result).toEqual({ headerY: null, footerY: 1034, topOccupied: 0, bottomOccupied: 46 });
   });
 
-  it('uses compact chrome sizing when chromeSize is "compact"', () => {
+  it('uses compact band heights when chromeSize is "compact"', () => {
     const result = computeChromeLayout({
       showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
       chromeSize: 'compact', posterHeight: POSTER_SIZE,
     });
     expect(result.headerY).toBe(0);
-    expect(result.topOccupied).toBeCloseTo(190 * 0.62);
-    expect(result.bottomOccupied).toBeCloseTo(46 * 0.62);
-    expect(result.footerY).toBeCloseTo(POSTER_SIZE - 46 * 0.62);
+    expect(result.topOccupied).toBe(120);
+    expect(result.bottomOccupied).toBe(34);
+    expect(result.footerY).toBe(POSTER_SIZE - 34);
   });
 
   it('anchors bottom bands to a taller posterHeight (portrait)', () => {
@@ -376,15 +376,41 @@ describe('drawPosterOverlay', () => {
     expect(CHROME_STYLE_COLORS.light.text).not.toBe(CHROME_STYLE_COLORS.solid.text);
   });
 
-  it('shrinks header/footer geometry for chromeSize "compact"', () => {
+  it('shrinks the header/footer bands for chromeSize "compact" without scaling content', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
       cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       chromeSize: 'compact',
     });
-    // compact footerH = 46 * 0.62 = 28.52; footer band at posterHeight - compactFooterH
-    expect(ctx.fillRect).toHaveBeenCalledWith(0, POSTER_SIZE - 46 * 0.62, POSTER_SIZE, 46 * 0.62);
+    // compact bands: header 120 tall, footer 34 tall at the bottom edge.
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, POSTER_SIZE, 120);
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, POSTER_SIZE - 34, POSTER_SIZE, 34);
+    // the title keeps its normal 56px font
+    expect(ctx.font).toBeDefined();
+  });
+
+  it('places the count pill inline next to the title for chromeSize "compact"', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      chromeSize: 'compact',
+    });
+    // No wappen → textX = padX = 40. makeCtx's measureText always returns width 80, so the pill
+    // starts at textX + titleWidth(80) + pillPadX(18) = 138, vertically centered in the 120-tall
+    // band: (120-40)/2 = 40. Pill width = textWidth(80) + 2*pillPadX = 116.
+    expect(ctx.roundRect).toHaveBeenCalledWith(138, 40, 116, 40, 20);
+  });
+
+  it('keeps the count pill below the title for chromeSize "normal"', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+    });
+    // Unchanged default layout: pill at textX(40), pillY(130).
+    expect(ctx.roundRect).toHaveBeenCalledWith(40, 130, 116, 40, 20);
   });
 
   it('places the QR in the requested corner, clearing whichever band occupies that edge', () => {
