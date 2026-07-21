@@ -242,3 +242,18 @@ Five findings from the first smoke test changed the design as follows:
    size; only the band heights shrink (header 190 → 120, footer 46 → 34) and the count pill moves
    inline next to the canton name. `COMPACT_SCALE` was removed in favor of explicit compact
    constants in `chromeLayoutFor`.
+
+## Addendum: soft zoom (2026-07-21, same PR)
+
+Admin feedback: whole-level zoom steps were too coarse to frame the poster precisely. Shipped in
+the same PR:
+
+- The editor map zooms in quarter steps (`zoomSnap`/`zoomDelta` 0.25, gentler wheel ratio), plus
+  a precise +/- zoom control in the map-settings row.
+- The export forwards the exact (possibly fractional) preview zoom — the former `Math.round`
+  integer defense is gone. The off-screen capture map runs with `zoomSnap: 0`, and
+  `extractTileDraws` composes each tile container's `translate3d(...) scale(...)` transform into
+  the canvas draws, so fractional-zoom captures frame exactly what the preview shows.
+- Trade-off: at fractional zooms, tiles are upscaled from the nearest whole zoom level (up to
+  ~41%), exactly matching what the admin sees live in the preview. Integer-zoom exports are
+  unchanged.
