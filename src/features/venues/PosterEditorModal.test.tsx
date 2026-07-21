@@ -55,6 +55,7 @@ vi.mock('leaflet', () => ({
   },
 }));
 
+import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
@@ -338,5 +339,37 @@ describe('header/footer customization controls', () => {
 
     await user.click(screen.getByLabelText(STR.de.posterToggleQr));
     expect(screen.queryByTestId('qr-corner-picker')).not.toBeInTheDocument();
+  });
+});
+
+describe('soft zoom', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('creates the editor map with quarter-step soft zoom options', () => {
+    renderEditor();
+    expect(L.map).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      zoomSnap: 0.25, zoomDelta: 0.25, wheelPxPerZoomLevel: 120,
+    }));
+  });
+
+  it('exports the exact fractional framing without rounding the zoom', async () => {
+    const user = userEvent.setup();
+    fakeMap.getZoom.mockReturnValueOnce(11.25);
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    // previewSize 540 → deltaZoom 1; 11.25 + 1 = 12.25, forwarded exactly (no Math.round).
+    expect(generateCantonPosterBlob.mock.calls[0][2].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
+  });
+
+  it('steps the zoom by 0.25 via the precise +/- control', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterZoomIn }));
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(11.25); // mocked getZoom() is 11
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterZoomOut }));
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(10.75);
   });
 });

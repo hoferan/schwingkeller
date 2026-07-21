@@ -123,10 +123,15 @@ export const PosterEditorModal = ({
   // Create the live editor map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
-    // zoomControl:false — the header/footer chrome span the full width top and bottom, so any
-    // on-map corner control would collide with them. Zoom lives in the controls panel instead
-    // (the map still zooms via scroll/pinch).
-    const map = L.map(mapElRef.current, { attributionControl: false, zoomControl: false, maxZoom: maxPreviewZoom(baseKind) });
+    // zoomControl:false — the header/footer chrome can span the full width top and bottom, so any
+    // on-map corner control could collide with them. Zoom lives in the controls panel instead
+    // (the map also zooms via scroll/pinch). Quarter-step soft zoom (zoomSnap/zoomDelta 0.25, a
+    // gentler wheel ratio) so the admin can frame the poster precisely — the capture pipeline is
+    // scale-aware and reproduces fractional zooms exactly.
+    const map = L.map(mapElRef.current, {
+      attributionControl: false, zoomControl: false, maxZoom: maxPreviewZoom(baseKind),
+      zoomSnap: 0.25, zoomDelta: 0.25, wheelPxPerZoomLevel: 120,
+    });
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
@@ -187,19 +192,26 @@ export const PosterEditorModal = ({
     applyDefaultFraming(map, code, venues, previewSize, chrome);
   };
 
+  // Quarter-step zoom for precise framing; Leaflet clamps to the map's own min/max zoom.
+  const stepZoom = (delta: number) => {
+    const map = mapRef.current;
+    if (map) map.setZoom(map.getZoom() + delta);
+  };
+
   const download = async () => {
     const map = mapRef.current;
     if (!map) {
       onError?.(new Error('[NO_MAP] Poster editor map is not ready.'));
       return;
     }
-    // Frame the 1080² export on exactly the area the (square, power-of-2-sized) preview shows: the
-    // canvas is POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). Math.round
-    // defends the integer invariant even if Leaflet's zoomSnap is ever changed to a fractional value.
+    // Frame the export on exactly the area the (power-of-2-sized) preview shows: the canvas is
+    // POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). The preview zoom
+    // itself may be fractional (quarter-step soft zoom) and is forwarded exactly — the capture map
+    // runs with zoomSnap: 0 and the tile capture is scale-aware, so no rounding is needed.
     const c = map.getCenter();
     const view = {
       center: [c.lat, c.lng] as [number, number],
-      zoom: Math.round(map.getZoom() + deltaZoom),
+      zoom: map.getZoom() + deltaZoom,
     };
     setBusy(true);
     try {
@@ -376,6 +388,17 @@ export const PosterEditorModal = ({
                 (k) => (k === 'map' ? t.mapView : t.satView))}
               {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
                 (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <span style={fieldLabel}>{t.posterZoomLabel}</span>
+                <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
+                  {([['-', t.posterZoomOut, -0.25], ['+', t.posterZoomIn, 0.25]] as const).map(([glyph, label, delta]) => (
+                    <button key={glyph} type="button" aria-label={label} onClick={() => stepZoom(delta)}
+                      style={{ border: 'none', borderRadius: '999px', padding: '7px 16px', fontSize: '15px', fontWeight: 700, lineHeight: 1, cursor: 'pointer', background: 'transparent', color: theme.color.ink }}>
+                      {glyph}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {divider}
