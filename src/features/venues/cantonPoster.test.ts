@@ -45,6 +45,7 @@ vi.mock('./posterCanvas', async () => {
 });
 
 import { generateCantonPosterBlob, waitForTilesLoad } from './cantonPoster';
+import { POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
@@ -167,6 +168,34 @@ describe('generateCantonPosterBlob', () => {
     });
     expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 11);
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('sizes the canvas to POSTER_SIZE x POSTER_SIZE when aspectRatio is omitted (defaults to square)', async () => {
+    const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
+    const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
+
+    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+
+    expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
+    expect(heightSpy).toHaveBeenCalledWith(POSTER_SIZE);
+    expect(drawPosterOverlayMock).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ posterHeight: POSTER_SIZE }),
+    );
+  });
+
+  it('sizes the canvas to POSTER_SIZE x 1620 for aspectRatio "portrait"', async () => {
+    const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
+    const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
+
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'portrait',
+    });
+
+    expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
+    expect(heightSpy).toHaveBeenCalledWith(1620);
+    expect(drawPosterOverlayMock).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ posterHeight: 1620 }),
+    );
   });
 
 });
