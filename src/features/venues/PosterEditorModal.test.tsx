@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
@@ -58,6 +58,10 @@ vi.mock('leaflet', () => ({
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+// Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
+// directly alongside this file's `leaflet` mock is safe.
+import { computeChromeLayout } from './posterCanvas';
+import { cqw, POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
@@ -264,5 +268,30 @@ describe('header/footer customization controls', () => {
       chromeStyle: 'transparent', chromeSize: 'compact', qrCorner: 'top-left',
       headerPosition: 'top', footerPosition: 'bottom',
     });
+  });
+
+  it('positions the DOM preview header/footer to match computeChromeLayout for a non-default combination', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterSizeCompact }));
+    // Both the header-position and footer-position pickers have a "Oben" (Top) button, so the
+    // plain screen-wide query would match two elements — scope it to the footer picker via its
+    // preceding label instead.
+    const footerPositionGroup = screen.getByText(STR.de.posterFooterPositionLabel).parentElement as HTMLElement;
+    await user.click(within(footerPositionGroup).getByRole('button', { name: STR.de.posterPositionTop }));
+
+    // Both header and footer now share the top edge (header stacked closer to it) at compact
+    // size. `cqw()` renders a CSS container-query-width unit string, not a pixel value, so compute
+    // the expected style with the same functions the component uses rather than hand-computing a
+    // decimal string (which would be brittle against floating-point stringification).
+    const expected = computeChromeLayout({
+      showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'top',
+      chromeSize: 'compact', posterHeight: POSTER_SIZE,
+    });
+    const header = screen.getByTestId('poster-preview-header');
+    const footer = screen.getByTestId('poster-preview-footer');
+    expect(header).toHaveStyle({ top: cqw(expected.headerY as number) });
+    expect(footer).toHaveStyle({ top: cqw(expected.footerY as number) });
   });
 });

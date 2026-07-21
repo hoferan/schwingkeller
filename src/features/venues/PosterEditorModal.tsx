@@ -7,10 +7,11 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
+import { computeChromeLayout, CHROME_STYLE_COLORS } from './posterCanvas';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
-  POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, type PosterAspectRatio,
-  type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
+  POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
+  type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
@@ -219,9 +220,24 @@ export const PosterEditorModal = ({
   // numbers the canvas exporter uses, so the preview is a scaled replica of the PNG. zIndex 800
   // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
   // none lets map drag/zoom pass through.
+  // Chrome geometry/colors for the current selections — the same pure functions the canvas
+  // exporter uses, so the preview stays an exact scaled replica. The layout is computed against
+  // the currently selected aspect ratio's height so bottom-anchored bands land correctly in
+  // portrait mode too.
+  const CL = chromeLayoutFor(chromeSize);
+  const chrome = computeChromeLayout({
+    showHeader, showFooter, headerPosition, footerPosition, chromeSize,
+    posterHeight: posterHeightFor(aspectRatio),
+  });
+  const chromeColors = CHROME_STYLE_COLORS[chromeStyle];
+  const bandTextStyle: React.CSSProperties = {
+    color: chromeColors.text,
+    textShadow: chromeColors.shadow ? '0 1px 4px rgba(0,0,0,0.6)' : 'none',
+  };
+
   const band: React.CSSProperties = {
-    position: 'absolute', left: 0, right: 0, background: 'rgba(17,17,17,0.72)',
-    color: theme.color.bg, zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
+    position: 'absolute', left: 0, right: 0,
+    zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
   };
   const fieldLabel: React.CSSProperties = {
     fontSize: '11.5px', letterSpacing: '.07em', textTransform: 'uppercase',
@@ -269,29 +285,41 @@ export const PosterEditorModal = ({
               justifyContent:center on the row keeps it centered when the controls wrap below. */}
           <div data-testid="poster-preview-square" style={{ position: 'relative', width: previewSize, height: previewSize * (posterHeightFor(aspectRatio) / POSTER_SIZE), flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
-            {showHeader && (
-              <div style={{ ...band, top: 0, height: cqw(PL.headerH), gap: cqw(PL.wappenGap), paddingLeft: cqw(PL.padX), paddingRight: cqw(PL.padX) }}>
-                <img src={wappenUrl(code)} alt="" style={{ width: cqw(PL.wappenW), height: cqw(PL.wappenH), objectFit: 'contain', flex: 'none' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: cqw(PL.titleGap), minWidth: 0 }}>
-                  <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(PL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {showHeader && chrome.headerY !== null && (
+              <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
+                <img src={wappenUrl(code)} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: cqw(CL.titleGap), minWidth: 0 }}>
+                  <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(CL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {title || canton?.name}
                   </div>
-                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(PL.pillFont), height: cqw(PL.pillH), lineHeight: cqw(PL.pillH), padding: `0 ${cqw(PL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
+                  <span style={{ alignSelf: 'flex-start', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH), padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
                     {cantonVenues.length} {unitLabel}
                   </span>
                 </div>
               </div>
             )}
-            {showQr && qrDataUrl && (
-              <img src={qrDataUrl} alt="QR" style={{ position: 'absolute', right: cqw(PL.qrMargin), bottom: cqw(PL.qrMargin + PL.footerH), width: cqw(PL.qrSize), height: cqw(PL.qrSize), background: theme.color.bg, padding: cqw(PL.qrPad), borderRadius: '3px', zIndex: 800, pointerEvents: 'none' }} />
-            )}
-            {showFooter ? (
-              <div style={{ ...band, bottom: 0, height: cqw(PL.footerH), justifyContent: 'space-between', paddingLeft: cqw(PL.appNameX), paddingRight: cqw(PL.attribMarginX) }}>
-                <span style={{ fontFamily: theme.font.display, fontWeight: 600, fontSize: cqw(PL.appNameFont), whiteSpace: 'nowrap' }}>Schwingkeller Schweiz</span>
-                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
+            {showQr && qrDataUrl && (() => {
+              const isTop = qrCorner.startsWith('top');
+              const isLeft = qrCorner.endsWith('left');
+              const bottomOccupied = chrome.bottomOccupied + (!showFooter ? PL.minAttribStripH : 0);
+              const occupied = isTop ? chrome.topOccupied : bottomOccupied;
+              return (
+                <img src={qrDataUrl} alt="QR" style={{
+                  position: 'absolute',
+                  [isLeft ? 'left' : 'right']: cqw(CL.qrMargin),
+                  [isTop ? 'top' : 'bottom']: cqw(occupied + CL.qrMargin),
+                  width: cqw(CL.qrSize), height: cqw(CL.qrSize), background: theme.color.bg,
+                  padding: cqw(CL.qrPad), borderRadius: '3px', zIndex: 800, pointerEvents: 'none',
+                } as React.CSSProperties} />
+              );
+            })()}
+            {showFooter && chrome.footerY !== null ? (
+              <div data-testid="poster-preview-footer" style={{ ...band, top: cqw(chrome.footerY), height: cqw(CL.footerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, justifyContent: 'space-between', paddingLeft: cqw(CL.appNameX), paddingRight: cqw(CL.attribMarginX) }}>
+                <span style={{ fontFamily: theme.font.display, fontWeight: 600, fontSize: cqw(CL.appNameFont), whiteSpace: 'nowrap' }}>Schwingkeller Schweiz</span>
+                <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(CL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             ) : (
-              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: 'rgba(17,17,17,0.55)', justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
+              <div style={{ ...band, bottom: 0, height: cqw(PL.minAttribStripH), background: 'rgba(17,17,17,0.55)', color: theme.color.bg, justifyContent: 'flex-end', paddingRight: cqw(PL.attribMarginX) }}>
                 <span style={{ fontFamily: theme.font.body, fontWeight: 400, fontSize: cqw(PL.attribFont), whiteSpace: 'nowrap' }}>{TILE_ATTRIBUTION[baseKind]}</span>
               </div>
             )}
