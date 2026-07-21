@@ -136,18 +136,12 @@ export interface PosterOverlayOptions {
   qrCorner?: QrCorner;
 }
 
-export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; text: string; shadow: boolean }> = {
-  solid: { fill: 'rgba(17,17,17,0.72)', text: theme.color.bg, shadow: false },
-  // Dark ink over the bare map — most basemap area is light, and a light halo keeps it readable
-  // where it isn't. Light text washed out entirely on bright tiles (smoke-test finding).
-  transparent: { fill: null, text: theme.color.ink, shadow: true },
-  light: { fill: 'rgba(255,255,255,0.85)', text: theme.color.ink, shadow: false },
-};
-
-const applyChromeShadow = (ctx: CanvasRenderingContext2D, on: boolean): void => {
-  ctx.shadowColor = on ? 'rgba(255,255,255,0.85)' : 'transparent';
-  ctx.shadowBlur = on ? 5 : 0;
-  ctx.shadowOffsetY = 0;
+// Transparent is plain dark ink over the bare map — light text washed out on bright tiles, and a
+// halo/glow shadow made it mushy (both smoke-test findings), so no shadow of any kind.
+export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; text: string }> = {
+  solid: { fill: 'rgba(17,17,17,0.72)', text: theme.color.bg },
+  transparent: { fill: null, text: theme.color.ink },
+  light: { fill: 'rgba(255,255,255,0.85)', text: theme.color.ink },
 };
 
 const APP_NAME = 'Schwingkeller Schweiz';
@@ -172,7 +166,6 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       ctx.fillStyle = colors.fill;
       ctx.fillRect(0, y, POSTER_SIZE, CL.headerH);
     }
-    applyChromeShadow(ctx, colors.shadow);
 
     let textX = CL.padX;
     if (wappenImg) {
@@ -192,7 +185,6 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     const pillText = `${count} ${unitLabel}`;
     ctx.font = `700 ${CL.pillFont}px Oswald, sans-serif`;
     const pillWidth = ctx.measureText(pillText).width + CL.pillPadX * 2;
-    applyChromeShadow(ctx, false); // the count pill always keeps its own solid accent fill, never shadowed
     ctx.fillStyle = theme.color.accent;
     ctx.beginPath();
     ctx.roundRect(pillX, y + CL.pillY, pillWidth, CL.pillH, CL.pillH / 2);
@@ -222,7 +214,6 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       ctx.fillStyle = colors.fill;
       ctx.fillRect(0, y, POSTER_SIZE, CL.footerH);
     }
-    applyChromeShadow(ctx, colors.shadow);
     ctx.fillStyle = colors.text;
     ctx.font = `600 ${CL.appNameFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
@@ -232,7 +223,6 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     ctx.textAlign = 'right';
     ctx.fillText(attribution, POSTER_SIZE - CL.attribMarginX, y + CL.footerH / 2);
     ctx.textAlign = 'left';
-    applyChromeShadow(ctx, false);
   } else {
     // Attribution is legally required even without the branding band — draw a minimal credit
     // with a subtle backing strip for legibility. Always at the bottom, at NORMAL size (uses `L`,

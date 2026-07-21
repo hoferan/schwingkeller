@@ -231,11 +231,7 @@ export const PosterEditorModal = ({
   // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
   // none lets map drag/zoom pass through.
   const chromeColors = CHROME_STYLE_COLORS[chromeStyle];
-  const bandTextStyle: React.CSSProperties = {
-    color: chromeColors.text,
-    // Light halo matching the canvas exporter's shadow (dark text over the bare map).
-    textShadow: chromeColors.shadow ? '0 0 5px rgba(255,255,255,0.85), 0 0 2px rgba(255,255,255,0.85)' : 'none',
-  };
+  const bandTextStyle: React.CSSProperties = { color: chromeColors.text };
 
   const band: React.CSSProperties = {
     position: 'absolute', left: 0, right: 0,

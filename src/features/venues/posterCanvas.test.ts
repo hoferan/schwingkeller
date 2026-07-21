@@ -357,12 +357,12 @@ describe('drawPosterOverlay', () => {
     expect(ctx.fillRect).not.toHaveBeenCalledWith(0, 1034, POSTER_SIZE, 46);
   });
 
-  it('uses dark text (with a light halo) for the transparent style so it reads on light basemaps', () => {
-    // Without a band fill, light text washes out over bright map tiles — the transparent style
-    // uses the same dark ink as the light style, plus a light halo shadow instead of a dark one.
+  it('uses plain dark text (no glow) for the transparent style so it reads on light basemaps', () => {
+    // Without a band fill, light text washes out over bright map tiles, and a halo/glow shadow
+    // made the text mushy (smoke-test finding) — transparent is plain dark ink, nothing else.
     expect(CHROME_STYLE_COLORS.transparent.fill).toBeNull();
     expect(CHROME_STYLE_COLORS.transparent.text).toBe(CHROME_STYLE_COLORS.light.text);
-    expect(CHROME_STYLE_COLORS.transparent.shadow).toBe(true);
+    expect('shadow' in CHROME_STYLE_COLORS.transparent).toBe(false);
   });
 
   it('uses light-style colors (light fill, dark text) for the header/footer bands', () => {
