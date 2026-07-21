@@ -1,6 +1,7 @@
 import { theme } from '../../theme';
 import {
-  POSTER_SIZE, POSTER_LAYOUT, chromeLayoutFor, type ChromePosition, type ChromeSize,
+  POSTER_SIZE, POSTER_LAYOUT, chromeLayoutFor,
+  type ChromePosition, type ChromeSize, type ChromeStyle,
 } from './posterLayout';
 
 export { POSTER_SIZE };
@@ -127,67 +128,105 @@ export interface PosterOverlayOptions {
   showHeader?: boolean;
   showFooter?: boolean;
   qrImg?: HTMLImageElement | null;
+  headerPosition?: ChromePosition;
+  footerPosition?: ChromePosition;
+  chromeStyle?: ChromeStyle;
+  chromeSize?: ChromeSize;
 }
+
+export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; text: string; shadow: boolean }> = {
+  solid: { fill: 'rgba(17,17,17,0.72)', text: theme.color.bg, shadow: false },
+  transparent: { fill: null, text: theme.color.bg, shadow: true },
+  light: { fill: 'rgba(255,255,255,0.85)', text: theme.color.ink, shadow: false },
+};
+
+const applyChromeShadow = (ctx: CanvasRenderingContext2D, on: boolean): void => {
+  ctx.shadowColor = on ? 'rgba(0,0,0,0.6)' : 'transparent';
+  ctx.shadowBlur = on ? 4 : 0;
+  ctx.shadowOffsetY = on ? 1 : 0;
+};
 
 const APP_NAME = 'Schwingkeller Schweiz';
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {
-    cantonName, title, wappenImg, count, unitLabel, attribution, posterHeight,
-    showHeader = true, showFooter = true, qrImg,
+    cantonName, title, wappenImg, count, unitLabel, attribution, posterHeight, qrImg,
+    showHeader = true, showFooter = true,
+    headerPosition = 'top', footerPosition = 'bottom',
+    chromeStyle = 'solid', chromeSize = 'normal',
   } = opts;
 
-  if (showHeader) {
-    ctx.fillStyle = 'rgba(17,17,17,0.72)';
-    ctx.fillRect(0, 0, POSTER_SIZE, L.headerH);
+  const CL = chromeLayoutFor(chromeSize);
+  const colors = CHROME_STYLE_COLORS[chromeStyle];
+  const chrome = computeChromeLayout({
+    showHeader, showFooter, headerPosition, footerPosition, chromeSize, posterHeight,
+  });
 
-    let textX = L.padX;
+  if (showHeader && chrome.headerY !== null) {
+    const y = chrome.headerY;
+    if (colors.fill) {
+      ctx.fillStyle = colors.fill;
+      ctx.fillRect(0, y, POSTER_SIZE, CL.headerH);
+    }
+    applyChromeShadow(ctx, colors.shadow);
+
+    let textX = CL.padX;
     if (wappenImg) {
-      ctx.drawImage(wappenImg, L.wappenX, L.wappenY, L.wappenW, L.wappenH);
-      textX = L.padX + L.wappenW + L.wappenGap;
+      ctx.drawImage(wappenImg, CL.wappenX, y + CL.wappenY, CL.wappenW, CL.wappenH);
+      textX = CL.padX + CL.wappenW + CL.wappenGap;
     }
 
-    ctx.fillStyle = theme.color.bg;
-    ctx.font = `700 ${L.titleFont}px Oswald, sans-serif`;
+    ctx.fillStyle = colors.text;
+    ctx.font = `700 ${CL.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText((title || cantonName).toUpperCase(), textX, L.titleBaselineY);
+    ctx.fillText((title || cantonName).toUpperCase(), textX, y + CL.titleBaselineY);
 
     const pillText = `${count} ${unitLabel}`;
-    ctx.font = `700 ${L.pillFont}px Oswald, sans-serif`;
-    const pillWidth = ctx.measureText(pillText).width + L.pillPadX * 2;
+    ctx.font = `700 ${CL.pillFont}px Oswald, sans-serif`;
+    const pillWidth = ctx.measureText(pillText).width + CL.pillPadX * 2;
+    applyChromeShadow(ctx, false); // the count pill always keeps its own solid accent fill, never shadowed
     ctx.fillStyle = theme.color.accent;
     ctx.beginPath();
-    ctx.roundRect(textX, L.pillY, pillWidth, L.pillH, L.pillH / 2);
+    ctx.roundRect(textX, y + CL.pillY, pillWidth, CL.pillH, CL.pillH / 2);
     ctx.fill();
     ctx.fillStyle = theme.color.accentInk;
     ctx.textBaseline = 'middle';
-    ctx.fillText(pillText, textX + L.pillPadX, L.pillY + L.pillH / 2 + 1);
+    ctx.fillText(pillText, textX + CL.pillPadX, y + CL.pillY + CL.pillH / 2 + 1);
   }
 
-  // QR sits bottom-right, inset above the footer band area.
+  // QR sits bottom-right, inset above whatever occupies the bottom edge — Task 4 replaces this
+  // fixed corner with the admin-chosen one.
   if (qrImg) {
-    const qrX = POSTER_SIZE - L.qrSize - L.qrMargin;
-    const qrY = posterHeight - L.qrSize - L.qrMargin - L.footerH;
+    const qrX = POSTER_SIZE - CL.qrSize - CL.qrMargin;
+    const qrY = posterHeight - CL.qrSize - CL.qrMargin - chrome.bottomOccupied;
     ctx.fillStyle = theme.color.bg;
-    ctx.fillRect(qrX - L.qrPad, qrY - L.qrPad, L.qrSize + L.qrPad * 2, L.qrSize + L.qrPad * 2);
-    ctx.drawImage(qrImg, qrX, qrY, L.qrSize, L.qrSize);
+    ctx.fillRect(qrX - CL.qrPad, qrY - CL.qrPad, CL.qrSize + CL.qrPad * 2, CL.qrSize + CL.qrPad * 2);
+    ctx.drawImage(qrImg, qrX, qrY, CL.qrSize, CL.qrSize);
   }
 
-  if (showFooter) {
-    ctx.fillStyle = 'rgba(17,17,17,0.72)';
-    ctx.fillRect(0, posterHeight - L.footerH, POSTER_SIZE, L.footerH);
-    ctx.fillStyle = theme.color.bg;
-    ctx.font = `600 ${L.appNameFont}px 'Work Sans', sans-serif`;
+  if (showFooter && chrome.footerY !== null) {
+    const y = chrome.footerY;
+    if (colors.fill) {
+      ctx.fillStyle = colors.fill;
+      ctx.fillRect(0, y, POSTER_SIZE, CL.footerH);
+    }
+    applyChromeShadow(ctx, colors.shadow);
+    ctx.fillStyle = colors.text;
+    ctx.font = `600 ${CL.appNameFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(APP_NAME, L.appNameX, posterHeight - L.footerH / 2);
-    ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
+    ctx.fillText(APP_NAME, CL.appNameX, y + CL.footerH / 2);
+    ctx.font = `400 ${CL.attribFont}px 'Work Sans', sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText(attribution, POSTER_SIZE - L.attribMarginX, posterHeight - L.footerH / 2);
+    ctx.fillText(attribution, POSTER_SIZE - CL.attribMarginX, y + CL.footerH / 2);
     ctx.textAlign = 'left';
+    applyChromeShadow(ctx, false);
   } else {
-    // Attribution is legally required even without the branding band — draw a
-    // minimal credit with a subtle backing strip for legibility.
+    // Attribution is legally required even without the branding band — draw a minimal credit
+    // with a subtle backing strip for legibility. Always at the bottom, at NORMAL size (uses `L`,
+    // not `CL`), and unaffected by footerPosition/chromeStyle/chromeSize — a deliberate
+    // simplification so hiding the footer's content can never also relocate the legally-required
+    // attribution somewhere unexpected.
     ctx.fillStyle = 'rgba(17,17,17,0.55)';
     ctx.fillRect(0, posterHeight - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
     ctx.fillStyle = theme.color.bg;

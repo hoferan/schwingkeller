@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles,
-  drawPin, drawPosterOverlay, computeChromeLayout,
+  drawPin, drawPosterOverlay, computeChromeLayout, CHROME_STYLE_COLORS,
 } from './posterCanvas';
 
 describe('posterFilename', () => {
@@ -312,5 +312,68 @@ describe('drawPosterOverlay', () => {
     });
     // minAttribStripH = 26; fillRect(0, posterHeight - minAttribStripH, POSTER_SIZE, minAttribStripH)
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 1620 - 26, POSTER_SIZE, 26);
+  });
+
+  it('draws the header at its position-derived offset instead of always y=0', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      headerPosition: 'bottom', showFooter: false,
+    });
+    // headerPosition 'bottom', showFooter false: header alone occupies the bottom edge, so
+    // headerY = POSTER_SIZE - headerH = 1080 - 190 = 890. The title baseline draws at
+    // headerY + titleBaselineY = 890 + 110 = 1000.
+    expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), 1000);
+  });
+
+  it('stacks header and footer without overlapping when both share the top edge', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      headerPosition: 'top', footerPosition: 'top',
+    });
+    // header at y=0: title baseline at 0 + 110 = 110. footer at y=190 (stacked below header):
+    // app-name/attribution vertically centered at 190 + footerH/2 = 190 + 23 = 213.
+    expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), 110);
+    expect(ctx.fillText).toHaveBeenCalledWith('Schwingkeller Schweiz', expect.any(Number), 213);
+  });
+
+  it('draws no fill and applies a shadow for the transparent style', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      chromeStyle: 'transparent',
+    });
+    // Header/footer band backgrounds use fillRect with the band's own width/height; the transparent
+    // style's fill is null, so those specific two fillRect calls (header 0,0,1080,190 and footer
+    // 0,1034,1080,46) never happen — only the QR backing / minimal-strip fillRect calls would, and
+    // neither applies here (no qrImg, footer shown).
+    expect(ctx.fillRect).not.toHaveBeenCalledWith(0, 0, POSTER_SIZE, 190);
+    expect(ctx.fillRect).not.toHaveBeenCalledWith(0, 1034, POSTER_SIZE, 46);
+  });
+
+  it('uses light-style colors (light fill, dark text) for the header/footer bands', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      chromeStyle: 'light',
+    });
+    expect(CHROME_STYLE_COLORS.light.fill).toBe('rgba(255,255,255,0.85)');
+    expect(CHROME_STYLE_COLORS.light.text).not.toBe(CHROME_STYLE_COLORS.solid.text);
+  });
+
+  it('shrinks header/footer geometry for chromeSize "compact"', () => {
+    const ctx = makeCtx();
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      chromeSize: 'compact',
+    });
+    // compact footerH = 46 * 0.62 = 28.52; footer band at posterHeight - compactFooterH
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, POSTER_SIZE - 46 * 0.62, POSTER_SIZE, 46 * 0.62);
   });
 });
