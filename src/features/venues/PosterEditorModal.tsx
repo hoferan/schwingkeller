@@ -7,6 +7,7 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
+import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import { POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
 import type { Venue } from './types';
@@ -27,6 +28,48 @@ interface PosterEditorModalProps {
 // zooms are what the tile-capture assumes; a fractional zoom makes Leaflet CSS-scale the tile pane,
 // which the capture can't reproduce (misframed export + missing-tile black bars).
 const previewSizeFor = (w: number): number => (w >= 700 ? 540 : 270);
+
+const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the canton-bounds fallback has always used
+
+// Default framing for the live editor map: fit tightly to the canton's own venues (not the whole
+// canton outline) so exported labels aren't shrunk by empty terrain, while keeping a sensible view
+// for cantons with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
+// framing" button so both apply identical logic.
+const applyDefaultFraming = (
+  map: L.Map,
+  code: string,
+  venues: Venue[],
+  previewSize: number,
+  showHeader: boolean,
+  showFooter: boolean,
+): void => {
+  const cantonVenues = venues.filter((v) => v.canton === code);
+
+  if (cantonVenues.length === 0) {
+    const bounds = boundsForCanton(code);
+    if (bounds) map.fitBounds(bounds, { padding: [DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING] });
+    return;
+  }
+
+  if (cantonVenues.length === 1) {
+    const [only] = cantonVenues;
+    map.setView([only.lat, only.lng], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    return;
+  }
+
+  const venueBounds = venueBoundsForCanton(code, venues);
+  if (!venueBounds) return;
+  const scale = previewSize / POSTER_SIZE;
+  const topPad = DEFAULT_FIT_PADDING + (showHeader ? PL.headerH * scale : 0);
+  const bottomPad = DEFAULT_FIT_PADDING + (showFooter ? PL.footerH * scale : 0);
+  map.fitBounds(venueBounds, {
+    paddingTopLeft: [DEFAULT_FIT_PADDING, topPad],
+    paddingBottomRight: [DEFAULT_FIT_PADDING, bottomPad],
+  });
+  if (map.getZoom() > CANTON_POSTER_MAX_DEFAULT_ZOOM) {
+    map.setZoom(CANTON_POSTER_MAX_DEFAULT_ZOOM);
+  }
+};
 
 export const PosterEditorModal = ({
   code, venues, initialBaseKind, unitLabel, onClose, onSave, onError,
@@ -59,7 +102,6 @@ export const PosterEditorModal = ({
   // Create the live editor map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
-    const bounds = boundsForCanton(code);
     // zoomControl:false — the header/footer chrome span the full width top and bottom, so any
     // on-map corner control would collide with them. Zoom lives in the controls panel instead
     // (the map still zooms via scroll/pinch).
@@ -67,7 +109,7 @@ export const PosterEditorModal = ({
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
-    if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
+    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
 
     // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
     const p = previewPin(previewSize);
@@ -108,8 +150,8 @@ export const PosterEditorModal = ({
 
   const resetFraming = () => {
     const map = mapRef.current;
-    const bounds = boundsForCanton(code);
-    if (map && bounds) map.fitBounds(bounds, { padding: [20, 20] });
+    if (!map) return;
+    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
   };
 
   const download = async () => {
