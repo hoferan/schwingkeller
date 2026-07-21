@@ -7,7 +7,7 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
-import { computeChromeLayout, CHROME_STYLE_COLORS } from './posterCanvas';
+import { computeChromeLayout, CHROME_STYLE_COLORS, type ChromeLayoutResult } from './posterCanvas';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
@@ -38,14 +38,14 @@ const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the canton-bound
 // Default framing for the live editor map: fit tightly to the canton's own venues (not the whole
 // canton outline) so exported labels aren't shrunk by empty terrain, while keeping a sensible view
 // for cantons with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
-// framing" button so both apply identical logic.
+// framing" button so both apply identical logic. Padding derives from computeChromeLayout's
+// per-edge occupancy so it stays correct wherever the bands are positioned and at either size.
 const applyDefaultFraming = (
   map: L.Map,
   code: string,
   venues: Venue[],
   previewSize: number,
-  showHeader: boolean,
-  showFooter: boolean,
+  chrome: ChromeLayoutResult,
 ): void => {
   const cantonVenues = venues.filter((v) => v.canton === code);
 
@@ -64,8 +64,8 @@ const applyDefaultFraming = (
   const venueBounds = venueBoundsForCanton(code, venues);
   if (!venueBounds) return;
   const scale = previewSize / POSTER_SIZE;
-  const topPad = DEFAULT_FIT_PADDING + (showHeader ? PL.headerH * scale : 0);
-  const bottomPad = DEFAULT_FIT_PADDING + (showFooter ? PL.footerH * scale : 0);
+  const topPad = DEFAULT_FIT_PADDING + chrome.topOccupied * scale;
+  const bottomPad = DEFAULT_FIT_PADDING + chrome.bottomOccupied * scale;
   map.fitBounds(venueBounds, {
     paddingTopLeft: [DEFAULT_FIT_PADDING, topPad],
     paddingBottomRight: [DEFAULT_FIT_PADDING, bottomPad],
@@ -104,6 +104,16 @@ export const PosterEditorModal = ({
 
   const { dataUrl: qrDataUrl } = usePosterQr(code);
 
+  // Chrome geometry for the current selections — the same pure functions the canvas exporter
+  // uses, so the preview stays an exact scaled replica and the venue-fit framing pads for the
+  // edges the bands actually occupy. Computed against the currently selected aspect ratio's
+  // height so bottom-anchored bands land correctly in portrait mode too.
+  const CL = chromeLayoutFor(chromeSize);
+  const chrome = computeChromeLayout({
+    showHeader, showFooter, headerPosition, footerPosition, chromeSize,
+    posterHeight: posterHeightFor(aspectRatio),
+  });
+
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
@@ -120,7 +130,7 @@ export const PosterEditorModal = ({
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
-    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
+    applyDefaultFraming(map, code, venues, previewSize, chrome);
 
     // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
     const p = previewPin(previewSize);
@@ -174,7 +184,7 @@ export const PosterEditorModal = ({
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
-    applyDefaultFraming(map, code, venues, previewSize, showHeader, showFooter);
+    applyDefaultFraming(map, code, venues, previewSize, chrome);
   };
 
   const download = async () => {
@@ -220,15 +230,6 @@ export const PosterEditorModal = ({
   // numbers the canvas exporter uses, so the preview is a scaled replica of the PNG. zIndex 800
   // keeps it above Leaflet's tile/marker panes (≤700) but below its controls (1000); pointerEvents
   // none lets map drag/zoom pass through.
-  // Chrome geometry/colors for the current selections — the same pure functions the canvas
-  // exporter uses, so the preview stays an exact scaled replica. The layout is computed against
-  // the currently selected aspect ratio's height so bottom-anchored bands land correctly in
-  // portrait mode too.
-  const CL = chromeLayoutFor(chromeSize);
-  const chrome = computeChromeLayout({
-    showHeader, showFooter, headerPosition, footerPosition, chromeSize,
-    posterHeight: posterHeightFor(aspectRatio),
-  });
   const chromeColors = CHROME_STYLE_COLORS[chromeStyle];
   const bandTextStyle: React.CSSProperties = {
     color: chromeColors.text,

@@ -294,4 +294,22 @@ describe('header/footer customization controls', () => {
     expect(header).toHaveStyle({ top: cqw(expected.headerY as number) });
     expect(footer).toHaveStyle({ top: cqw(expected.footerY as number) });
   });
+
+  it('reset framing pads for the actual chrome edges (footer moved to top), not fixed header/footer constants', async () => {
+    const user = userEvent.setup();
+    const venues2 = [
+      v({ id: '1', lat: 46.9, lng: 7.4 }),
+      v({ id: '2', lat: 46.95, lng: 7.45 }),
+    ];
+    renderEditor({ venues: venues2 });
+
+    const footerPositionGroup = screen.getByText(STR.de.posterFooterPositionLabel).parentElement as HTMLElement;
+    await user.click(within(footerPositionGroup).getByRole('button', { name: STR.de.posterPositionTop }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    // Header (190) and footer (46) both occupy the top edge at normal size; scale 0.5 →
+    // top pad = 20 + 236*0.5 = 138, bottom pad drops to the base 20 (nothing occupies that edge).
+    const [, options] = fakeMap.fitBounds.mock.calls[fakeMap.fitBounds.mock.calls.length - 1];
+    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20] });
+  });
 });
