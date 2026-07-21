@@ -1,7 +1,7 @@
 import { theme } from '../../theme';
 import {
   POSTER_SIZE, POSTER_LAYOUT, chromeLayoutFor,
-  type ChromePosition, type ChromeSize, type ChromeStyle,
+  type ChromePosition, type ChromeSize, type ChromeStyle, type QrCorner,
 } from './posterLayout';
 
 export { POSTER_SIZE };
@@ -132,6 +132,7 @@ export interface PosterOverlayOptions {
   footerPosition?: ChromePosition;
   chromeStyle?: ChromeStyle;
   chromeSize?: ChromeSize;
+  qrCorner?: QrCorner;
 }
 
 export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; text: string; shadow: boolean }> = {
@@ -153,7 +154,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     cantonName, title, wappenImg, count, unitLabel, attribution, posterHeight, qrImg,
     showHeader = true, showFooter = true,
     headerPosition = 'top', footerPosition = 'bottom',
-    chromeStyle = 'solid', chromeSize = 'normal',
+    chromeStyle = 'solid', chromeSize = 'normal', qrCorner = 'bottom-right',
   } = opts;
 
   const CL = chromeLayoutFor(chromeSize);
@@ -194,11 +195,15 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     ctx.fillText(pillText, textX + CL.pillPadX, y + CL.pillY + CL.pillH / 2 + 1);
   }
 
-  // QR sits bottom-right, inset above whatever occupies the bottom edge — Task 4 replaces this
-  // fixed corner with the admin-chosen one.
   if (qrImg) {
-    const qrX = POSTER_SIZE - CL.qrSize - CL.qrMargin;
-    const qrY = posterHeight - CL.qrSize - CL.qrMargin - chrome.bottomOccupied;
+    const isTop = qrCorner.startsWith('top');
+    const isLeft = qrCorner.endsWith('left');
+    // The minimal attribution strip (drawn below, when !showFooter) occupies the bottom edge too,
+    // even though it isn't tracked by computeChromeLayout — the QR must clear it as well.
+    const bottomOccupied = chrome.bottomOccupied + (!showFooter ? L.minAttribStripH : 0);
+    const occupied = isTop ? chrome.topOccupied : bottomOccupied;
+    const qrX = isLeft ? CL.qrMargin : POSTER_SIZE - CL.qrSize - CL.qrMargin;
+    const qrY = isTop ? occupied + CL.qrMargin : posterHeight - occupied - CL.qrSize - CL.qrMargin;
     ctx.fillStyle = theme.color.bg;
     ctx.fillRect(qrX - CL.qrPad, qrY - CL.qrPad, CL.qrSize + CL.qrPad * 2, CL.qrSize + CL.qrPad * 2);
     ctx.drawImage(qrImg, qrX, qrY, CL.qrSize, CL.qrSize);

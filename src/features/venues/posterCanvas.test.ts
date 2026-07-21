@@ -376,4 +376,41 @@ describe('drawPosterOverlay', () => {
     // compact footerH = 46 * 0.62 = 28.52; footer band at posterHeight - compactFooterH
     expect(ctx.fillRect).toHaveBeenCalledWith(0, POSTER_SIZE - 46 * 0.62, POSTER_SIZE, 46 * 0.62);
   });
+
+  it('places the QR in the requested corner, clearing whichever band occupies that edge', () => {
+    const ctx = makeCtx();
+    const qrImg = {} as HTMLImageElement;
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      qrImg, qrCorner: 'top-left', showFooter: false,
+    });
+    // top-left: x = qrMargin = 28; header occupies the top edge (headerH=190), so
+    // y = topOccupied(190) + qrMargin(28) = 218.
+    expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 28, 218, 150, 150);
+  });
+
+  it('clears the minimal attribution strip when the QR shares the bottom edge and the footer is hidden', () => {
+    const ctx = makeCtx();
+    const qrImg = {} as HTMLImageElement;
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
+      qrImg, qrCorner: 'bottom-right', showFooter: false,
+    });
+    // showFooter false: chrome.bottomOccupied is 0 (footer isn't a "band" when hidden), but the
+    // minimal attribution strip (minAttribStripH=26) still occupies the bottom edge, so the QR
+    // must clear it: y = POSTER_SIZE - qrSize - qrMargin - minAttribStripH = 1080-150-28-26 = 876.
+    expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 876, 150, 150);
+  });
+
+  it("defaults to the bottom-right corner, reproducing today's QR position", () => {
+    const ctx = makeCtx();
+    const qrImg = {} as HTMLImageElement;
+    drawPosterOverlay(ctx, {
+      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, qrImg,
+    });
+    expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 856, 150, 150);
+  });
 });
