@@ -71,10 +71,11 @@ export const generateCantonPosterBlob = async (
   const posterHeight = posterHeightFor(aspectRatio);
 
   const container = createOffscreenContainer(POSTER_SIZE, posterHeight);
-  // Integer zoom only: the editor passes an integer `view.zoom` (previewZoom + log2(1080/previewSize),
-  // and previewSize is a power-of-2 fraction of 1080). A fractional zoom would make Leaflet CSS-scale
-  // the tile pane, which the tile-capture below cannot reproduce (misframed export + missing tiles).
-  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false });
+  // zoomSnap: 0 — the editor's soft zoom produces fractional zooms (previewZoom + an integer
+  // log2(1080/previewSize) delta), and the map must hold them exactly or the export would frame a
+  // different area than the preview. At fractional zooms Leaflet CSS-scales the tile containers,
+  // which extractTileDraws/drawTiles reproduce on the canvas (scale-aware since soft zoom).
+  const map = L.map(container, { attributionControl: false, zoomControl: false, fadeAnimation: false, zoomSnap: 0 });
 
   try {
     const tileLayer = createTileLayer(baseKind, 'anonymous');

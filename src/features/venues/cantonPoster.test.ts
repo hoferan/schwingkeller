@@ -44,6 +44,7 @@ vi.mock('./posterCanvas', async () => {
   };
 });
 
+import L from 'leaflet';
 import { generateCantonPosterBlob, waitForTilesLoad } from './cantonPoster';
 import { POSTER_SIZE } from './posterLayout';
 
@@ -196,6 +197,16 @@ describe('generateCantonPosterBlob', () => {
     expect(drawPosterOverlayMock).toHaveBeenCalledWith(
       expect.anything(), expect.objectContaining({ posterHeight: 1620 }),
     );
+  });
+
+  it('accepts a fractional view zoom without snapping, for soft-zoom framing', async () => {
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', view: { center: [46.9, 7.4], zoom: 12.25 },
+    });
+    // zoomSnap: 0 lets the off-screen map hold the editor's exact fractional zoom — otherwise
+    // Leaflet would snap it to a whole level and the export would show a different area.
+    expect(L.map).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ zoomSnap: 0 }));
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 12.25);
   });
 
   it('forwards the chrome position/style/size and QR corner options to drawPosterOverlay', async () => {
