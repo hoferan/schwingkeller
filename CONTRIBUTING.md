@@ -70,7 +70,9 @@ npm run test:e2e
 ```
 
 `e2e/auth.setup.ts` signs in once as the admin that `admin-init` creates and saves the session to
-`e2e/.auth`, so the other specs start authenticated. The specs read Fribourg, which
+`e2e/.auth`, so the other specs start authenticated. Map tiles are served from
+`e2e/fixtures/tile.png` rather than fetched: OpenStreetMap's tile usage policy does not cover a CI
+suite, and a fixed tile makes the poster export deterministic. The specs read Fribourg, which
 `supabase/seed.sql` deliberately seeds densely enough to make the poster's venue labels collide.
 
 **After changing app code, restart the web container before running these:**

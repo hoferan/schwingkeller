@@ -1,6 +1,5 @@
-import { test as setup, expect } from '@playwright/test';
 import { STR } from '../src/i18n/translations';
-import { ADMIN, STORAGE_STATE } from './fixtures';
+import { test as setup, expect, ADMIN, STORAGE_STATE } from './fixtures';
 
 const t = STR.de;
 

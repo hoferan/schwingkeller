@@ -11,7 +11,9 @@ export default defineConfig({
   outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: CI,
-  retries: CI ? 2 : 0,
+  // One retry absorbs a container still settling; more than that would let a genuinely flaky
+  // spec report green, and with tiles stubbed there is no longer a network excuse for flakiness.
+  retries: CI ? 1 : 0,
   reporter: CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
 
   use: {

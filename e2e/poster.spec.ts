@@ -1,7 +1,7 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
-import { statSync } from 'node:fs';
+import type { Locator, Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { STR } from '../src/i18n/translations';
-import { DENSE_CANTON } from './fixtures';
+import { test, expect, DENSE_CANTON } from './fixtures';
 
 const t = STR.de;
 
@@ -13,6 +13,16 @@ const openPosterEditor = async (page: Page, canton: string) => {
   await expect(page.getByTestId(`generate-poster-${canton}`)).toBeVisible();
   await page.getByTestId(`generate-poster-${canton}`).click();
   await expect(page.getByText(t.posterEditorTitle, { exact: false })).toBeVisible();
+};
+
+const PNG_SIGNATURE = '89504e470d0a1a0a';
+
+// A PNG's IHDR is fixed-position: 8-byte signature, 4-byte length, 'IHDR', then width and height
+// as big-endian uint32s at offsets 16 and 20. Reading them needs no image library.
+const pngSize = (file: string) => {
+  const png = readFileSync(file);
+  expect(png.subarray(0, 8).toString('hex'), `${file} is not a PNG`).toBe(PNG_SIGNATURE);
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
 };
 
 const boxes = async (locator: Locator) => {
@@ -104,18 +114,25 @@ test.describe('canton poster editor', () => {
     await expect(page.locator(LABEL)).toHaveCount(0);
   });
 
-  test('downloads a landscape PNG named after the canton', async ({ page }) => {
-    await openPosterEditor(page, DENSE_CANTON);
-    await page.getByRole('button', { name: t.posterFormatLandscape }).click();
+  // Asserting the exported pixels is the only check that the chosen format survives the whole
+  // trip: editor state, generateCantonPosterBlob, the off-screen capture map and the canvas. A
+  // file size would not catch an export that came out square.
+  const exportCases = [
+    { name: t.posterFormatLandscape, width: 1080, height: 720 },
+    { name: t.posterFormatSquare, width: 1080, height: 1080 },
+  ];
 
-    // The export waits on OpenStreetMap tiles for the off-screen capture map, so give it room.
-    const started = page.waitForEvent('download', { timeout: 60_000 });
-    await page.getByRole('button', { name: t.posterDownload }).click();
-    const file = await started;
+  for (const { name, width, height } of exportCases) {
+    test(`exports a ${width}x${height} PNG named after the canton for ${name}`, async ({ page }) => {
+      await openPosterEditor(page, DENSE_CANTON);
+      await page.getByRole('button', { name }).click();
 
-    expect(file.suggestedFilename()).toBe(`schwingkeller-${DENSE_CANTON.toLowerCase()}.png`);
-    const path = await file.path();
-    // A PNG of a 1080x720 map is tens of kilobytes; anything tiny means the canvas came out blank.
-    expect(statSync(path).size).toBeGreaterThan(10_000);
-  });
+      const started = page.waitForEvent('download', { timeout: 60_000 });
+      await page.getByRole('button', { name: t.posterDownload }).click();
+      const file = await started;
+
+      expect(file.suggestedFilename()).toBe(`schwingkeller-${DENSE_CANTON.toLowerCase()}.png`);
+      expect(pngSize(await file.path())).toEqual({ width, height });
+    });
+  }
 });
