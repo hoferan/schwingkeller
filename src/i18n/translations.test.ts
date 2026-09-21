@@ -23,4 +23,10 @@ describe('translations', () => {
       expect(STR[lang].posterGenerateFailed).toBeTruthy();
     }
   });
+  it('defines the landscape-format and venue-label keys in every language', () => {
+    for (const lang of LANGS) {
+      expect(STR[lang].posterFormatLandscape).toBeTruthy();
+      expect(STR[lang].posterToggleLabels).toBeTruthy();
+    }
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -7,7 +7,11 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
-import { computeChromeLayout, CHROME_STYLE_COLORS, type ChromeLayoutResult } from './posterCanvas';
+import {
+  computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles,
+  type ChromeLayoutResult,
+} from './posterCanvas';
+import { layoutPinLabels, LABEL_FONT, type PlacedLabel } from './posterLabels';
 import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
@@ -75,12 +79,41 @@ const applyDefaultFraming = (
   }
 };
 
+// One preview label pill. White with dark ink whatever the chrome style is, exactly as
+// drawPinLabels paints it, and sized in cqw so it scales with the preview container.
+const labelElement = (label: PlacedLabel): HTMLDivElement => {
+  const el = document.createElement('div');
+  el.dataset.testid = 'poster-preview-label';
+  el.dataset.slot = label.slot;
+  el.textContent = label.text;
+  Object.assign(el.style, {
+    position: 'absolute',
+    left: cqw(label.x),
+    top: cqw(label.y),
+    width: cqw(label.w),
+    height: cqw(label.h),
+    lineHeight: cqw(label.h),
+    boxSizing: 'border-box',
+    padding: `0 ${cqw(PL.labelPadX)}`,
+    background: theme.color.bg,
+    color: theme.color.ink,
+    fontFamily: theme.font.display,
+    fontWeight: '600',
+    fontSize: cqw(PL.labelFont),
+    borderRadius: '999px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+  });
+  return el;
+};
+
 export const PosterEditorModal = ({
   code, venues, initialBaseKind, unitLabel, onClose, onSave, onError,
 }: PosterEditorModalProps) => {
   const { t } = useTranslation();
   const canton = cantonByCode(code);
-  const cantonVenues = venues.filter((v) => v.canton === code);
+  // Memoized so the label-placement effect below doesn't see a new array on every render.
+  const cantonVenues = useMemo(() => venues.filter((v) => v.canton === code), [venues, code]);
   // Frozen at mount (lazy initial state) — the map is created once at this size.
   const [previewSize] = useState(() => previewSizeFor(typeof window !== 'undefined' ? window.innerWidth : 1024));
   // Integer zoom gap between the preview and the 1080² export (1 for 540, 2 for 270).
@@ -100,6 +133,7 @@ export const PosterEditorModal = ({
   const [chromeStyle, setChromeStyle] = useState<ChromeStyle>('solid');
   const [chromeSize, setChromeSize] = useState<ChromeSize>('normal');
   const [qrCorner, setQrCorner] = useState<QrCorner>('bottom-right');
+  const [showLabels, setShowLabels] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const { dataUrl: qrDataUrl } = usePosterQr(code);
@@ -108,17 +142,19 @@ export const PosterEditorModal = ({
   // uses, so the preview stays an exact scaled replica and the venue-fit framing pads for the
   // edges the bands actually occupy. Computed against the currently selected aspect ratio's
   // height so bottom-anchored bands land correctly in portrait mode too.
-  const CL = chromeLayoutFor(chromeSize);
-  const chrome = computeChromeLayout({
+  // Memoized for a stable identity: the label-placement effect depends on both.
+  const CL = useMemo(() => chromeLayoutFor(chromeSize), [chromeSize]);
+  const chrome = useMemo(() => computeChromeLayout({
     showHeader, showFooter, headerPosition, footerPosition, chromeSize,
     posterHeight: posterHeightFor(aspectRatio),
-  });
+  }), [showHeader, showFooter, headerPosition, footerPosition, chromeSize, aspectRatio]);
 
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
   const didMountBaseKindRef = useRef(false);
   const didMountAspectRatioRef = useRef(false);
+  const labelsElRef = useRef<HTMLDivElement>(null);
 
   // Create the live editor map once.
   useEffect(() => {
@@ -186,6 +222,52 @@ export const PosterEditorModal = ({
     mapRef.current?.invalidateSize();
   }, [aspectRatio]);
 
+  // Venue-name labels for the preview, placed in 1080-space by the same helper and font the
+  // exporter uses, so a name lands where the preview shows it in the PNG too. Pin positions come
+  // from the map, so this re-runs on every pan and zoom. The pills are written straight into the
+  // DOM instead of held in React state, which keeps a drag from re-rendering the whole editor.
+  useEffect(() => {
+    const host = labelsElRef.current;
+    if (!host) return;
+    const map = mapRef.current;
+    if (!map || !showLabels) {
+      host.replaceChildren();
+      return;
+    }
+    const measureCtx = document.createElement('canvas').getContext('2d');
+    if (!measureCtx) {
+      host.replaceChildren();
+      return;
+    }
+    measureCtx.font = LABEL_FONT;
+    const measure = (text: string) => measureCtx.measureText(text).width;
+
+    const posterHeight = posterHeightFor(aspectRatio);
+    const obstacles = labelObstacles(
+      chrome,
+      posterHeight,
+      showQr && qrDataUrl ? qrRect(qrCorner, chrome, CL, posterHeight) : null,
+    );
+    // Preview container points are previewSize-wide; scale them up to the poster's 1080.
+    const k = POSTER_SIZE / previewSize;
+
+    const render = () => {
+      const pins = cantonVenues.map((venue) => {
+        const point = map.latLngToContainerPoint([venue.lat, venue.lng]);
+        return { x: point.x * k, y: point.y * k, text: venue.name };
+      });
+      const placed = layoutPinLabels(pins, measure, { posterHeight, obstacles });
+      host.replaceChildren(...placed.map(labelElement));
+    };
+
+    render();
+    map.on('move zoom', render);
+    return () => {
+      map.off('move zoom', render);
+      host.replaceChildren();
+    };
+  }, [cantonVenues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize]);
+
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -229,6 +311,7 @@ export const PosterEditorModal = ({
         chromeStyle,
         chromeSize,
         qrCorner,
+        showLabels,
       });
       onSave(blob, filename);
     } catch (err) {
@@ -333,6 +416,10 @@ export const PosterEditorModal = ({
               justifyContent:center on the row keeps it centered when the controls wrap below. */}
           <div data-testid="poster-preview-square" style={{ position: 'relative', width: previewSize, height: previewSize * (posterHeightFor(aspectRatio) / POSTER_SIZE), flex: '0 0 auto', borderRadius: theme.radius.sm, overflow: 'hidden', border: '1px solid ' + theme.color.line, containerType: 'inline-size' }}>
             <div ref={mapElRef} style={{ position: 'absolute', inset: 0 }} />
+            {/* Host for the venue-name pills, filled by the effect above. zIndex 700 sits above
+                Leaflet's marker pane but below the chrome (800), so a band always covers a label
+                rather than the other way round. */}
+            <div ref={labelsElRef} style={{ position: 'absolute', inset: 0, zIndex: 700, pointerEvents: 'none' }} />
             {showHeader && chrome.headerY !== null && (
               <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
                 <img src={wappenUrl(code)} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
@@ -386,8 +473,8 @@ export const PosterEditorModal = ({
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
                 (k) => (k === 'map' ? t.mapView : t.satView))}
-              {segmented('format', t.posterFormatLabel, ['square', 'portrait'] as const, aspectRatio, setAspectRatio,
-                (r) => (r === 'square' ? t.posterFormatSquare : t.posterFormatPortrait))}
+              {segmented('format', t.posterFormatLabel, ['square', 'portrait', 'landscape'] as const, aspectRatio, setAspectRatio,
+                (r) => ({ square: t.posterFormatSquare, portrait: t.posterFormatPortrait, landscape: t.posterFormatLandscape }[r]))}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                 <span style={fieldLabel}>{t.posterZoomLabel}</span>
                 <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
@@ -413,6 +500,7 @@ export const PosterEditorModal = ({
                 (p) => (p === 'top' ? t.posterPositionTop : t.posterPositionBottom)))}
               {toggle('qr', t.posterToggleQr, showQr, setShowQr)}
               {showQr && subControl(cornerPicker)}
+              {toggle('labels', t.posterToggleLabels, showLabels, setShowLabels)}
             </div>
 
             {divider}

@@ -28,6 +28,7 @@ const { fakeMap } = vi.hoisted(() => ({
     fitBounds: vi.fn().mockReturnThis(),
     getCenter: vi.fn().mockReturnValue({ lat: 46.9, lng: 7.4 }),
     getZoom: vi.fn().mockReturnValue(11),
+    latLngToContainerPoint: vi.fn().mockReturnValue({ x: 100, y: 100 }),
     setZoom: vi.fn(),
     setMaxZoom: vi.fn(),
     invalidateSize: vi.fn(),
@@ -371,5 +372,82 @@ describe('soft zoom', () => {
 
     await user.click(screen.getByRole('button', { name: STR.de.posterZoomOut }));
     expect(fakeMap.setZoom).toHaveBeenCalledWith(10.75);
+  });
+});
+
+describe('landscape format', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('offers Landscape beside Square and Portrait', () => {
+    renderEditor();
+    expect(screen.getByRole('button', { name: STR.de.posterFormatLandscape })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('resizes the preview container to 3:2 for Landscape', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatLandscape }));
+
+    expect(screen.getByTestId('poster-preview-square')).toHaveStyle({ width: '540px', height: '360px' });
+    expect(fakeMap.invalidateSize).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards landscape to generateCantonPosterBlob', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatLandscape }));
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'landscape' });
+  });
+});
+
+describe('venue name labels', () => {
+  const labelled = [v({ id: '1', name: 'Bern Ost', lat: 46.9 }), v({ id: '2', name: 'Thun', lat: 46.7 })];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // One unit of width per character, so the preview measures names the same deterministic way
+    // the canvas exporter's tests do.
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      font: '',
+      measureText: (text: string) => ({ width: text.length * 10 }),
+    } as unknown as CanvasRenderingContext2D);
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) => ({
+      x: 200, y: ll[0] === 46.9 ? 100 : 400,
+    }));
+  });
+
+  it('labels the preview pins with their uppercased venue names, on by default', () => {
+    renderEditor({ venues: labelled });
+
+    expect(screen.getByRole('checkbox', { name: STR.de.posterToggleLabels })).toBeChecked();
+    expect(screen.getAllByTestId('poster-preview-label').map((n) => n.textContent))
+      .toEqual(['BERN OST', 'THUN']);
+  });
+
+  it('drops the preview labels and forwards showLabels: false when switched off', async () => {
+    const user = userEvent.setup();
+    renderEditor({ venues: labelled });
+
+    await user.click(screen.getByRole('checkbox', { name: STR.de.posterToggleLabels }));
+    expect(screen.queryAllByTestId('poster-preview-label')).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ showLabels: false });
+  });
+
+  it('keeps a preview label out from under the header band', () => {
+    renderEditor({ venues: labelled });
+
+    // Pin 1 sits at preview y=100 -> poster y=200, just below the 190px header, so its name can
+    // only go beneath the pin; pin 2 has open space to its right.
+    const [first, second] = screen.getAllByTestId('poster-preview-label');
+    expect(first).toHaveAttribute('data-slot', 'below');
+    expect(second).toHaveAttribute('data-slot', 'right');
   });
 });

@@ -5,10 +5,11 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage,
-  extractTileDraws, drawTiles, drawPin, drawPosterOverlay,
+  extractTileDraws, drawTiles, drawPin, drawPinLabels, drawPosterOverlay,
+  computeChromeLayout, qrRect, labelObstacles,
 } from './posterCanvas';
 import {
-  posterHeightFor,
+  posterHeightFor, chromeLayoutFor,
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 
@@ -51,6 +52,7 @@ export interface GeneratePosterOptions {
   chromeStyle?: ChromeStyle;
   chromeSize?: ChromeSize;
   qrCorner?: QrCorner;
+  showLabels?: boolean; // venue names beside the pins; defaults to on
 }
 
 export const generateCantonPosterBlob = async (
@@ -59,9 +61,13 @@ export const generateCantonPosterBlob = async (
   options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
   const {
-    baseKind, view, unitLabel, title, showHeader, showFooter, qrDataUrl,
+    baseKind, view, unitLabel, title, qrDataUrl,
     aspectRatio = 'square',
-    headerPosition, footerPosition, chromeStyle, chromeSize, qrCorner,
+    chromeStyle,
+    // Defaulted here rather than left to drawPosterOverlay, because the label placement below
+    // needs the same concrete chrome geometry the overlay will draw with.
+    showHeader = true, showFooter = true, headerPosition = 'top', footerPosition = 'bottom',
+    chromeSize = 'normal', qrCorner = 'bottom-right', showLabels = true,
   } = options;
   const canton = cantonByCode(code);
   const bounds = boundsForCanton(code);
@@ -103,10 +109,24 @@ export const generateCantonPosterBlob = async (
     if (tilePane) drawTiles(ctx, extractTileDraws(tilePane));
 
     const cantonVenues = venues.filter((v) => v.canton === code);
-    cantonVenues.forEach((v) => {
+    const pins = cantonVenues.map((v) => {
       const point = map.latLngToContainerPoint([v.lat, v.lng]);
-      drawPin(ctx, point.x, point.y);
+      return { x: point.x, y: point.y, text: v.name };
     });
+    pins.forEach((pin) => drawPin(ctx, pin.x, pin.y));
+
+    if (showLabels) {
+      // Labels go on after the pins and before the chrome, and are told which regions the bands
+      // and the QR will occupy so a name can never end up underneath them.
+      const chrome = computeChromeLayout({
+        showHeader, showFooter, headerPosition, footerPosition, chromeSize, posterHeight,
+      });
+      const qr = qrImg ? qrRect(qrCorner, chrome, chromeLayoutFor(chromeSize), posterHeight) : null;
+      drawPinLabels(ctx, pins, {
+        posterHeight,
+        obstacles: labelObstacles(chrome, posterHeight, qr),
+      });
+    }
 
     drawPosterOverlay(ctx, {
       cantonName: canton.name,

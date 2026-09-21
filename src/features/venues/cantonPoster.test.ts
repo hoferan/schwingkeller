@@ -26,9 +26,14 @@ vi.mock('../map/tileLayers', async () => {
   return { ...actual, createTileLayer: createTileLayerMock };
 });
 
-const { drawTilesMock, drawPinMock, drawPosterOverlayMock, extractTileDrawsMock } = vi.hoisted(() => ({
+const {
+  drawTilesMock, drawPinMock, drawPinLabelsMock, drawPosterOverlayMock, extractTileDrawsMock,
+  loadImageMock,
+} = vi.hoisted(() => ({
+  loadImageMock: vi.fn().mockResolvedValue(null),
   drawTilesMock: vi.fn(),
   drawPinMock: vi.fn(),
+  drawPinLabelsMock: vi.fn().mockReturnValue([]),
   drawPosterOverlayMock: vi.fn(),
   extractTileDrawsMock: vi.fn().mockReturnValue([]),
 }));
@@ -36,9 +41,10 @@ vi.mock('./posterCanvas', async () => {
   const actual = await vi.importActual<typeof import('./posterCanvas')>('./posterCanvas');
   return {
     ...actual,
-    loadImage: vi.fn().mockResolvedValue(null),
+    loadImage: loadImageMock,
     drawTiles: drawTilesMock,
     drawPin: drawPinMock,
+    drawPinLabels: drawPinLabelsMock,
     drawPosterOverlay: drawPosterOverlayMock,
     extractTileDraws: extractTileDrawsMock,
   };
@@ -52,7 +58,11 @@ const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
 });
-const venues = [v({ id: '1', canton: 'BE' }), v({ id: '2', canton: 'BE' }), v({ id: '3', canton: 'LU' })];
+const venues = [
+  v({ id: '1', canton: 'BE', name: 'Bern Ost' }),
+  v({ id: '2', canton: 'BE', name: 'Thun' }),
+  v({ id: '3', canton: 'LU', name: 'Luzern' }),
+];
 
 describe('waitForTilesLoad', () => {
   afterEach(() => vi.useRealTimers());
@@ -86,6 +96,7 @@ describe('generateCantonPosterBlob', () => {
     fakeMap.latLngToContainerPoint.mockReturnValue({ x: 10, y: 20 });
     tileLayerOnceMock.mockImplementation((evt: string, cb: () => void) => { if (evt === 'load') cb(); });
     extractTileDrawsMock.mockReturnValue([]);
+    loadImageMock.mockResolvedValue(null);
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
       this: HTMLCanvasElement, cb: BlobCallback,
@@ -207,6 +218,58 @@ describe('generateCantonPosterBlob', () => {
     // Leaflet would snap it to a whole level and the export would show a different area.
     expect(L.map).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ zoomSnap: 0 }));
     expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 12.25);
+  });
+
+  it('sizes the canvas to POSTER_SIZE x 720 for aspectRatio "landscape"', async () => {
+    const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
+    const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
+
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'landscape',
+    });
+
+    expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
+    expect(heightSpy).toHaveBeenCalledWith(720);
+    expect(drawPosterOverlayMock).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ posterHeight: 720 }),
+    );
+  });
+
+  it("labels each of the canton's pins with its venue name by default", async () => {
+    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+
+    expect(drawPinLabelsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ x: 10, y: 20, text: 'Bern Ost' }, { x: 10, y: 20, text: 'Thun' }],
+      expect.objectContaining({ posterHeight: POSTER_SIZE }),
+    );
+  });
+
+  it('keeps the labels clear of the chrome bands and the QR code', async () => {
+    // Only a QR that actually loaded is drawn, so only that one takes space away from the labels.
+    loadImageMock.mockImplementation((src: string) =>
+      Promise.resolve(src.startsWith('data:') ? ({} as HTMLImageElement) : null));
+
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', qrDataUrl: 'data:image/png;base64,x',
+    });
+
+    const [, , opts] = drawPinLabelsMock.mock.calls[0];
+    // Header band (0..190), footer band (1034..1080), and the bottom-right QR box.
+    expect(opts.obstacles).toEqual([
+      { x: 0, y: 0, w: POSTER_SIZE, h: 190 },
+      { x: 0, y: 1034, w: POSTER_SIZE, h: 46 },
+      { x: 1080 - 150 - 28, y: 856, w: 150, h: 150 },
+    ]);
+  });
+
+  it('draws no labels when showLabels is false', async () => {
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', showLabels: false,
+    });
+
+    expect(drawPinMock).toHaveBeenCalledTimes(2);
+    expect(drawPinLabelsMock).not.toHaveBeenCalled();
   });
 
   it('forwards the chrome position/style/size and QR corner options to drawPosterOverlay', async () => {
