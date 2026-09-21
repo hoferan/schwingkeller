@@ -60,9 +60,11 @@ Available skills:
 
 ## CI
 
-`.github/workflows/ci.yml` has three jobs. `build-test` runs lint, typecheck,
-coverage and build. `migrate` pushes Supabase migrations and runs only on pushes
-to `main`. `all-green` depends on both and is the single required status check.
+`.github/workflows/ci.yml` has four jobs. `build-test` runs lint, typecheck,
+coverage and build. `e2e` runs the Playwright suite in `e2e/` against the
+Compose backend, with Vite on the runner rather than in a container. `migrate`
+pushes Supabase migrations and runs only on pushes to `main`. `all-green`
+depends on the other three and is the single required status check.
 
 - A new job protects `main` only once it is listed in `all-green`'s `needs`.
 - `all-green` reads `needs['build-test']`, not `needs.build-test`: a hyphen in a
