@@ -125,7 +125,6 @@ export const generateCantonPosterBlob = async (
       drawPinLabels(ctx, pins, {
         posterHeight,
         obstacles: labelObstacles(chrome, posterHeight, qr),
-        chromeStyle,
       });
     }
 

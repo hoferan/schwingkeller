@@ -2,9 +2,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles,
   drawPin, drawPosterOverlay, computeChromeLayout, CHROME_STYLE_COLORS,
-  qrRect, labelObstacles, drawPinLabels, labelStyleFor,
+  qrRect, labelObstacles, drawPinLabels, LABEL_COLORS,
 } from './posterCanvas';
 import { POSTER_LAYOUT, chromeLayoutFor } from './posterLayout';
+import { theme } from '../../theme';
 
 describe('posterFilename', () => {
   it('lowercases the canton code into the filename', () => {
@@ -610,22 +611,18 @@ describe('drawPinLabels', () => {
   });
 });
 
-describe('labelStyleFor', () => {
-  it('uses the chosen chrome style so labels match the bands', () => {
-    expect(labelStyleFor('solid')).toEqual(CHROME_STYLE_COLORS.solid);
-    expect(labelStyleFor('light')).toEqual(CHROME_STYLE_COLORS.light);
+describe('LABEL_COLORS', () => {
+  it('is the brand pill: accent fill, accent ink', () => {
+    expect(LABEL_COLORS).toEqual({ fill: theme.color.accent, text: theme.color.accentInk });
   });
 
-  it('falls back to the solid pair for transparent, which has no fill of its own', () => {
-    // The bands can afford bare ink across their whole width; a 22px name over map detail cannot,
-    // and the halo that was tried for the chrome read as mush. So labels always get a fill.
-    expect(CHROME_STYLE_COLORS.transparent.fill).toBeNull();
-    expect(labelStyleFor('transparent')).toEqual(CHROME_STYLE_COLORS.solid);
+  it('is opaque, so no tile can show through behind a name', () => {
+    expect(LABEL_COLORS.fill).not.toMatch(/rgba|transparent/);
   });
 
-  it('never returns a null fill', () => {
-    (['solid', 'transparent', 'light'] as const).forEach((style) => {
-      expect(labelStyleFor(style).fill).not.toBeNull();
+  it('is none of the chrome styles — labels no longer track the bands', () => {
+    Object.values(CHROME_STYLE_COLORS).forEach((style) => {
+      expect(LABEL_COLORS.fill).not.toBe(style.fill);
     });
   });
 });
@@ -653,25 +650,25 @@ describe('drawPinLabels colours', () => {
     };
   };
 
-  it('paints the pill and the text in the chrome style it is given', () => {
+  it('paints the pill in accent and the name in accent ink', () => {
     const { ctx, fills } = recordingCtx();
 
     drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
-      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'light',
+      posterHeight: POSTER_SIZE, obstacles: [],
     });
 
-    expect(fills).toContain(CHROME_STYLE_COLORS.light.fill);
-    expect(fills).toContain(CHROME_STYLE_COLORS.light.text);
+    expect(fills).toContain(theme.color.accent);
+    expect(fills).toContain(theme.color.accentInk);
   });
 
-  it('paints a transparent-style label on the solid fill rather than on nothing', () => {
+  it('uses no chrome fill at all, whatever style the rest of the poster is in', () => {
     const { ctx, fills } = recordingCtx();
 
     drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
-      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'transparent',
+      posterHeight: POSTER_SIZE, obstacles: [],
     });
 
-    expect(fills).toContain(CHROME_STYLE_COLORS.solid.fill);
-    expect(fills).not.toContain(CHROME_STYLE_COLORS.transparent.text);
+    expect(fills).not.toContain(CHROME_STYLE_COLORS.solid.fill);
+    expect(fills).not.toContain(CHROME_STYLE_COLORS.light.fill);
   });
 });
