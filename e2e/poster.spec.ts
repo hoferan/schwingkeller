@@ -64,6 +64,24 @@ test.describe('canton poster editor', () => {
     expect(await aspect()).toBeCloseTo(2 / 3, 1);
   });
 
+  test('keeps the three format options on a single row', async ({ page }) => {
+    await openPosterEditor(page, DENSE_CANTON);
+
+    // Measured in one evaluation rather than three awaited boundingBox() calls: the modal animates
+    // in with a scale transform, so sequential measurements catch it at different sizes and report
+    // different tops for options that are in fact side by side. Reading the options container's
+    // children in a single frame is immune to that.
+    const tops = await page.getByRole('button', { name: t.posterFormatSquare })
+      .evaluate((button) => [...button.parentElement!.children]
+        .map((option) => option.getBoundingClientRect().top));
+
+    // Guards the assumption that the parent is the options container holding exactly the three.
+    expect(tops).toHaveLength(3);
+    // A segmented control that wraps drops an option onto a second row, which leaves the pill
+    // sitting alone under a container still drawn with a single-row radius.
+    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
+  });
+
   test('labels the pins without ever overlapping another label', async ({ page }) => {
     await openPosterEditor(page, DENSE_CANTON);
 

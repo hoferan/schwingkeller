@@ -348,15 +348,24 @@ export const PosterEditorModal = ({
     </label>
   );
 
+  // `fill` stretches the control across the full width of the panel and divides it evenly between
+  // its options. Three options no longer fit beside another control, and letting the row wrap left
+  // the last one stranded under a container still drawn with a single-row pill radius.
   const segmented = <T extends string>(
-    key: string, label: string, options: readonly T[], value: T, set: (v: T) => void, labelFor: (v: T) => string,
+    key: string, label: string, options: readonly T[], value: T, set: (v: T) => void,
+    labelFor: (v: T) => string, fill = false,
   ) => (
-    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '7px', ...(fill ? { width: '100%' } : null) }}>
       <span style={fieldLabel}>{label}</span>
-      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px', flexWrap: 'wrap' }}>
+      <div style={{
+        display: fill ? 'flex' : 'inline-flex',
+        alignSelf: fill ? 'stretch' : 'flex-start',
+        background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px',
+        flexWrap: fill ? 'nowrap' : 'wrap',
+      }}>
         {options.map((opt) => (
           <button key={opt} type="button" aria-pressed={value === opt} onClick={() => set(opt)}
-            style={{ border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
+            style={{ border: 'none', borderRadius: '999px', padding: fill ? '7px 10px' : '7px 14px', flex: fill ? '1 1 auto' : undefined, minWidth: 0, fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s ease', whiteSpace: 'nowrap', background: value === opt ? theme.color.bg : 'transparent', color: value === opt ? theme.color.ink : theme.color.muted, boxShadow: value === opt ? '0 1px 3px rgba(0,0,0,.18)' : 'none' }}>
             {labelFor(opt)}
           </button>
         ))}
@@ -469,12 +478,14 @@ export const PosterEditorModal = ({
                 style={{ padding: '10px 12px', border: '1.5px solid ' + theme.color.line, borderRadius: theme.radius.sm, fontSize: '14.5px', color: theme.color.ink, background: theme.color.bg, fontFamily: theme.font.body }} />
             </div>
 
+            {/* Format gets a row to itself: three options are wider than the panel can share. */}
+            {segmented('format', t.posterFormatLabel, ['square', 'portrait', 'landscape'] as const, aspectRatio, setAspectRatio,
+              (r) => ({ square: t.posterFormatSquare, portrait: t.posterFormatPortrait, landscape: t.posterFormatLandscape }[r]), true)}
+
             {/* Map settings side by side (wrap to a column on narrow screens). */}
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               {segmented('base', t.posterBaseLabel, ['map', 'sat'] as const, baseKind, setBaseKind,
                 (k) => (k === 'map' ? t.mapView : t.satView))}
-              {segmented('format', t.posterFormatLabel, ['square', 'portrait', 'landscape'] as const, aspectRatio, setAspectRatio,
-                (r) => ({ square: t.posterFormatSquare, portrait: t.posterFormatPortrait, landscape: t.posterFormatLandscape }[r]))}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                 <span style={fieldLabel}>{t.posterZoomLabel}</span>
                 <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: theme.color.paper, borderRadius: '999px', padding: '4px', gap: '2px' }}>
