@@ -686,6 +686,14 @@ describe('Sidebar', () => {
     ).toBeInTheDocument();
   });
 
+  it('tags each generate-poster button with its canton code, so a browser test can address one', async () => {
+    renderAdminSidebar();
+    await screen.findByText('Bern');
+
+    expect(screen.getByTestId('generate-poster-BE')).toHaveAccessibleName(STR.de.generatePoster);
+    expect(screen.getByTestId('generate-poster-FR')).toBeInTheDocument();
+  });
+
   it('calls onGeneratePoster with the canton code and does not toggle the group', async () => {
     const user = userEvent.setup();
     const onGeneratePoster = vi.fn();

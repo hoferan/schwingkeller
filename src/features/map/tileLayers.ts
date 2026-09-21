@@ -1,18 +1,8 @@
 import L from 'leaflet';
+import { TILE_URLS, TILE_MAX_ZOOM, TILE_ATTRIBUTION, type BaseKind } from './tileSources';
 
-export type BaseKind = 'map' | 'sat';
-
-export const TILE_URLS: Record<BaseKind, string> = {
-  map: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-};
-
-export const TILE_MAX_ZOOM: Record<BaseKind, number> = { map: 19, sat: 18 };
-
-export const TILE_ATTRIBUTION: Record<BaseKind, string> = {
-  map: '© OpenStreetMap contributors',
-  sat: '© Esri, Maxar, Earthstar Geographics',
-};
+export { TILE_URLS, TILE_MAX_ZOOM, TILE_ATTRIBUTION };
+export type { BaseKind };
 
 // `crossOrigin` is only needed when the tiles will be drawn onto a canvas for export (the canton
 // poster capture): without it the tile <img>s are fetched non-CORS and taint the canvas, so

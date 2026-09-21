@@ -6,10 +6,18 @@
 
 export const POSTER_SIZE = 1080;
 
-export type PosterAspectRatio = 'square' | 'portrait';
+export type PosterAspectRatio = 'square' | 'portrait' | 'landscape';
 
-export const posterHeightFor = (ratio: PosterAspectRatio): number =>
-  ratio === 'portrait' ? POSTER_SIZE * 1.5 : POSTER_SIZE; // 1620 : 1080 — exactly 2:3
+// Width is always POSTER_SIZE; only the height moves, so every consumer that measures across the
+// poster (the canvas exporter, computeChromeLayout, cqw(), the preview's deltaZoom) is unaffected
+// by the ratio. Landscape is portrait with its sides swapped: 1080x720 against 1080x1620.
+const POSTER_HEIGHTS: Record<PosterAspectRatio, number> = {
+  square: POSTER_SIZE, // 1080 - 1:1
+  portrait: POSTER_SIZE * 1.5, // 1620 - exactly 2:3
+  landscape: (POSTER_SIZE * 2) / 3, // 720 - exactly 3:2
+};
+
+export const posterHeightFor = (ratio: PosterAspectRatio): number => POSTER_HEIGHTS[ratio];
 
 export const POSTER_LAYOUT = {
   headerH: 190, // top branding band height
@@ -38,6 +46,11 @@ export const POSTER_LAYOUT = {
   pinRadius: 16, // venue pin (canvas drawPin)
   pinRing: 5,
   pinDotRatio: 0.32, // inner white dot radius = pinRadius * this
+  labelFont: 22, // venue-name pin label
+  labelH: 34, // pill height; its corner radius is labelH / 2
+  labelPadX: 12, // horizontal text inset inside the pill
+  labelGap: 10, // clearance between the pin's edge and the pill
+  labelMaxTextW: 360, // longer names are ellipsized to this text width (a third of the poster)
 } as const;
 
 export type ChromePosition = 'top' | 'bottom';

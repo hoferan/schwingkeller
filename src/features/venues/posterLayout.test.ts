@@ -10,6 +10,16 @@ describe('posterHeightFor', () => {
   it('returns 1.5x POSTER_SIZE for portrait (2:3)', () => {
     expect(posterHeightFor('portrait')).toBe(1620);
   });
+
+  it('returns two thirds of POSTER_SIZE for landscape (3:2)', () => {
+    expect(posterHeightFor('landscape')).toBe(720);
+  });
+
+  it('mirrors portrait exactly — landscape is portrait with its sides swapped', () => {
+    expect(POSTER_SIZE / posterHeightFor('landscape')).toBeCloseTo(
+      posterHeightFor('portrait') / POSTER_SIZE,
+    );
+  });
 });
 
 describe('chromeLayoutFor', () => {

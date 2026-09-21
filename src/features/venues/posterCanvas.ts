@@ -1,8 +1,15 @@
 import { theme } from '../../theme';
 import {
   POSTER_SIZE, POSTER_LAYOUT, chromeLayoutFor,
+  type ChromeLayoutConstants,
   type ChromePosition, type ChromeSize, type ChromeStyle, type QrCorner,
 } from './posterLayout';
+import {
+  layoutPinLabels, LABEL_FONT,
+  type LabelRect, type PinLabelInput,
+} from './posterLabels';
+
+export type { PinLabelInput };
 
 export { POSTER_SIZE };
 
@@ -146,6 +153,88 @@ export const computeChromeLayout = (opts: ChromeLayoutOptions): ChromeLayoutResu
   return { headerY, footerY, topOccupied, bottomOccupied };
 };
 
+// Where the QR code sits, given the corner the admin picked and how much of that edge the chrome
+// bands already take. drawPosterOverlay draws the code from this, and labelObstacles keeps the
+// venue labels off it, so the two can never disagree about where the code ended up.
+export const qrRect = (
+  corner: QrCorner,
+  chrome: ChromeLayoutResult,
+  chromeLayout: ChromeLayoutConstants,
+  posterHeight: number,
+): LabelRect => {
+  const isTop = corner.startsWith('top');
+  const isLeft = corner.endsWith('left');
+  // chrome.bottomOccupied already includes the minimal attribution strip when the footer is off.
+  const occupied = isTop ? chrome.topOccupied : chrome.bottomOccupied;
+  return {
+    x: isLeft ? chromeLayout.qrMargin : POSTER_SIZE - chromeLayout.qrSize - chromeLayout.qrMargin,
+    y: isTop
+      ? occupied + chromeLayout.qrMargin
+      : posterHeight - occupied - chromeLayout.qrSize - chromeLayout.qrMargin,
+    w: chromeLayout.qrSize,
+    h: chromeLayout.qrSize,
+  };
+};
+
+// The regions venue labels must keep clear. Derived from topOccupied/bottomOccupied rather than
+// from the individual bands, so it stays correct for every header/footer arrangement — stacked on
+// one edge, hidden, compact — plus the attribution strip, all of which those two totals encode.
+export const labelObstacles = (
+  chrome: ChromeLayoutResult,
+  posterHeight: number,
+  qr: LabelRect | null,
+): LabelRect[] => {
+  const rects: LabelRect[] = [];
+  if (chrome.topOccupied > 0) rects.push({ x: 0, y: 0, w: POSTER_SIZE, h: chrome.topOccupied });
+  if (chrome.bottomOccupied > 0) {
+    rects.push({
+      x: 0, y: posterHeight - chrome.bottomOccupied, w: POSTER_SIZE, h: chrome.bottomOccupied,
+    });
+  }
+  if (qr) rects.push(qr);
+  return rects;
+};
+
+export interface DrawPinLabelsOptions {
+  posterHeight: number;
+  obstacles: LabelRect[];
+  chromeStyle?: ChromeStyle;
+}
+
+// The fill and ink a label pill uses, taken from the chrome style so names read as part of the
+// same design as the header and footer. Transparent is the exception: the bands can carry bare
+// ink across their full width, but a 22px name over map detail cannot, and the halo tried for the
+// chrome read as mush. So a transparent poster still gets solid label pills.
+export const labelStyleFor = (style: ChromeStyle): { fill: string; text: string } => {
+  const chosen = CHROME_STYLE_COLORS[style];
+  return chosen.fill ? { fill: chosen.fill, text: chosen.text } : {
+    fill: CHROME_STYLE_COLORS.solid.fill as string,
+    text: CHROME_STYLE_COLORS.solid.text,
+  };
+};
+
+// Venue names beside their pins, in the same fill and ink as the chrome bands.
+export const drawPinLabels = (
+  ctx: CanvasRenderingContext2D,
+  pins: PinLabelInput[],
+  { posterHeight, obstacles, chromeStyle = 'solid' }: DrawPinLabelsOptions,
+): void => {
+  ctx.font = LABEL_FONT;
+  const placed = layoutPinLabels(pins, (s) => ctx.measureText(s).width, { posterHeight, obstacles });
+
+  const colors = labelStyleFor(chromeStyle);
+  placed.forEach((label) => {
+    ctx.fillStyle = colors.fill;
+    ctx.beginPath();
+    ctx.roundRect(label.x, label.y, label.w, label.h, L.labelH / 2);
+    ctx.fill();
+    ctx.fillStyle = colors.text;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(label.text, label.x + L.labelPadX, label.y + label.h / 2);
+  });
+};
+
 export interface PosterOverlayOptions {
   cantonName: string;
   title?: string;
@@ -223,12 +312,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
   }
 
   if (qrImg) {
-    const isTop = qrCorner.startsWith('top');
-    const isLeft = qrCorner.endsWith('left');
-    // chrome.bottomOccupied already includes the minimal attribution strip when the footer is off.
-    const occupied = isTop ? chrome.topOccupied : chrome.bottomOccupied;
-    const qrX = isLeft ? CL.qrMargin : POSTER_SIZE - CL.qrSize - CL.qrMargin;
-    const qrY = isTop ? occupied + CL.qrMargin : posterHeight - occupied - CL.qrSize - CL.qrMargin;
+    const { x: qrX, y: qrY } = qrRect(qrCorner, chrome, CL, posterHeight);
     ctx.fillStyle = theme.color.bg;
     ctx.fillRect(qrX - CL.qrPad, qrY - CL.qrPad, CL.qrSize + CL.qrPad * 2, CL.qrSize + CL.qrPad * 2);
     ctx.drawImage(qrImg, qrX, qrY, CL.qrSize, CL.qrSize);

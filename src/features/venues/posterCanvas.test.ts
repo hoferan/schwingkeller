@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles,
   drawPin, drawPosterOverlay, computeChromeLayout, CHROME_STYLE_COLORS,
+  qrRect, labelObstacles, drawPinLabels, labelStyleFor,
 } from './posterCanvas';
+import { POSTER_LAYOUT, chromeLayoutFor } from './posterLayout';
 
 describe('posterFilename', () => {
   it('lowercases the canton code into the filename', () => {
@@ -511,5 +513,165 @@ describe('drawPosterOverlay', () => {
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, qrImg,
     });
     expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 856, 150, 150);
+  });
+});
+
+const bandedChrome = (posterHeight = POSTER_SIZE) =>
+  computeChromeLayout({
+    showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'bottom',
+    chromeSize: 'normal', posterHeight,
+  });
+
+describe('qrRect', () => {
+  const CL = chromeLayoutFor('normal');
+
+  it("reports the box drawPosterOverlay actually uses for the default bottom-right QR", () => {
+    // Mirrors the long-standing bottom-right position asserted in drawPosterOverlay's own tests.
+    expect(qrRect('bottom-right', bandedChrome(), CL, POSTER_SIZE)).toEqual({
+      x: 1080 - 150 - 28, y: 856, w: 150, h: 150,
+    });
+  });
+
+  it('clears the occupied top edge in the top-left corner', () => {
+    expect(qrRect('top-left', bandedChrome(), CL, POSTER_SIZE)).toEqual({
+      x: 28, y: 190 + 28, w: 150, h: 150,
+    });
+  });
+});
+
+describe('labelObstacles', () => {
+  it('reserves both occupied edges and the QR box', () => {
+    const qr = { x: 902, y: 856, w: 150, h: 150 };
+
+    expect(labelObstacles(bandedChrome(), POSTER_SIZE, qr)).toEqual([
+      { x: 0, y: 0, w: POSTER_SIZE, h: 190 },
+      { x: 0, y: 1034, w: POSTER_SIZE, h: 46 },
+      qr,
+    ]);
+  });
+
+  it('omits an edge nothing occupies and omits an absent QR', () => {
+    const chrome = computeChromeLayout({
+      showHeader: true, showFooter: true, headerPosition: 'top', footerPosition: 'top',
+      chromeSize: 'normal', posterHeight: POSTER_SIZE,
+    });
+
+    expect(labelObstacles(chrome, POSTER_SIZE, null)).toEqual([
+      { x: 0, y: 0, w: POSTER_SIZE, h: 236 },
+    ]);
+  });
+});
+
+describe('drawPinLabels', () => {
+  // Width proportional to length, so ellipsizing is exercised for real rather than stubbed.
+  const makeCtx = (): CanvasRenderingContext2D =>
+    ({
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn((s: string) => ({ width: s.length * 10 })),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      fill: vi.fn(),
+      fillStyle: '',
+      font: '',
+      textBaseline: '',
+      textAlign: '',
+    }) as unknown as CanvasRenderingContext2D;
+
+  const opts = { posterHeight: POSTER_SIZE, obstacles: [] };
+
+  it('draws a pill and the name beside the pin, in the casing it was given', () => {
+    const ctx = makeCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], opts);
+
+    // 'Marly' measures 50, so the pill is 50 + 2*12 = 74 wide, 34 tall, in the right-hand slot.
+    expect(ctx.roundRect).toHaveBeenCalledWith(226, 283, 74, POSTER_LAYOUT.labelH, POSTER_LAYOUT.labelH / 2);
+    expect(ctx.fillText).toHaveBeenCalledWith('Marly', 238, 300);
+  });
+
+  it('shortens a name that would outgrow the label budget', () => {
+    const ctx = makeCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'A'.repeat(60) }], opts);
+
+    const [drawn] = vi.mocked(ctx.fillText).mock.calls[0];
+    expect(drawn).toMatch(/…$/);
+    expect(ctx.measureText(String(drawn)).width).toBeLessThanOrEqual(POSTER_LAYOUT.labelMaxTextW);
+  });
+
+  it('draws nothing for a pin whose label has nowhere to go', () => {
+    const ctx = makeCtx();
+    const wall = { x: 0, y: 0, w: POSTER_SIZE, h: POSTER_SIZE };
+
+    drawPinLabels(ctx, [{ x: 540, y: 540, text: 'Marly' }], { ...opts, obstacles: [wall] });
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
+
+describe('labelStyleFor', () => {
+  it('uses the chosen chrome style so labels match the bands', () => {
+    expect(labelStyleFor('solid')).toEqual(CHROME_STYLE_COLORS.solid);
+    expect(labelStyleFor('light')).toEqual(CHROME_STYLE_COLORS.light);
+  });
+
+  it('falls back to the solid pair for transparent, which has no fill of its own', () => {
+    // The bands can afford bare ink across their whole width; a 22px name over map detail cannot,
+    // and the halo that was tried for the chrome read as mush. So labels always get a fill.
+    expect(CHROME_STYLE_COLORS.transparent.fill).toBeNull();
+    expect(labelStyleFor('transparent')).toEqual(CHROME_STYLE_COLORS.solid);
+  });
+
+  it('never returns a null fill', () => {
+    (['solid', 'transparent', 'light'] as const).forEach((style) => {
+      expect(labelStyleFor(style).fill).not.toBeNull();
+    });
+  });
+});
+
+describe('drawPinLabels colours', () => {
+  // Records every fillStyle assignment, since the pill fill and the text colour are set in turn
+  // and a plain property would only keep the last one.
+  const recordingCtx = () => {
+    const fills: string[] = [];
+    return {
+      fills,
+      ctx: {
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+        beginPath: vi.fn(),
+        roundRect: vi.fn(),
+        fill: vi.fn(),
+        get fillStyle() { return fills.at(-1) ?? ''; },
+        set fillStyle(value: string) { fills.push(value); },
+        font: '',
+        textBaseline: '',
+        textAlign: '',
+      } as unknown as CanvasRenderingContext2D,
+    };
+  };
+
+  it('paints the pill and the text in the chrome style it is given', () => {
+    const { ctx, fills } = recordingCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
+      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'light',
+    });
+
+    expect(fills).toContain(CHROME_STYLE_COLORS.light.fill);
+    expect(fills).toContain(CHROME_STYLE_COLORS.light.text);
+  });
+
+  it('paints a transparent-style label on the solid fill rather than on nothing', () => {
+    const { ctx, fills } = recordingCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
+      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'transparent',
+    });
+
+    expect(fills).toContain(CHROME_STYLE_COLORS.solid.fill);
+    expect(fills).not.toContain(CHROME_STYLE_COLORS.transparent.text);
   });
 });
