@@ -67,6 +67,9 @@ jobs:
     # request waiting instead of failing.
     if: always()
     needs: [build-test, migrate]
+    # The job compares strings and calls nothing, so it has no use for the
+    # token at all.
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every dependency succeeded
