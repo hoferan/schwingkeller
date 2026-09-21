@@ -46,7 +46,7 @@ Available skills:
 - Use RLS policies on the Supabase side; never rely on client-side auth guards alone
 - Geocoding goes through Nominatim — respect rate limits (1 req/s, User-Agent header required)
 - Use Conventional Commits format for PR titles (e.g. `feat: add Codecov integration`, `fix: supabase db push flag`) — matching the existing commit history
-- Commit on a feature branch; push to `claude/new-session-eeiygh` for this session
+- Commit on a feature branch named `claude/<topic>`; never commit directly to `main`
 
 ## Don'ts
 
@@ -57,6 +57,21 @@ Available skills:
 - Don't commit `.env` files or Supabase secrets
 - Don't use `any` in TypeScript — use proper types or `unknown`
 - Don't open PRs to `main` directly; work lands on feature branches first
+
+## CI
+
+`.github/workflows/ci.yml` has three jobs. `build-test` runs lint, typecheck,
+coverage and build. `migrate` pushes Supabase migrations and runs only on pushes
+to `main`. `all-green` depends on both and is the single required status check.
+
+- A new job protects `main` only once it is listed in `all-green`'s `needs`.
+- `all-green` reads `needs['build-test']`, not `needs.build-test`: a hyphen in a
+  job id parses as subtraction in a GitHub expression and yields an empty string.
+- The workflow runs with `contents: read`. A job that needs more asks for it.
+- Node comes from `.nvmrc`. Change the version there, not in the workflow.
+- `main` takes squash merges only.
+- Coverage does not block: Codecov comments on pull requests, but `codecov/patch`
+  is not a required check.
 
 ## Development Commands
 
