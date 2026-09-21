@@ -57,6 +57,32 @@ Tests use [Vitest](https://vitest.dev/) and
 [React Testing Library](https://testing-library.com/). Prefer testing observable behavior over
 implementation details.
 
+## Browser tests
+
+A small [Playwright](https://playwright.dev/) suite in `e2e/` drives a real browser against the
+local Compose stack. It covers the seams jsdom cannot reach: the admin signing in, Leaflet placing
+pins, and the canvas exporter producing a PNG.
+
+```bash
+docker compose up -d      # or let Playwright start it
+npx playwright install chromium
+npm run test:e2e
+```
+
+`e2e/auth.setup.ts` signs in once as the admin that `admin-init` creates and saves the session to
+`e2e/.auth`, so the other specs start authenticated. The specs read Fribourg, which
+`supabase/seed.sql` deliberately seeds densely enough to make the poster's venue labels collide.
+
+**After changing app code, restart the web container before running these:**
+
+```bash
+docker compose restart web
+```
+
+The container bind-mounts the repository, and the file watcher inside it does not see edits made on
+the host, so Vite keeps serving the code it had at startup. Skipping the restart makes the suite
+pass or fail against stale code, which is worse than a plain failure.
+
 ## Code style
 
 Before committing, make sure the code lints, type-checks and is formatted:

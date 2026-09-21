@@ -740,6 +740,9 @@ export const Sidebar = ({
                     onClick={(e) => { e.stopPropagation(); onGeneratePoster(group.code); }}
                     aria-label={t.generatePoster}
                     title={t.generatePoster}
+                    // Every canton row renders this same button under the same label, so the code
+                    // is the only thing that tells them apart from outside the component.
+                    data-testid={`generate-poster-${group.code}`}
                     style={{
                       width: '26px', height: '26px', border: 'none', background: 'transparent',
                       color: theme.color.ink, cursor: 'pointer',
