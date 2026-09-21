@@ -62,7 +62,8 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
-import { computeChromeLayout, CHROME_STYLE_COLORS } from './posterCanvas';
+import { computeChromeLayout } from './posterCanvas';
+import { theme } from '../../theme';
 import { cqw, POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -441,17 +442,17 @@ describe('venue name labels', () => {
     expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ showLabels: false });
   });
 
-  it('paints the preview labels in the selected chrome style, not a fixed white', async () => {
+  it('paints the preview labels in brand red whichever chrome style is chosen', async () => {
     const user = userEvent.setup();
     renderEditor({ venues: labelled });
 
     expect(screen.getAllByTestId('poster-preview-label')[0])
-      .toHaveStyle({ backgroundColor: CHROME_STYLE_COLORS.solid.fill as string });
+      .toHaveStyle({ backgroundColor: theme.color.accent });
 
     await user.click(screen.getByRole('button', { name: STR.de.posterStyleLight }));
 
     expect(screen.getAllByTestId('poster-preview-label')[0])
-      .toHaveStyle({ backgroundColor: CHROME_STYLE_COLORS.light.fill as string });
+      .toHaveStyle({ backgroundColor: theme.color.accent });
   });
 
   it('keeps a preview label out from under the header band', () => {

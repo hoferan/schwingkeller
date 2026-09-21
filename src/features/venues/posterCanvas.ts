@@ -198,37 +198,31 @@ export const labelObstacles = (
 export interface DrawPinLabelsOptions {
   posterHeight: number;
   obstacles: LabelRect[];
-  chromeStyle?: ChromeStyle;
 }
 
-// The fill and ink a label pill uses, taken from the chrome style so names read as part of the
-// same design as the header and footer. Transparent is the exception: the bands can carry bare
-// ink across their full width, but a 22px name over map detail cannot, and the halo tried for the
-// chrome read as mush. So a transparent poster still gets solid label pills.
-export const labelStyleFor = (style: ChromeStyle): { fill: string; text: string } => {
-  const chosen = CHROME_STYLE_COLORS[style];
-  return chosen.fill ? { fill: chosen.fill, text: chosen.text } : {
-    fill: CHROME_STYLE_COLORS.solid.fill as string,
-    text: CHROME_STYLE_COLORS.solid.text,
-  };
-};
+// Venue names wear the brand colour, the same pill as the header's count badge, so a pin and its
+// name read as one badge and the count reads as their legend. Deliberately independent of the
+// chrome style: the fill is fully opaque, so no map or satellite tile shows through behind a name,
+// where the chrome's translucent dark plate nearly vanished over Esri imagery. Being
+// style-independent also removes the exception the transparent style used to need, since that
+// style has no fill of its own to borrow.
+export const LABEL_COLORS = { fill: theme.color.accent, text: theme.color.accentInk } as const;
 
 // Venue names beside their pins, in the same fill and ink as the chrome bands.
 export const drawPinLabels = (
   ctx: CanvasRenderingContext2D,
   pins: PinLabelInput[],
-  { posterHeight, obstacles, chromeStyle = 'solid' }: DrawPinLabelsOptions,
+  { posterHeight, obstacles }: DrawPinLabelsOptions,
 ): void => {
   ctx.font = LABEL_FONT;
   const placed = layoutPinLabels(pins, (s) => ctx.measureText(s).width, { posterHeight, obstacles });
 
-  const colors = labelStyleFor(chromeStyle);
   placed.forEach((label) => {
-    ctx.fillStyle = colors.fill;
+    ctx.fillStyle = LABEL_COLORS.fill;
     ctx.beginPath();
     ctx.roundRect(label.x, label.y, label.w, label.h, L.labelH / 2);
     ctx.fill();
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = LABEL_COLORS.text;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(label.text, label.x + L.labelPadX, label.y + label.h / 2);
@@ -291,7 +285,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     }
 
     const titleText = (title || cantonName).toUpperCase();
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = LABEL_COLORS.text;
     ctx.font = `700 ${CL.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(titleText, textX, y + CL.titleBaselineY);
@@ -324,7 +318,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       ctx.fillStyle = colors.fill;
       ctx.fillRect(0, y, POSTER_SIZE, CL.footerH);
     }
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = LABEL_COLORS.text;
     ctx.font = `600 ${CL.appNameFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
@@ -343,7 +337,7 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       ctx.fillStyle = colors.fill;
       ctx.fillRect(0, posterHeight - L.minAttribStripH, POSTER_SIZE, L.minAttribStripH);
     }
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = LABEL_COLORS.text;
     ctx.font = `400 ${L.attribFont}px 'Work Sans', sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
