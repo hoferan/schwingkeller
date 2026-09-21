@@ -8,7 +8,7 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generateCantonPosterBlob } from './cantonPoster';
 import {
-  computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles,
+  computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles, labelStyleFor,
   type ChromeLayoutResult,
 } from './posterCanvas';
 import { layoutPinLabels, LABEL_FONT, type PlacedLabel } from './posterLabels';
@@ -79,9 +79,9 @@ const applyDefaultFraming = (
   }
 };
 
-// One preview label pill. White with dark ink whatever the chrome style is, exactly as
-// drawPinLabels paints it, and sized in cqw so it scales with the preview container.
-const labelElement = (label: PlacedLabel): HTMLDivElement => {
+// One preview label pill, in the same fill and ink drawPinLabels paints on the canvas, and sized
+// in cqw so it scales with the preview container.
+const labelElement = (label: PlacedLabel, colors: { fill: string; text: string }): HTMLDivElement => {
   const el = document.createElement('div');
   el.dataset.testid = 'poster-preview-label';
   el.dataset.slot = label.slot;
@@ -95,8 +95,8 @@ const labelElement = (label: PlacedLabel): HTMLDivElement => {
     lineHeight: cqw(label.h),
     boxSizing: 'border-box',
     padding: `0 ${cqw(PL.labelPadX)}`,
-    background: theme.color.bg,
-    color: theme.color.ink,
+    background: colors.fill,
+    color: colors.text,
     fontFamily: theme.font.display,
     fontWeight: '600',
     fontSize: cqw(PL.labelFont),
@@ -257,7 +257,8 @@ export const PosterEditorModal = ({
         return { x: point.x * k, y: point.y * k, text: venue.name };
       });
       const placed = layoutPinLabels(pins, measure, { posterHeight, obstacles });
-      host.replaceChildren(...placed.map(labelElement));
+      const colors = labelStyleFor(chromeStyle);
+      host.replaceChildren(...placed.map((label) => labelElement(label, colors)));
     };
 
     render();
@@ -266,7 +267,7 @@ export const PosterEditorModal = ({
       map.off('move zoom', render);
       host.replaceChildren();
     };
-  }, [cantonVenues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize]);
+  }, [cantonVenues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize, chromeStyle]);
 
   const resetFraming = () => {
     const map = mapRef.current;

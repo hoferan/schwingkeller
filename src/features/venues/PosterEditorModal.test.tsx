@@ -62,7 +62,7 @@ import { boundsForCanton } from '../../data/cantonBounds';
 import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
-import { computeChromeLayout } from './posterCanvas';
+import { computeChromeLayout, CHROME_STYLE_COLORS } from './posterCanvas';
 import { cqw, POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -421,12 +421,12 @@ describe('venue name labels', () => {
     }));
   });
 
-  it('labels the preview pins with their uppercased venue names, on by default', () => {
+  it('labels the preview pins with their venue names as stored, on by default', () => {
     renderEditor({ venues: labelled });
 
     expect(screen.getByRole('checkbox', { name: STR.de.posterToggleLabels })).toBeChecked();
     expect(screen.getAllByTestId('poster-preview-label').map((n) => n.textContent))
-      .toEqual(['BERN OST', 'THUN']);
+      .toEqual(['Bern Ost', 'Thun']);
   });
 
   it('drops the preview labels and forwards showLabels: false when switched off', async () => {
@@ -439,6 +439,19 @@ describe('venue name labels', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
     await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
     expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ showLabels: false });
+  });
+
+  it('paints the preview labels in the selected chrome style, not a fixed white', async () => {
+    const user = userEvent.setup();
+    renderEditor({ venues: labelled });
+
+    expect(screen.getAllByTestId('poster-preview-label')[0])
+      .toHaveStyle({ backgroundColor: CHROME_STYLE_COLORS.solid.fill as string });
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterStyleLight }));
+
+    expect(screen.getAllByTestId('poster-preview-label')[0])
+      .toHaveStyle({ backgroundColor: CHROME_STYLE_COLORS.light.fill as string });
   });
 
   it('keeps a preview label out from under the header band', () => {

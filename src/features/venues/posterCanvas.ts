@@ -198,25 +198,37 @@ export const labelObstacles = (
 export interface DrawPinLabelsOptions {
   posterHeight: number;
   obstacles: LabelRect[];
+  chromeStyle?: ChromeStyle;
 }
 
-// Venue names beside their pins. The pill is always white with dark ink whatever the chrome style
-// is set to — the same unconditional backing the QR gets, because 22px text straight over
-// satellite tiles is unreadable.
+// The fill and ink a label pill uses, taken from the chrome style so names read as part of the
+// same design as the header and footer. Transparent is the exception: the bands can carry bare
+// ink across their full width, but a 22px name over map detail cannot, and the halo tried for the
+// chrome read as mush. So a transparent poster still gets solid label pills.
+export const labelStyleFor = (style: ChromeStyle): { fill: string; text: string } => {
+  const chosen = CHROME_STYLE_COLORS[style];
+  return chosen.fill ? { fill: chosen.fill, text: chosen.text } : {
+    fill: CHROME_STYLE_COLORS.solid.fill as string,
+    text: CHROME_STYLE_COLORS.solid.text,
+  };
+};
+
+// Venue names beside their pins, in the same fill and ink as the chrome bands.
 export const drawPinLabels = (
   ctx: CanvasRenderingContext2D,
   pins: PinLabelInput[],
-  { posterHeight, obstacles }: DrawPinLabelsOptions,
+  { posterHeight, obstacles, chromeStyle = 'solid' }: DrawPinLabelsOptions,
 ): void => {
   ctx.font = LABEL_FONT;
   const placed = layoutPinLabels(pins, (s) => ctx.measureText(s).width, { posterHeight, obstacles });
 
+  const colors = labelStyleFor(chromeStyle);
   placed.forEach((label) => {
-    ctx.fillStyle = theme.color.bg;
+    ctx.fillStyle = colors.fill;
     ctx.beginPath();
     ctx.roundRect(label.x, label.y, label.w, label.h, L.labelH / 2);
     ctx.fill();
-    ctx.fillStyle = theme.color.ink;
+    ctx.fillStyle = colors.text;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(label.text, label.x + L.labelPadX, label.y + label.h / 2);

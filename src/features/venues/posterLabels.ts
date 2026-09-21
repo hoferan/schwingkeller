@@ -129,8 +129,10 @@ export interface LayoutPinLabelsOptions {
   obstacles: LabelRect[];
 }
 
-// Takes pins in 1080-space coordinates and returns their placed pills: uppercase each name, clamp
-// it to the width budget, then place it. Callers supply `measure` — a canvas 2D context in both
+// Takes pins in 1080-space coordinates and returns their placed pills: clamp each name to the
+// width budget, then place it. Names keep the casing they are stored with. Capitals would eat the
+// budget and truncate sooner, lowercase shapes read better at labelFont size, and names like
+// "Eidg." carry casing worth keeping. Callers supply `measure` — a canvas 2D context in both
 // renderers. Poster width is always POSTER_SIZE, so only the height varies with the format.
 export const layoutPinLabels = (
   pins: PinLabelInput[],
@@ -138,7 +140,7 @@ export const layoutPinLabels = (
   { posterHeight, obstacles }: LayoutPinLabelsOptions,
 ): PlacedLabel[] => {
   const measured = pins.map(({ x, y, text }) => {
-    const clamped = ellipsizeLabel(text.toUpperCase(), measure, L.labelMaxTextW);
+    const clamped = ellipsizeLabel(text, measure, L.labelMaxTextW);
     return { x, y, text: clamped.text, width: clamped.width };
   });
   return placePinLabels(measured, { posterWidth: POSTER_SIZE, posterHeight, obstacles });

@@ -63,7 +63,7 @@ export const generateCantonPosterBlob = async (
   const {
     baseKind, view, unitLabel, title, qrDataUrl,
     aspectRatio = 'square',
-    chromeStyle,
+    chromeStyle = 'solid',
     // Defaulted here rather than left to drawPosterOverlay, because the label placement below
     // needs the same concrete chrome geometry the overlay will draw with.
     showHeader = true, showFooter = true, headerPosition = 'top', footerPosition = 'bottom',
@@ -125,6 +125,7 @@ export const generateCantonPosterBlob = async (
       drawPinLabels(ctx, pins, {
         posterHeight,
         obstacles: labelObstacles(chrome, posterHeight, qr),
+        chromeStyle,
       });
     }
 

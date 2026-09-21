@@ -263,6 +263,16 @@ describe('generateCantonPosterBlob', () => {
     ]);
   });
 
+  it('forwards the chrome style to the venue labels so they match the bands', async () => {
+    await generateCantonPosterBlob('BE', venues, {
+      baseKind: 'map', unitLabel: 'Schwingkeller', chromeStyle: 'light',
+    });
+
+    expect(drawPinLabelsMock).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.objectContaining({ chromeStyle: 'light' }),
+    );
+  });
+
   it('draws no labels when showLabels is false', async () => {
     await generateCantonPosterBlob('BE', venues, {
       baseKind: 'map', unitLabel: 'Schwingkeller', showLabels: false,

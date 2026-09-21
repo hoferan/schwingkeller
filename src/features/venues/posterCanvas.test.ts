@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage, extractTileDraws, drawTiles,
   drawPin, drawPosterOverlay, computeChromeLayout, CHROME_STYLE_COLORS,
-  qrRect, labelObstacles, drawPinLabels,
+  qrRect, labelObstacles, drawPinLabels, labelStyleFor,
 } from './posterCanvas';
 import { POSTER_LAYOUT, chromeLayoutFor } from './posterLayout';
 
@@ -580,14 +580,14 @@ describe('drawPinLabels', () => {
 
   const opts = { posterHeight: POSTER_SIZE, obstacles: [] };
 
-  it('draws a pill and the uppercased name beside the pin', () => {
+  it('draws a pill and the name beside the pin, in the casing it was given', () => {
     const ctx = makeCtx();
 
     drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], opts);
 
-    // 'MARLY' measures 50, so the pill is 50 + 2*12 = 74 wide, 34 tall, in the right-hand slot.
+    // 'Marly' measures 50, so the pill is 50 + 2*12 = 74 wide, 34 tall, in the right-hand slot.
     expect(ctx.roundRect).toHaveBeenCalledWith(226, 283, 74, POSTER_LAYOUT.labelH, POSTER_LAYOUT.labelH / 2);
-    expect(ctx.fillText).toHaveBeenCalledWith('MARLY', 238, 300);
+    expect(ctx.fillText).toHaveBeenCalledWith('Marly', 238, 300);
   });
 
   it('shortens a name that would outgrow the label budget', () => {
@@ -607,5 +607,71 @@ describe('drawPinLabels', () => {
     drawPinLabels(ctx, [{ x: 540, y: 540, text: 'Marly' }], { ...opts, obstacles: [wall] });
 
     expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+});
+
+describe('labelStyleFor', () => {
+  it('uses the chosen chrome style so labels match the bands', () => {
+    expect(labelStyleFor('solid')).toEqual(CHROME_STYLE_COLORS.solid);
+    expect(labelStyleFor('light')).toEqual(CHROME_STYLE_COLORS.light);
+  });
+
+  it('falls back to the solid pair for transparent, which has no fill of its own', () => {
+    // The bands can afford bare ink across their whole width; a 22px name over map detail cannot,
+    // and the halo that was tried for the chrome read as mush. So labels always get a fill.
+    expect(CHROME_STYLE_COLORS.transparent.fill).toBeNull();
+    expect(labelStyleFor('transparent')).toEqual(CHROME_STYLE_COLORS.solid);
+  });
+
+  it('never returns a null fill', () => {
+    (['solid', 'transparent', 'light'] as const).forEach((style) => {
+      expect(labelStyleFor(style).fill).not.toBeNull();
+    });
+  });
+});
+
+describe('drawPinLabels colours', () => {
+  // Records every fillStyle assignment, since the pill fill and the text colour are set in turn
+  // and a plain property would only keep the last one.
+  const recordingCtx = () => {
+    const fills: string[] = [];
+    return {
+      fills,
+      ctx: {
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+        beginPath: vi.fn(),
+        roundRect: vi.fn(),
+        fill: vi.fn(),
+        get fillStyle() { return fills.at(-1) ?? ''; },
+        set fillStyle(value: string) { fills.push(value); },
+        font: '',
+        textBaseline: '',
+        textAlign: '',
+      } as unknown as CanvasRenderingContext2D,
+    };
+  };
+
+  it('paints the pill and the text in the chrome style it is given', () => {
+    const { ctx, fills } = recordingCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
+      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'light',
+    });
+
+    expect(fills).toContain(CHROME_STYLE_COLORS.light.fill);
+    expect(fills).toContain(CHROME_STYLE_COLORS.light.text);
+  });
+
+  it('paints a transparent-style label on the solid fill rather than on nothing', () => {
+    const { ctx, fills } = recordingCtx();
+
+    drawPinLabels(ctx, [{ x: 200, y: 300, text: 'Marly' }], {
+      posterHeight: POSTER_SIZE, obstacles: [], chromeStyle: 'transparent',
+    });
+
+    expect(fills).toContain(CHROME_STYLE_COLORS.solid.fill);
+    expect(fills).not.toContain(CHROME_STYLE_COLORS.transparent.text);
   });
 });
