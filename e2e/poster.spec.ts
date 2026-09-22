@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { STR } from '../src/i18n/translations';
 import { test, expect, DENSE_CANTON } from './fixtures';
@@ -25,14 +25,22 @@ const pngSize = (file: string) => {
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
 };
 
-const boxes = async (locator: Locator) => {
-  const found = await locator.all();
-  return Promise.all(found.map(async (one) => {
-    const box = await one.boundingBox();
-    if (!box) throw new Error('a preview label had no bounding box');
-    return box;
-  }));
-};
+interface Rect { x: number; y: number; width: number; height: number }
+
+// Every rect read in ONE evaluation. Awaiting boundingBox() per element measures them at different
+// moments, and the modal animates in with a scale transform, so elements that are side by side
+// report positions that disagree — enough to fake an overlap. One frame, one set of numbers.
+const readRects = (page: Page, selector: string, frameSelector?: string) =>
+  page.evaluate(([sel, frameSel]) => {
+    const rect = (el: Element): Rect => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    return {
+      items: [...document.querySelectorAll(sel!)].map(rect),
+      frame: frameSel ? rect(document.querySelector(frameSel)!) : null,
+    };
+  }, [selector, frameSelector] as const) as Promise<{ items: Rect[]; frame: Rect | null }>;
 
 // The smoke path an admin actually walks: unlock, open a canton's poster, choose a format, decide
 // whether names show, download the PNG. It asserts the wiring between the editor, the Leaflet map
@@ -94,7 +102,7 @@ test.describe('canton poster editor', () => {
     expect(count).toBeGreaterThan(0);
     expect(count).toBeLessThanOrEqual(11);
 
-    const placed = await boxes(labels);
+    const { items: placed } = await readRects(page, LABEL);
     placed.forEach((a, i) => {
       placed.slice(i + 1).forEach((b) => {
         const overlaps = a.x < b.x + b.width && b.x < a.x + a.width
@@ -108,13 +116,16 @@ test.describe('canton poster editor', () => {
     await openPosterEditor(page, DENSE_CANTON);
     await expect(page.locator(LABEL).first()).toBeVisible();
 
-    const frame = (await page.getByTestId('poster-preview-square').boundingBox())!;
+    // Frame and labels in the same evaluation, for the same reason: mid-animation they would be
+    // measured at different scales and a label could look as if it escaped.
+    const { items, frame } = await readRects(page, LABEL, '[data-testid="poster-preview-square"]');
+    expect(frame).not.toBeNull();
 
-    for (const label of await boxes(page.locator(LABEL))) {
-      expect(label.x).toBeGreaterThanOrEqual(frame.x - 1);
-      expect(label.y).toBeGreaterThanOrEqual(frame.y - 1);
-      expect(label.x + label.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
-      expect(label.y + label.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+    for (const label of items) {
+      expect(label.x).toBeGreaterThanOrEqual(frame!.x - 1);
+      expect(label.y).toBeGreaterThanOrEqual(frame!.y - 1);
+      expect(label.x + label.width).toBeLessThanOrEqual(frame!.x + frame!.width + 1);
+      expect(label.y + label.height).toBeLessThanOrEqual(frame!.y + frame!.height + 1);
     }
   });
 
@@ -122,11 +133,9 @@ test.describe('canton poster editor', () => {
     await openPosterEditor(page, DENSE_CANTON);
     await expect(page.locator(LABEL).first()).toBeVisible();
 
-    // The checkbox itself is a zero-opacity input under the visible knob, which swallows the
-    // click, so drive it by its label the way a person would.
     const names = page.getByRole('checkbox', { name: t.posterToggleLabels });
     await expect(names).toBeChecked();
-    await page.getByText(t.posterToggleLabels, { exact: true }).click();
+    await names.uncheck();
 
     await expect(names).not.toBeChecked();
     await expect(page.locator(LABEL)).toHaveCount(0);

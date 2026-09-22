@@ -70,15 +70,19 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           </span>
         </div>
         <div style={{ padding: '18px 20px 20px' }}>
-          <label style={labelStyle}>{t.email}</label>
+          {/* htmlFor/id rather than bare labels: without the association the fields have no
+              accessible name at all, and clicking a label does not focus its field. */}
+          <label htmlFor="login-email" style={labelStyle}>{t.email}</label>
           <input
+            id="login-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
             style={inputStyle}
           />
-          <label style={{ ...labelStyle, margin: '13px 0 6px' }}>{t.password}</label>
+          <label htmlFor="login-password" style={{ ...labelStyle, margin: '13px 0 6px' }}>{t.password}</label>
           <input
+            id="login-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void doLogin(); }}
