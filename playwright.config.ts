@@ -8,6 +8,8 @@ const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './e2e',
+  // Sweeps venues left by a run that died before cleaning up. See e2e/global-setup.ts.
+  globalSetup: './e2e/global-setup.ts',
   outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: CI,

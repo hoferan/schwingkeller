@@ -4,6 +4,14 @@ on:
     branches: [main]
   pull_request:
 
+# One run per branch. Superseded pull request pushes are cancelled, which matters now that the
+# pipeline carries a browser suite and a Supabase stack. Pushes to main are never cancelled: a
+# run there reaches `migrate`, and killing that mid-flight would interrupt a migration against the
+# production database.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Least privilege for every job. all-green narrows this further to no scope
 # at all, and any job needing more has to ask for it explicitly.
 permissions:
