@@ -185,16 +185,18 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         </div>
 
         {/* name */}
-        <label style={labelStyle}>{t.name}</label>
+        <label htmlFor="venue-name" style={labelStyle}>{t.name}</label>
         <input
+          id="venue-name"
           value={draft.name}
           onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
           style={inputStyle}
         />
 
         {/* address */}
-        <label style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.address}</label>
+        <label htmlFor="venue-address" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.address}</label>
         <input
+          id="venue-address"
           value={draft.address}
           onChange={onAddressChange}
           placeholder={t.addressPlaceholder}
@@ -202,8 +204,9 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         />
 
         {/* canton */}
-        <label style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.canton}</label>
+        <label htmlFor="venue-canton" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.canton}</label>
         <select
+          id="venue-canton"
           value={draft.canton}
           onChange={(e) => setDraft((d) => ({ ...d, canton: e.target.value, cantonAuto: false }))}
           style={inputStyle}

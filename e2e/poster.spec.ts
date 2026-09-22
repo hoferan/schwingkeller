@@ -96,11 +96,10 @@ test.describe('canton poster editor', () => {
     const labels = page.locator(LABEL);
     await expect(labels.first()).toBeVisible();
 
-    // Fribourg seeds 11 venues; some names legitimately get dropped where nothing fits, so the
-    // count is bounded rather than exact. What must always hold is that no two survivors collide.
-    const count = await labels.count();
-    expect(count).toBeGreaterThan(0);
-    expect(count).toBeLessThanOrEqual(11);
+    // All 11 of Fribourg's seeded venues get a name at the default framing. Exact rather than
+    // bounded: with tiles stubbed the framing is deterministic, so a drop here means placement
+    // regressed or the seed changed, and both are worth being told about.
+    await expect(labels).toHaveCount(11);
 
     const { items: placed } = await readRects(page, LABEL);
     placed.forEach((a, i) => {

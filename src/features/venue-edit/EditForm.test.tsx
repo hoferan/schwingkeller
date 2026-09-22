@@ -136,3 +136,15 @@ describe('EditForm onError prop', () => {
     expect(invalidateSpy).toHaveBeenLastCalledWith({ queryKey: ['venues'] });
   });
 });
+
+describe('EditForm field labels', () => {
+  // Same defect the login dialog had: a visible label with no association gives its field no
+  // accessible name, so a screen reader reaches an unnamed box and has to guess from position.
+  it('ties the name, address and canton labels to their fields', () => {
+    renderForm();
+
+    expect(screen.getByLabelText(STR.de.name).tagName).toBe('INPUT');
+    expect(screen.getByLabelText(STR.de.address).tagName).toBe('INPUT');
+    expect(screen.getByLabelText(STR.de.canton).tagName).toBe('SELECT');
+  });
+});

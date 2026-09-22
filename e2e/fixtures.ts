@@ -1,7 +1,9 @@
 import { test as base, expect } from '@playwright/test';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { TILE_URLS } from '../src/features/map/tileSources';
+import { E2E_PREFIX, deleteVenuesNamed, signInAsAdmin } from './db';
 
 // The admin that docker-compose.yml's admin-init creates through the GoTrue admin API. These are
 // local-stack-only credentials, committed alongside the demo JWTs in docker/supabase.env for the
@@ -17,6 +19,9 @@ export const STORAGE_STATE = 'e2e/.auth/admin.json';
 // Fribourg carries 11 seeded venues, two of them ~135m apart, which is the only canton dense
 // enough to push the poster's label placement off its first-choice slot. See supabase/seed.sql.
 export const DENSE_CANTON = 'FR';
+
+// The sidebar's search box has no label, only a placeholder.
+export const venueSearchPlaceholder = 'Schwingkeller suchen';
 
 const STUB_TILE = readFileSync(resolve(process.cwd(), 'e2e/fixtures/tile.png'));
 
@@ -45,12 +50,39 @@ export const stubMapTiles = async (page: import('@playwright/test').Page) => {
   }
 };
 
+// Nominatim is a volunteer service with a published rate limit of one request a second, so a test
+// suite has no business calling it — the edit form geocodes 900ms after an address is typed.
+// Answering with an empty result set leaves the form's own "nothing found" path intact.
+export const stubGeocoding = async (page: import('@playwright/test').Page) => {
+  await page.route('https://nominatim.openstreetmap.org/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+};
+
 // Every spec gets the tile stub, including the sign-in one: the app renders its map behind the
 // login dialog, so even that page would otherwise reach for real tiles.
-export const test = base.extend({
+//
+// `venuePrefix` is what makes writing safe under fullyParallel. Specs run against one shared
+// database, so a spec that creates venues has to name them something no other worker will touch
+// and remove them afterwards. Taking the prefix from the fixture guarantees both: the name is
+// unique per test, and the cleanup runs even when the test fails.
+export const test = base.extend<{ venuePrefix: string }, { adminDb: SupabaseClient }>({
   page: async ({ page }, use) => {
     await stubMapTiles(page);
+    await stubGeocoding(page);
     await use(page);
+  },
+
+  // One sign-in per worker rather than per test.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  adminDb: [async ({}, use) => {
+    const client = await signInAsAdmin(ADMIN.email, ADMIN.password);
+    await use(client);
+  }, { scope: 'worker' }],
+
+  venuePrefix: async ({ adminDb }, use, testInfo) => {
+    const prefix = `${E2E_PREFIX} w${testInfo.workerIndex}-${testInfo.testId.slice(0, 8)} `;
+    await use(prefix);
+    await deleteVenuesNamed(adminDb, prefix);
   },
 });
 

@@ -75,6 +75,19 @@ npm run test:e2e
 suite, and a fixed tile makes the poster export deterministic. The specs read Fribourg, which
 `supabase/seed.sql` deliberately seeds densely enough to make the poster's venue labels collide.
 
+### Specs that write
+
+The specs share one database and run in parallel, so a spec that creates or edits data takes a
+`venuePrefix` fixture, names everything with it, and lets the fixture delete those rows afterwards
+— including when the test fails. Use `WRITE_CANTON` (`e2e/db.ts`) rather than a canton the seed
+fills, so a venue in flight cannot disturb a spec that counts Fribourg's labels. Never assert on a
+total: another worker may be mid-write. Search for your own record instead.
+
+Cleanup reaches Postgres through PostgREST as the signed-in admin, not with the service-role key,
+so a policy that stopped permitting a write would fail the tests rather than be bypassed. A run
+that dies before cleaning up leaves rows behind; the next run's global setup sweeps anything named
+`[e2e]…`.
+
 **After changing app code, restart the web container before running these:**
 
 ```bash
