@@ -10,8 +10,8 @@ describe('assertLocalTargets', () => {
 
   it('rejects the cloud Supabase project and names it', () => {
     expect(() =>
-      assertLocalTargets({ supabaseURL: 'https://ssbigokhbpfgxrjkwpia.supabase.co' }),
-    ).toThrow(/supabaseURL .*ssbigokhbpfgxrjkwpia\.supabase\.co/);
+      assertLocalTargets({ supabaseURL: 'https://abcdefghijklmnopqrst.supabase.co' }),
+    ).toThrow(/supabaseURL .*abcdefghijklmnopqrst\.supabase\.co/);
   });
 
   it('rejects the production site as the base URL', () => {
