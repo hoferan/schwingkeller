@@ -152,12 +152,19 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: latest
-      - run: supabase link --project-ref ${{ vars.SUPABASE_PROJECT_REF }}
+      - name: Push the migrations
+        # Connects straight to the database with the session pooler string,
+        # so CI needs no Supabase account token and never links the project.
+        # The pooler matters: the direct host is IPv6 only, and GitHub runners
+        # have no IPv6. The password in the URL must be percent-encoded.
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is empty in the production environment"
+            exit 1
+          fi
+          supabase db push --db-url "$SUPABASE_DB_URL"
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase db push --password ${{ secrets.SUPABASE_DB_PASSWORD }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
   # Builds the production bundle and publishes it to Netlify, after the
   # migration it may depend on. The bundle is built here instead of reused

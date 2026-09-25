@@ -171,9 +171,9 @@ and every check passed. The README's Supabase setup covers the first push by han
 is tracked; `.env.local` and any real keys are gitignored.
 
 - Put real values only in your local `.env.local` (gitignored) for development.
-- Production tokens and the database password go in the GitHub environment `production` as
-  secrets, its public values as variables. Preview values go in **Netlify**. `CODECOV_TOKEN` is the
-  only repository secret.
+- Production tokens and the database connection string go in the GitHub environment
+  `production` as secrets, its public values as variables. Preview values go in **Netlify**.
+  `CODECOV_TOKEN` is the only repository secret.
 - The Supabase **secret** key (`sb_secret_…`) must never be committed, logged, or exposed to the
   browser. Only the **publishable** key (`sb_publishable_…`) and the Sentry **DSN** are
   browser-safe.

@@ -118,9 +118,7 @@ Supabase schema and seed data live under `supabase/`:
 | `VITE_SUPABASE_URL` | frontend | yes | environment `production` (variable); Netlify for previews | Supabase → Project Settings → API |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend | yes (safe) | environment `production` (variable); Netlify for previews | Supabase → API keys → publishable (`sb_publishable_…`) |
 | `VITE_SENTRY_DSN` | frontend | yes (safe) | environment `production` (variable); Netlify for previews | Sentry → Project → Client Keys (DSN) |
-| `SUPABASE_ACCESS_TOKEN` | `migrate` job | no | environment `production` (secret) | Supabase → Account → Access Tokens |
-| `SUPABASE_PROJECT_REF` | `migrate` job | no (part of the URL) | environment `production` (variable) | Supabase project settings |
-| `SUPABASE_DB_PASSWORD` | `migrate` job | no | environment `production` (secret) | Supabase project settings |
+| `SUPABASE_DB_URL` | `migrate` job | no | environment `production` (secret) | Supabase → Connect → Session pooler, with the database password filled in and percent-encoded |
 | `SENTRY_AUTH_TOKEN` | `deploy` job | no | environment `production` (secret) | Sentry → Account → Auth Tokens |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | `deploy` job | no | environment `production` (variable) | Sentry org/project slugs |
 | `NETLIFY_AUTH_TOKEN` | `deploy` job | no | environment `production` (secret) | Netlify → User settings → Applications → Personal access tokens |
@@ -133,7 +131,7 @@ so only browser-safe values go there. "Environment `production`" is the GitHub A
 of that name (see [GitHub setup](#github-setup)). Only `main` can use it, and only the `migrate` and
 `deploy` jobs read it. The values marked variable are public anyway, most of them because they end
 up in the bundle, so they're stored where they can be read back. Only the tokens and the database
-password are secrets.
+connection string are secrets.
 
 ## Local development
 
@@ -270,11 +268,13 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
 1. **Create the environment `production`** under **Settings → Environments**. Under **Deployment
    branches and tags**, choose **Selected branches and tags** and add `main`. No reviewers: a merge
    to `main` deploys without a further approval.
-2. **Add the secrets** to that environment: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`,
-   `SENTRY_AUTH_TOKEN` and `NETLIFY_AUTH_TOKEN`.
+2. **Add the secrets** to that environment: `SUPABASE_DB_URL`, `SENTRY_AUTH_TOKEN` and
+   `NETLIFY_AUTH_TOKEN`. `SUPABASE_DB_URL` is the **session pooler** string from Supabase → Connect
+   (port 5432), not the direct connection: the direct host is IPv6 only, and GitHub runners have no
+   IPv6. Special characters in the password must be percent-encoded.
 3. **Add the variables** to that environment: `VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SENTRY_DSN`, `SUPABASE_PROJECT_REF`, `SENTRY_ORG`,
-   `SENTRY_PROJECT` and `NETLIFY_SITE_ID`.
+   `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` and
+   `NETLIFY_SITE_ID`.
 4. **Add `CODECOV_TOKEN`** as a repository secret (see [Codecov setup](#codecov-setup)).
 5. **Protect `main`** with a ruleset that requires the `all-green` check, requires branches to be up
    to date before merging, and allows squash merges only.
@@ -315,8 +315,8 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
   the publishable key precisely because RLS — not the key — gates what each request may do.
 - **Browser-safe values:** the Supabase **publishable** key and the Sentry **DSN** are designed to
   be public and may be embedded in the static bundle.
-- **Secrets stay in secret stores only:** the production tokens and the database password are
-  secrets of the GitHub environment `production`, next to the public production values as
+- **Secrets stay in secret stores only:** the production tokens and the database connection string
+  are secrets of the GitHub environment `production`, next to the public production values as
   variables. Only `main` can use that environment, and only the `migrate` and `deploy` jobs read
   it. Preview values live in Netlify, and `CODECOV_TOKEN` is the one repository secret. The
   Supabase **secret** key (`sb_secret_…`) is never committed or shipped.

@@ -43,9 +43,9 @@ behaviour.
   `netlify deploy --prod --no-build`. `--prod` publishes while auto-publishing is locked.
 * The production secrets live in a GitHub environment `production` that only `main` may use, and
   only `migrate` and `deploy` declare it. Public values like the Supabase URL are its variables.
+  `migrate` pushes with the database connection string, so CI holds no Supabase account token.
 * The `main` ruleset requires branches to be up to date, so a pull request is tested against the
   `main` it merges into.
-* Netlify keeps building deploy previews and reads the Node version from `.nvmrc`, like CI.
 
 ### Consequences
 
