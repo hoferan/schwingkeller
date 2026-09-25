@@ -164,7 +164,6 @@ already-applied migration — create a new one:
 
 Migrations reach the cloud project through the `migrate` job in CI, once a pull request is merged
 and every check passed. The README's Supabase setup covers the first push by hand.
-```
 
 ## Secrets — never commit them
 

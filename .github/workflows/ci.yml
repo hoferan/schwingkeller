@@ -168,7 +168,29 @@ jobs:
       name: production
       url: https://schwingkeller.netlify.app
     runs-on: ubuntu-latest
+    # A hanging CLI would otherwise hold the main concurrency group for hours.
+    timeout-minutes: 15
     steps:
+      - name: Check that every production value is set
+        # A missing secret reads as an empty string. An empty Supabase value
+        # still builds and would publish a blank site, and an empty Sentry or
+        # Netlify value fails quietly, so stop here with the name instead.
+        run: |
+          for v in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_SENTRY_DSN SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v is empty in the production environment"
+              exit 1
+            fi
+          done
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
