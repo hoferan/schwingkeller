@@ -23,8 +23,12 @@ An accepted record isn't edited to describe a new decision. When a decision chan
 record, set the old one's status to `superseded by [NNNN](NNNN-....md)`, and link back to it from
 the new one.
 
-Where a record was written after the decision was made, its `date` is the date of the original
-decision.
+A record's `date` is the day the decision was last updated, as in MADR. A proposed record that a
+later issue extends gets that issue's date. Where a record was written after the decision was made,
+its `date` is the date of the original decision.
+
+The template follows MADR 4.0.0 with sentence-case headings. The records live in `docs/adr/`
+instead of MADR's suggested `docs/decisions/`, which MADR allows.
 
 ## Index
 

@@ -1,9 +1,12 @@
 ---
 # proposed | accepted | rejected | deprecated | superseded by [NNNN](NNNN-title.md)
 status: proposed
-# YYYY-MM-DD, the day the decision was made
+# YYYY-MM-DD, the day the decision was last updated
 date:
 decision-makers:
+# Optional: people whose opinion was asked for, and people kept up to date
+consulted:
+informed:
 ---
 
 # Short title of the problem and the chosen solution
