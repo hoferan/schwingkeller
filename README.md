@@ -5,9 +5,9 @@
 [![Netlify Status](https://api.netlify.com/api/v1/badges/161aa043-440b-4e41-b715-f0cfe278171d/deploy-status)](https://app.netlify.com/projects/schwingkeller/deploys)
 
 An interactive map of Swiss **Schwingkeller** — the training cellars and venues of Swiss wrestling
-(*Schwingen*). Browse venues clustered on a Leaflet map, filter and search by canton, read venue
-details, and — as an authenticated admin — add, edit and delete venues with photo uploads, address
-geocoding and pick-on-map coordinate entry. The app is a static single-page application backed by
+(*Schwingen*). Browse venues clustered on a Leaflet map, search and sort them in a sidebar grouped by
+canton, read venue details, and — as an authenticated admin — add, edit and delete venues with photo
+galleries, address geocoding and pick-on-map coordinate entry. The app is a static single-page application backed by
 Supabase, available in German, French and Italian.
 
 ![Screenshot of the Schwingkeller Schweiz app](docs/screenshot.png)
@@ -15,13 +15,18 @@ Supabase, available in German, French and Italian.
 ## Features
 
 - **Interactive clustered map** — Leaflet map with marker clustering that expands as you zoom in.
-- **Canton grouping & mask** — venues grouped by Swiss canton; a mask dims everything outside the
-  Swiss borders to keep focus on the country.
+- **Canton grouping** — the sidebar lists all 26 cantons with their venues. The map itself stays
+  plain, without canton borders ([ADR 0005](docs/adr/0005-plain-map-without-mask-or-borders.md)).
 - **Trilingual UI (DE / FR / IT)** — full i18n with a language switcher.
-- **Search** — filter venues by name, town or canton from the sidebar.
-- **Venue detail** — a detail view with photo, address, description and a directions link.
+- **Search, filter and sort** — search by name, town or canton, show only indoor or outdoor venues,
+  and sort by canton, by name or by distance from you. Filters narrow the list; the map always shows
+  every venue.
+- **Shareable links** — `?venue=` opens a venue and `?ctn=` zooms to a canton.
+- **Venue detail** — a detail view with a photo gallery, address, description and a directions link.
+- **Posters** — admins can export a canton map with its venues and a QR code as an image.
 - **Admin CRUD** — authenticated users can add, edit and delete venues, including:
-  - **Photo upload** to the `venue-photos` Supabase Storage bucket.
+  - **Photo galleries** of up to 6 photos per venue, compressed in the browser and stored in the
+    `venue-photos` Supabase Storage bucket.
   - **Address geocoding** via Nominatim (OpenStreetMap).
   - **Pick-on-map** coordinate entry for venues without a precise address.
 - **CSV / JSON import & export** — bulk-manage the venue dataset.
@@ -33,14 +38,14 @@ Supabase, available in German, French and Italian.
 | ----------------- | ----------------------------------------------------------------------- |
 | Build tool        | [Vite](https://vitejs.dev/)                                             |
 | UI framework      | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
-| Map               | [Leaflet](https://leafletjs.com/), [react-leaflet](https://react-leaflet.js.org/), [leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) |
+| Map               | [Leaflet](https://leafletjs.com/), [leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) |
 | Backend           | [Supabase](https://supabase.com/) (Postgres + Auth + Storage, with RLS) |
 | Data fetching     | [@tanstack/react-query](https://tanstack.com/query)                     |
 | Error tracking    | [@sentry/react](https://sentry.io/)                                     |
 | Geocoding         | [Nominatim](https://nominatim.org/) (OpenStreetMap)                     |
 | Testing           | [Vitest](https://vitest.dev/) + [React Testing Library](https://testing-library.com/) |
 | Linting / format  | [ESLint](https://eslint.org/) + [Prettier](https://prettier.io/)        |
-| Local backend     | [Supabase CLI](https://supabase.com/docs/guides/cli) (Docker)           |
+| Local backend     | Self-hosted Supabase in Docker Compose ([Supabase CLI](https://supabase.com/docs/guides/cli) optional) |
 | Containerization  | [Docker Compose](https://docs.docker.com/compose/)                      |
 | Hosting           | [Netlify](https://www.netlify.com/)                                     |
 | CI / coverage     | [GitHub Actions](https://docs.github.com/actions) + [Codecov](https://codecov.io/) |
@@ -53,43 +58,52 @@ bucket for images. The browser talks to Supabase directly using the publishable 
 custom backend server. React Query manages server state and caching, an auth provider wraps the
 Supabase session, and feature folders under `src/features/` group UI and logic by domain.
 
+The reasons behind the less obvious choices (no router, imperative Leaflet, inline styles, the poster
+pipeline and more) are recorded in [`docs/adr/`](docs/adr/README.md).
+
 ```text
 src/
 ├── lib/
 │   ├── supabase.ts            # Supabase client (URL + publishable key)
-│   └── sentry.ts              # Sentry initialization
+│   ├── sentry.ts              # Sentry initialization
+│   ├── permalink.ts           # ?venue= and ?ctn= links
+│   └── share.ts               # Web Share API with clipboard fallback
 ├── data/
 │   ├── cantons.ts             # Swiss canton metadata
+│   ├── cantonBounds.ts        # precomputed canton bounding boxes
 │   └── plzRanges.ts           # postal-code → canton ranges
 ├── i18n/
 │   ├── translations.ts        # DE / FR / IT dictionaries
 │   └── useTranslation.ts      # translation hook
 ├── features/
 │   ├── auth/                  # AuthProvider, useAuth, LoginModal
-│   ├── venues/                # types, api, useVenues, geocoding, importExport, grouping
-│   ├── map/                   # MapView, markers
+│   ├── venues/                # types, api, useVenues, geocoding, importExport, grouping, posters
+│   ├── map/                   # MapView, markers, MarkerPopup, tile layers
+│   ├── geo/                   # useGeolocation
 │   ├── sidebar/               # Sidebar
-│   ├── venue-detail/          # DetailModal
-│   └── venue-edit/            # EditForm
+│   ├── venue-detail/          # DetailModal, PhotoGallery
+│   └── venue-edit/            # EditForm, PhotoGalleryEditor
 ├── components/
 │   ├── Topbar.tsx
 │   └── Modal.tsx
 ├── App.tsx
 ├── main.tsx
+├── theme.ts                   # design tokens
 └── index.css
 ```
 
 Supabase schema and seed data live under `supabase/`:
 
-- `supabase/migrations/0001_init.sql` — creates the `venues` table, its RLS policies, the
-  `venue-photos` Storage bucket and the bucket's storage policies.
-- `supabase/seed.sql` — seeds 8 example venues for local development.
+- `supabase/migrations/` — numbered SQL migrations: the `venues` table and its RLS policies, the
+  `venue-photos` Storage bucket and its policies, the `venue_photos` gallery table, and the
+  `replace_venues` import function.
+- `supabase/seed.sql` — seeds 29 example venues for local development.
 
 ## Prerequisites
 
 - **[Docker](https://docs.docker.com/get-docker/)** (with Compose v2) — the only requirement for the
   recommended one-command local setup.
-- **[Node.js 20](https://nodejs.org/)** — optional, for running the app and tests on the host
+- **[Node.js 24](https://nodejs.org/)** (the version in `.nvmrc`) — optional, for running the app and tests on the host
   (non-Docker / Supabase CLI path).
 - **[Supabase CLI](https://supabase.com/docs/guides/cli)** — optional, only for the alternative CLI
   path below.
@@ -125,9 +139,9 @@ This brings up the **entire stack** with no `.env` setup and no Supabase CLI:
 
 - a full self-hosted Supabase backend (Postgres, Auth/GoTrue, PostgREST, Storage + imgproxy,
   Realtime, postgres-meta, the Kong API gateway and Studio);
-- a one-shot init step that applies `supabase/migrations/0001_init.sql` and `supabase/seed.sql`
-  (creates the `venues` table, its RLS policies, the `venue-photos` Storage bucket, and seeds
-  8 example venues);
+- a one-shot init step that applies every migration in `supabase/migrations/` that hasn't run yet
+  (tracked in `public.schema_migrations`) and, if the `venues` table is empty, runs
+  `supabase/seed.sql` to add 29 example venues;
 - a one-shot init step that creates a local admin user;
 - the Vite app (`web` service).
 
@@ -201,8 +215,8 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
    supabase db reset
    ```
 
-   This re-applies `supabase/migrations/0001_init.sql` (table, RLS, `venue-photos` bucket and
-   storage policies) and runs `supabase/seed.sql` (8 example venues).
+   This re-applies every migration in `supabase/migrations/` and runs `supabase/seed.sql`
+   (29 example venues).
 
 3. **Create an admin user** (the app only allows authenticated users to write). The simplest way is
    via Studio at <http://localhost:54323> → **Authentication** → **Add user**, entering an email and

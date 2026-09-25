@@ -27,8 +27,7 @@
     "lucide-react": "^1.23.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-leaflet": "^5.0.0"
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@codecov/vite-plugin": "^2.0.1",

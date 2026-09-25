@@ -8,7 +8,7 @@ Interactive map of Swiss **Schwingkeller** — training cellars and venues of Sw
 
 - **Build:** Vite + TypeScript
 - **UI:** React 19
-- **Map:** Leaflet + react-leaflet + leaflet.markercluster
+- **Map:** Leaflet + leaflet.markercluster, driven imperatively (see ADR 0008)
 - **Backend:** Supabase (Postgres + Auth + Storage + RLS)
 - **Data fetching:** TanStack Query
 - **Testing:** Vitest + React Testing Library
@@ -36,6 +36,17 @@ Available skills:
 | `dispatching-parallel-agents` | For 2+ independent tasks |
 | `using-git-worktrees` | For isolated feature work |
 | `writing-skills` | When creating or editing skills |
+
+## Decisions and working documents
+
+Architecture decisions live in `docs/adr/` as [MADR](https://adr.github.io/madr/) records. Check the
+index in `docs/adr/README.md` before changing something structural. If a change alters a recorded
+decision, write a new ADR and mark the old one superseded (ADR 0000).
+
+The `brainstorming` and `writing-plans` skills say to save specs and plans under `docs/superpowers/`
+and commit them. This project overrides that step. The folder is gitignored, so write specs and plans
+there or in the session scratchpad and never commit them. Anything in them that should outlast the
+task goes into an ADR.
 
 ## Dos
 

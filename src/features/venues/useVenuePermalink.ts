@@ -13,7 +13,7 @@ interface UseVenuePermalinkArgs {
 
 // Resolves a ?venue= permalink once the venues query settles, and keeps the
 // URL's ?venue= in sync with the open/closed DetailModal afterward. See
-// docs/superpowers/specs/2026-07-10-venue-permalink-share-design.md.
+// docs/adr/0007-url-parameters-without-a-router.md.
 export function useVenuePermalink({
   venueParam, venues, venuesLoaded, detailId, openDetail, setExpanded,
 }: UseVenuePermalinkArgs): void {

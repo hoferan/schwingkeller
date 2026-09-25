@@ -2,7 +2,7 @@ import { cantonByCode } from '../data/cantons';
 
 // ?venue= takes precedence over ?ctn= when both are present — see
 // parseVenueParam below and
-// docs/superpowers/specs/2026-07-10-venue-permalink-share-design.md.
+// docs/adr/0007-url-parameters-without-a-router.md.
 export const parseCantonParam = (search: string): string | null => {
   const raw = new URLSearchParams(search).get('ctn');
   if (!raw) return null;

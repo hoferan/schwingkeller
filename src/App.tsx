@@ -80,7 +80,7 @@ function AppShell() {
 
   // Cross-cutting UI state.
   // Parsed once at startup. ?venue= takes precedence over ?ctn= — see
-  // docs/superpowers/specs/2026-07-10-venue-permalink-share-design.md.
+  // docs/adr/0007-url-parameters-without-a-router.md.
   const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
   const [ctnParam] = useState<string | null>(() =>
     venueParam ? null : parseCantonParam(window.location.search),
