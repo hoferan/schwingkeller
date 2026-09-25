@@ -68,3 +68,4 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0011](0011-venue-photo-galleries.md) | Store photo galleries in their own table and compress on the client | accepted |
 | [0012](0012-posters-from-an-off-screen-map.md) | Build posters from an off-screen map drawn onto a canvas | accepted |
 | [0013](0013-deploy-only-after-every-test-layer-passed.md) | Deploy from GitHub Actions only after every test layer passed | proposed |
+| [0014](0014-test-in-three-layers.md) | Test in three layers: unit, integration against the local stack, and Gherkin end to end | proposed |

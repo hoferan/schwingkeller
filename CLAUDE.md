@@ -90,8 +90,10 @@ in `docs/adr/README.md`.
 
 `.github/workflows/ci.yml` has five jobs. `build-test` runs lint, typecheck,
 coverage and a compile-only build. `e2e` runs the Playwright suite in `e2e/`
-against the Compose backend, with Vite on the runner rather than in a
-container. `all-green` depends on both and is the single required status
+against the Compose backend, with the production bundle built and served by
+Vite on the runner rather than in a container. Locally the suite runs against
+the Compose dev server, and it refuses to start if its base URL or Supabase
+URL isn't local. `all-green` depends on both and is the single required status
 check. On pushes to `main`, `migrate` pushes the Supabase migrations once
 `all-green` passed, and `deploy` then builds the production bundle and
 publishes it to Netlify.
