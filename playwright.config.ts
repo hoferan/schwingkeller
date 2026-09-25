@@ -1,13 +1,21 @@
 import { defineConfig, devices } from '@playwright/test';
+import { SUPABASE_URL } from './e2e/db';
+import { assertLocalTargets } from './e2e/local-only';
 
 // End-to-end specs drive a real browser against the local Compose stack (see docker-compose.yml):
 // Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite app on 5173 and the
-// venues from supabase/seed.sql already loaded. Nothing here talks to the cloud project.
+// venues from supabase/seed.sql already loaded. Nothing here talks to the cloud project, and the
+// guard below refuses to start if either URL points anywhere else.
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const CI = !!process.env.CI;
 
+assertLocalTargets({ baseURL: BASE_URL, supabaseURL: SUPABASE_URL });
+
 export default defineConfig({
   testDir: './e2e',
+  // Specs only. Playwright's default would also load e2e/*.test.ts, the Vitest unit tests of the
+  // e2e helpers, and fail on their Vitest imports.
+  testMatch: '**/*.spec.ts',
   // Sweeps venues left by a run that died before cleaning up. See e2e/global-setup.ts.
   globalSetup: './e2e/global-setup.ts',
   outputDir: './test-results',
@@ -40,12 +48,17 @@ export default defineConfig({
 
   // Locally the Compose stack serves the app itself, and a stack already on 5173 is reused
   // untouched; the first run on a cold machine pulls images, hence the long timeout. In CI the
-  // workflow starts only the backend containers and Vite runs on the runner, which avoids building
-  // an image of the app just to serve it and keeps the app on the Node version in .nvmrc.
+  // workflow starts only the backend containers, and the runner builds the production bundle and
+  // serves it with `vite preview`, so a bug that only shows after bundling or minification fails
+  // the pull request. Vite inlines VITE_SUPABASE_URL at build time, and the workflow points it at
+  // the local stack first. `vite build` rather than `npm run build`, because build-test already
+  // type-checks; `vite preview` serves the SPA fallback like Netlify does.
   webServer: {
-    command: CI ? 'npm run dev -- --port 5173 --strictPort' : 'docker compose up -d',
+    command: CI
+      ? 'npx vite build && npx vite preview --port 5173 --strictPort'
+      : 'docker compose up -d',
     url: BASE_URL,
     reuseExistingServer: !CI,
-    timeout: CI ? 120_000 : 300_000,
+    timeout: CI ? 180_000 : 300_000,
   },
 });

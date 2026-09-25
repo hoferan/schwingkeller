@@ -30,9 +30,10 @@ export default defineConfig({
     sourcemap: true,
   },
   test: {
-    // Scoped to src/ so Vitest's default glob does not also pick up the Playwright specs in e2e/,
-    // which import @playwright/test and would fail under jsdom.
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // Scoped so Vitest's default glob does not also pick up the Playwright specs in e2e/, which
+    // import @playwright/test and would fail under jsdom. Plain unit tests of e2e helpers end in
+    // .test.ts and run here.
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'e2e/**/*.test.ts'],
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
