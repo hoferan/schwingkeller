@@ -3,16 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { TILE_URLS } from '../src/features/map/tileSources';
-import { E2E_PREFIX, deleteVenuesNamed, signInAsAdmin } from './db';
+import { ADMIN, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
+import { E2E_PREFIX } from './db';
 
-// The admin that docker-compose.yml's admin-init creates through the GoTrue admin API. These are
-// local-stack-only credentials, committed alongside the demo JWTs in docker/supabase.env for the
-// same reason: `docker compose up` has to work with no setup. They authenticate against nothing
-// but a disposable container on this machine.
-export const ADMIN = {
-  email: 'admin@schwingkeller.local',
-  password: 'schwingadmin',
-} as const;
+export { ADMIN };
 
 export const STORAGE_STATE = 'e2e/.auth/admin.json';
 

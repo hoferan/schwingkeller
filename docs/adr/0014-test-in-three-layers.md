@@ -66,7 +66,7 @@ playwright-bdd.
 ### Confirmation
 
 * `playwright.config.ts` builds and previews the bundle when `CI` is set, and checks its target
-  URLs with `e2e/local-only.ts` before anything starts.
+  URLs with `test-support/local-only.ts` before anything starts.
 * Review checks that a migration comes with integration tests and a new user journey with a feature
   file.
 

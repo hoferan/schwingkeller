@@ -1,5 +1,5 @@
-import { ADMIN } from './fixtures';
-import { E2E_PREFIX, deleteVenuesNamed, signInAsAdminWhenReady } from './db';
+import { ADMIN, deleteVenuesNamed, signInAsAdminWhenReady } from '../test-support/local-stack';
+import { E2E_PREFIX } from './db';
 
 // Clears venues left behind by a run that died before its per-test cleanup could fire. Matters
 // most locally, where the db-data volume survives between runs; a CI runner starts empty anyway.

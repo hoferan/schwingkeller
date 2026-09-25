@@ -1,6 +1,7 @@
 import { STR } from '../src/i18n/translations';
 import { test, expect, venueSearchPlaceholder } from './fixtures';
-import { WRITE_CANTON, countVenuesNamed } from './db';
+import { countVenuesNamed } from '../test-support/local-stack';
+import { WRITE_CANTON } from './db';
 
 const t = STR.de;
 
