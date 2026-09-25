@@ -39,14 +39,26 @@ Available skills:
 
 ## Decisions and working documents
 
+Work on an issue goes through these steps:
+
+1. Take the issue and run the `brainstorming` skill.
+2. Write the spec, then the plan with `writing-plans`, under `docs/superpowers/`. Both skills say to
+   commit them. This project overrides that: the folder is gitignored, and specs and plans stay
+   local.
+3. Implement the plan. If the work turns out larger than one pull request, split it into new issues
+   or a milestone instead.
+4. When the work is done, write an ADR if it settled something a future reader needs to know. Most
+   issues need none. When the work was split, the ADR waits until the part that settles the decision
+   is implemented.
+
 Architecture decisions live in `docs/adr/` as [MADR](https://adr.github.io/madr/) records. Check the
 index in `docs/adr/README.md` before changing something structural. If a change alters a recorded
 decision, write a new ADR and mark the old one superseded (ADR 0000).
 
-The `brainstorming` and `writing-plans` skills say to save specs and plans under `docs/superpowers/`
-and commit them. This project overrides that step. The folder is gitignored, so write specs and plans
-there or in the session scratchpad and never commit them. Anything in them that should outlast the
-task goes into an ADR.
+An ADR records one decision once it has been made: the context, the options that were turned down,
+and why. It isn't a draft committed ahead of the work, and it doesn't replace the spec. File lists,
+job names and step-by-step instructions stay in the spec and plan. A record should be about the size
+of the existing ones.
 
 ## Dos
 
