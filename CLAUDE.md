@@ -62,7 +62,8 @@ decision, write a new ADR and mark the old one superseded (ADR 0000).
 An ADR records one decision once it has been made: the context, the options that were turned down,
 and why. It isn't a draft committed ahead of the work, and it doesn't replace the spec. File lists,
 job names and step-by-step instructions stay in the spec and plan. A record should be about the size
-of the existing ones.
+of the existing ones. Before setting a record to `accepted`, check it against the definition of done
+in `docs/adr/README.md`.
 
 ## Dos
 
