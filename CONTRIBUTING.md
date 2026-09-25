@@ -162,10 +162,8 @@ already-applied migration — create a new one:
 
 4. Verify the change in Studio (`http://localhost:54323`) and add/update tests as needed.
 
-To deploy migrations to the cloud project, link it and push (see the README):
-
-```bash
-supabase db push
+Migrations reach the cloud project through the `migrate` job in CI, once a pull request is merged
+and every check passed. The README's Supabase setup covers the first push by hand.
 ```
 
 ## Secrets — never commit them
@@ -174,7 +172,8 @@ supabase db push
 is tracked; `.env.local` and any real keys are gitignored.
 
 - Put real values only in your local `.env.local` (gitignored) for development.
-- Production frontend env vars go in **Netlify**; CI-only tokens go in **GitHub Actions secrets**.
+- Production values and CI tokens go in the GitHub environment `production`. Preview values go in
+  **Netlify**. `CODECOV_TOKEN` is the only repository secret.
 - The Supabase **secret** key (`sb_secret_…`) must never be committed, logged, or exposed to the
   browser. Only the **publishable** key (`sb_publishable_…`) and the Sentry **DSN** are
   browser-safe.

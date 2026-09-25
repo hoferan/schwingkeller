@@ -113,19 +113,24 @@ Supabase schema and seed data live under `supabase/`:
 
 ## Environment variables
 
-| Variable | Used by | Browser-exposed? | Where to get it |
-|---|---|---|---|
-| `VITE_SUPABASE_URL` | frontend | yes | Supabase → Project Settings → API |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend | yes (safe) | Supabase → API keys → publishable (`sb_publishable_…`) |
-| `VITE_SENTRY_DSN` | frontend | yes (safe) | Sentry → Project → Client Keys (DSN) |
-| `CODECOV_TOKEN` | GitHub Actions | no | codecov.io → repo settings |
-| `SENTRY_AUTH_TOKEN` | GitHub Actions | no | Sentry → Account → Auth Tokens |
-| `SENTRY_ORG` / `SENTRY_PROJECT` | GitHub Actions | no | Sentry org/project slugs |
-| secret key (`sb_secret_…`) | server/tooling only | **NO — never** | Supabase → API keys → secret |
+| Variable | Used by | Browser-exposed? | Set in | Where to get it |
+|---|---|---|---|---|
+| `VITE_SUPABASE_URL` | frontend | yes | environment `production`; Netlify for previews | Supabase → Project Settings → API |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend | yes (safe) | environment `production`; Netlify for previews | Supabase → API keys → publishable (`sb_publishable_…`) |
+| `VITE_SENTRY_DSN` | frontend | yes (safe) | environment `production`; Netlify for previews | Sentry → Project → Client Keys (DSN) |
+| `SUPABASE_ACCESS_TOKEN` | `migrate` job | no | environment `production` | Supabase → Account → Access Tokens |
+| `SUPABASE_PROJECT_REF` / `SUPABASE_DB_PASSWORD` | `migrate` job | no | environment `production` | Supabase project settings |
+| `SENTRY_AUTH_TOKEN` | `deploy` job | no | environment `production` | Sentry → Account → Auth Tokens |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | `deploy` job | no | environment `production` | Sentry org/project slugs |
+| `NETLIFY_AUTH_TOKEN` | `deploy` job | no | environment `production` | Netlify → User settings → Applications → Personal access tokens |
+| `NETLIFY_SITE_ID` | `deploy` job | no (not secret) | environment `production`, as a variable | Netlify → Site configuration → Site ID |
+| `CODECOV_TOKEN` | `build-test` job | no | repository secret | codecov.io → repo settings |
+| secret key (`sb_secret_…`) | server/tooling only | **NO, never** | nowhere in CI | Supabase → API keys → secret |
 
-All `VITE_`-prefixed variables are bundled into the static frontend and are therefore visible in the
-browser — only put browser-safe values there. CI-only secrets are configured as GitHub Actions
-secrets, never in the frontend env.
+All `VITE_`-prefixed variables are bundled into the static frontend and are visible in the browser,
+so only browser-safe values go there. "Environment `production`" is the GitHub Actions environment
+of that name (see [GitHub setup](#github-setup)). Only `main` can use it, and only the `migrate` and
+`deploy` jobs read it.
 
 ## Local development
 
@@ -252,18 +257,38 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
    ```
 
    `<ref>` is your project reference (visible in the project URL / settings).
+   After this first push, the `migrate` job in CI pushes new migrations whenever a pull request is
+   merged and every check passed.
 6. **Confirm the `venue-photos` bucket exists** under **Storage** — the migration creates it, so it
    should appear after the push.
 
+## GitHub setup
+
+1. **Create the environment `production`** under **Settings → Environments**. Under **Deployment
+   branches and tags**, choose **Selected branches and tags** and add `main`. No reviewers: a merge
+   to `main` deploys without a further approval.
+2. **Add the production secrets** to that environment: `SUPABASE_ACCESS_TOKEN`,
+   `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+   `SENTRY_PROJECT` and `NETLIFY_AUTH_TOKEN`. Add `NETLIFY_SITE_ID` as an environment
+   **variable**.
+3. **Add `CODECOV_TOKEN`** as a repository secret (see [Codecov setup](#codecov-setup)).
+4. **Protect `main`** with a ruleset that requires the `all-green` check, requires branches to be up
+   to date before merging, and allows squash merges only.
+
 ## Netlify setup
 
-1. **Connect the GitHub repo** in Netlify.
+1. **Connect the GitHub repo** in Netlify. Netlify builds a deploy preview for every pull request.
 2. Set the **build command** to `npm run build` and the **publish directory** to `dist` (these are
    already declared in `netlify.toml`).
 3. Add the frontend **environment variables** in **Site settings → Environment variables**:
-   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SENTRY_DSN`.
-4. **Deploy previews on PRs** are enabled by default — each pull request gets its own preview
-   deployment.
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SENTRY_DSN`. They're used by the
+   previews. Production reads its values from the GitHub environment `production`.
+4. **Stop auto publishing** under **Deploys**. Netlify keeps building `main` but no longer publishes
+   it. The `deploy` job in CI publishes production with the Netlify CLI, after the tests and the
+   migration passed.
+5. **Create a personal access token** under **User settings → Applications** and add it to the
+   GitHub environment `production` as `NETLIFY_AUTH_TOKEN`, with the site ID as `NETLIFY_SITE_ID`.
 
 ## Codecov setup
 
@@ -275,9 +300,9 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
 
 1. Create a **React** project in [Sentry](https://sentry.io/).
 2. Copy the project's **DSN** into `VITE_SENTRY_DSN` (browser-safe).
-3. For **source-map upload** during CI builds, create an **auth token** and add the following as
-   **GitHub Actions secrets**: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT`
-   (your org and project slugs).
+3. For **source-map upload** when production is built, create an **auth token** and add
+   `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` (your org and project slugs) as secrets
+   of the GitHub environment `production`.
 
 ## Security note
 
@@ -286,9 +311,10 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
   the publishable key precisely because RLS — not the key — gates what each request may do.
 - **Browser-safe values:** the Supabase **publishable** key and the Sentry **DSN** are designed to
   be public and may be embedded in the static bundle.
-- **Secrets stay in secret stores only:** the Supabase **secret** key (`sb_secret_…`) and all CI
-  tokens (`CODECOV_TOKEN`, `SENTRY_AUTH_TOKEN`, etc.) live exclusively in Netlify and GitHub
-  Actions secret stores.
+- **Secrets stay in secret stores only:** production values and CI tokens live in the GitHub
+  environment `production`, which only `main` can use and only the `migrate` and `deploy` jobs
+  read. Preview values live in Netlify, and `CODECOV_TOKEN` is the one repository secret. The
+  Supabase **secret** key (`sb_secret_…`) is never committed or shipped.
 - **Nothing sensitive is committed.** Only `.env.example` (with placeholders) is tracked;
   `.env.local` and every real secret are gitignored. The keys committed in `docker/supabase.env`
   and `docker-compose.yml` are Supabase's well-known public demo values for local development only
