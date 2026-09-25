@@ -288,8 +288,8 @@ CLI](https://supabase.com/docs/guides/cli) for the backend? This is the previous
    `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SENTRY_DSN`. They're used by the
    previews. Production reads its values from the GitHub environment `production`.
 4. **Stop auto publishing** under **Deploys**. Netlify keeps building `main` but no longer publishes
-   it. The `deploy` job in CI publishes production with the Netlify CLI, after the tests and the
-   migration passed.
+   it. After the tests and the migration passed, the `deploy` job in CI uploads the build as a
+   draft, publishes it through the Netlify API and locks it again, so the lock stays on.
 5. **Create a personal access token** under **User settings → Applications** and add it to the
    GitHub environment `production` as the secret `NETLIFY_AUTH_TOKEN`. The site ID goes there as
    the variable `NETLIFY_SITE_ID`.
