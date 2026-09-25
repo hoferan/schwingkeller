@@ -42,7 +42,7 @@ behaviour.
 * `deploy` builds the bundle with the production values and publishes it with
   `netlify deploy --prod --no-build`. `--prod` publishes while auto-publishing is locked.
 * The production secrets live in a GitHub environment `production` that only `main` may use, and
-  only `migrate` and `deploy` declare it. `build-test` builds without them, as a compile check.
+  only `migrate` and `deploy` declare it. Public values like the Supabase URL are its variables.
 * The `main` ruleset requires branches to be up to date, so a pull request is tested against the
   `main` it merges into.
 * Netlify keeps building deploy previews and reads the Node version from `.nvmrc`, like CI.

@@ -102,7 +102,9 @@ publishes it to Netlify.
 - The workflow runs with `contents: read`. A job that needs more asks for it.
 - Production secrets live in the GitHub environment `production`, which only
   `main` may use, and only `migrate` and `deploy` declare it. Test jobs never get
-  a production secret. `CODECOV_TOKEN` is the only repository secret.
+  a production secret. `CODECOV_TOKEN` is the only repository secret. Public
+  production values (Supabase URL and publishable key, Sentry DSN and slugs,
+  project ref, Netlify site ID) are environment variables, not secrets.
 - Netlify's auto-publishing is locked, so `deploy` is the only way onto the live
   site. Netlify still builds deploy previews, with the variables set in its UI.
 - Node comes from `.nvmrc`, for CI and for Netlify. Change the version there, not

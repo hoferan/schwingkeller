@@ -140,7 +140,7 @@ jobs:
 
   # Pushes the migrations to the production database. It runs only on main,
   # after every test layer passed, so a failing run never changes the schema.
-  # The secrets come from the production environment, which only main may use.
+  # Its values come from the production environment, which only main may use.
   migrate:
     needs: all-green
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -152,7 +152,7 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: latest
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - run: supabase link --project-ref ${{ vars.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       - run: supabase db push --password ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -176,9 +176,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check that every production value is set
-        # A missing secret reads as an empty string. An empty Supabase value
-        # still builds and would publish a blank site, and an empty Sentry or
-        # Netlify value fails quietly, so stop here with the name instead.
+        # A missing secret or variable reads as an empty string. An empty
+        # Supabase value still builds and would publish a blank site, and an
+        # empty Sentry or Netlify value fails quietly, so stop here with the
+        # name instead.
         run: |
           for v in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_SENTRY_DSN SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID; do
             if [ -z "${!v}" ]; then
@@ -187,12 +188,12 @@ jobs:
             fi
           done
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
       - uses: actions/checkout@v7
@@ -206,13 +207,13 @@ jobs:
         # sourcemaps and tags the release with the commit.
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           VITE_APP_ENV: production
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
       - name: Publish to Netlify
         # --no-build because the bundle is built above; the CLI would
         # otherwise build again without the production values. --prod
