@@ -39,8 +39,8 @@ only option that orders the database before the frontend and relies only on docu
 behaviour.
 
 * On a push to `main`, `migrate` needs `all-green`, and `deploy` needs `migrate`.
-* `deploy` builds the bundle with the production values and publishes it with
-  `netlify deploy --prod --no-build`. `--prod` publishes while auto-publishing is locked.
+* `deploy` builds the bundle with the production values, uploads it as a draft, then publishes
+  and locks that deploy through the Netlify API. The CLI's `--prod` refuses a locked site.
 * The production secrets live in a GitHub environment `production` that only `main` may use, and
   only `migrate` and `deploy` declare it. Public values like the Supabase URL are its variables.
   `migrate` pushes with the database connection string, so CI holds no Supabase account token.

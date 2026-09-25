@@ -222,15 +222,33 @@ jobs:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
       - name: Publish to Netlify
-        # --no-build because the bundle is built above; the CLI would
-        # otherwise build again without the production values. --prod
-        # publishes even while auto-publishing is locked. The CLI applies the
-        # redirect in netlify.toml.
-        run: >-
-          npx --yes netlify-cli@27.9.0 deploy
-          --prod --no-build --dir dist
-          --site "$NETLIFY_SITE_ID"
-          --message "Deploy $GITHUB_SHA from GitHub Actions"
+        # The CLI refuses `deploy --prod` while auto-publishing is locked, so
+        # the bundle goes up as a draft and that exact deploy is published
+        # through the API, the same call as "Publish deploy" in the Netlify
+        # UI. It is locked again afterwards, and the step fails unless the
+        # live deploy is this one and still locked. --no-build because the
+        # bundle is built above; the CLI applies the redirect in netlify.toml.
+        run: |
+          netlify() { npx --yes netlify-cli@27.9.0 "$@"; }
+          out=$(netlify deploy --no-build --dir dist --json             --site "$NETLIFY_SITE_ID"             --message "Deploy $GITHUB_SHA from GitHub Actions")
+          deploy_id=$(printf '%s\n' "$out" | sed -n 's/.*"deploy_id": *"\([^"]*\)".*/\1/p' | head -n 1)
+          if [ -z "$deploy_id" ]; then
+            echo "::error::netlify deploy returned no deploy_id"
+            printf '%s\n' "$out"
+            exit 1
+          fi
+          netlify api restoreSiteDeploy --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"deploy_id\":\"$deploy_id\"}" > /dev/null
+          netlify api lockDeploy --data "{\"deploy_id\":\"$deploy_id\"}" > /dev/null
+          netlify api getSite --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" | node -e '
+            const site = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const live = site.published_deploy ?? {};
+            const want = process.argv[1];
+            if (live.id !== want || live.locked !== true) {
+              console.log(`::error::live deploy is ${live.id} (locked: ${live.locked}), expected ${want} locked`);
+              process.exit(1);
+            }
+            console.log(`Published and locked deploy ${want}`);
+          ' "$deploy_id"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
