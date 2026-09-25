@@ -13,12 +13,15 @@ something that should outlast the task, write it up as an ADR.
 1. Copy [`adr-template.md`](adr-template.md) to `NNNN-short-title.md`, using the next free number.
 2. Fill in the context, the options you considered, and the one you chose. Leave out sections that
    have nothing to say.
-3. Set `status` to `proposed` while it's under review and to `accepted` once it's merged.
+3. Set `status` to `accepted` when the work behind the decision is done. For work that runs over
+   several issues, such as a milestone, the record can be merged as `proposed` with the first issue
+   that settles something. Later issues in that work extend it, and the last one sets it to
+   `accepted`.
 4. Add it to the index below.
 
-Records aren't edited after the fact to describe a new decision. When a decision changes, write a
-new record, set the old one's status to `superseded by [NNNN](NNNN-....md)`, and link back to it
-from the new one.
+An accepted record isn't edited to describe a new decision. When a decision changes, write a new
+record, set the old one's status to `superseded by [NNNN](NNNN-....md)`, and link back to it from
+the new one.
 
 Where a record was written after the decision was made, its `date` is the date of the original
 decision.

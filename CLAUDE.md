@@ -47,9 +47,13 @@ Work on an issue goes through these steps:
    local.
 3. Implement the plan. If the work turns out larger than one pull request, split it into new issues
    or a milestone instead.
-4. When the work is done, write an ADR if it settled something a future reader needs to know. Most
-   issues need none. When the work was split, the ADR waits until the part that settles the decision
-   is implemented.
+4. Write an ADR once the work settled something a future reader needs to know. Most issues need
+   none.
+
+When the work spans several issues, as in a milestone, the first issue that settles something
+important may add the ADR with status `proposed`. Later issues in the same work extend it, and the
+last one sets it to `accepted`. After that the record stays as it is: a later change gets a new ADR
+that supersedes it.
 
 Architecture decisions live in `docs/adr/` as [MADR](https://adr.github.io/madr/) records. Check the
 index in `docs/adr/README.md` before changing something structural. If a change alters a recorded
