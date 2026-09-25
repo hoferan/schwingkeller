@@ -46,15 +46,17 @@ jobs:
           files: ./test-report.junit.xml
           disable_search: true
           fail_ci_if_error: false
-      - run: npm run build
+      - name: Check that the app builds
+        # A compile check only. Production values stay out of this job, so a
+        # pull request never sees a production secret. The deploy job builds
+        # the bundle that ships. CODECOV_TOKEN is here for the bundle analysis.
+        # The placeholder DSN keeps Sentry in the bundle: with an empty DSN,
+        # Vite inlines "" and the minifier drops Sentry as dead code, so the
+        # size Codecov reports would no longer match production.
+        run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          VITE_SENTRY_DSN: https://public@example.invalid/0
 
   # Browser tests against the local Supabase stack. Only the backend runs in
   # containers: Vite runs on the runner, on the Node version in .nvmrc, so CI
@@ -110,31 +112,15 @@ jobs:
         if: failure()
         run: docker compose logs --no-color --tail 200
 
-  migrate:
-    needs: build-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      # supabase/setup-cli v3.0.0
-      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
-        with:
-          version: latest
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      - run: supabase db push --password ${{ secrets.SUPABASE_DB_PASSWORD }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-  # The single required check on main. A job added to this workflow does not
-  # protect main until it is listed in `needs` here.
+  # The single required check on main, and the gate for migrate and deploy. A
+  # job added to this workflow does not protect main until it is listed in
+  # `needs` here.
   all-green:
     # Runs even when a dependency fails. Without it the job would be skipped
     # on a failed run, leaving the required check unreported and the pull
     # request waiting instead of failing.
     if: always()
-    needs: [build-test, e2e, migrate]
+    needs: [build-test, e2e]
     # The job compares strings and calls nothing, so it has no use for the
     # token at all.
     permissions: {}
@@ -149,9 +135,102 @@ jobs:
         run: |
           echo "build-test=${{ needs['build-test'].result }}"
           echo "e2e=${{ needs.e2e.result }}"
-          echo "migrate=${{ needs.migrate.result }}"
           [ "${{ needs['build-test'].result }}" = "success" ] || exit 1
           [ "${{ needs.e2e.result }}" = "success" ] || exit 1
-          # migrate runs only on pushes to main, so a pull request always
-          # skips it. That is not a failure.
-          [ "${{ needs.migrate.result }}" = "success" ] || [ "${{ needs.migrate.result }}" = "skipped" ] || exit 1
+
+  # Pushes the migrations to the production database. It runs only on main,
+  # after every test layer passed, so a failing run never changes the schema.
+  # Its values come from the production environment, which only main may use.
+  migrate:
+    needs: all-green
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # supabase/setup-cli v3.0.0
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        with:
+          version: latest
+      - name: Push the migrations
+        # Connects straight to the database with the session pooler string,
+        # so CI needs no Supabase account token and never links the project.
+        # The pooler matters: the direct host is IPv6 only, and GitHub runners
+        # have no IPv6. The password in the URL must be percent-encoded.
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL is empty in the production environment"
+            exit 1
+          fi
+          supabase db push --db-url "$SUPABASE_DB_URL"
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+  # Builds the production bundle and publishes it to Netlify, after the
+  # migration it may depend on. The bundle is built here instead of reused
+  # from build-test, because Vite inlines the Supabase and Sentry values at
+  # build time and those only exist in the production environment. Netlify's
+  # own auto-publishing is locked in the Netlify UI, so this job is the only
+  # way a build reaches the live site. Deploy previews still come from Netlify.
+  deploy:
+    needs: migrate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://schwingkeller.netlify.app
+    runs-on: ubuntu-latest
+    # A hanging CLI would otherwise hold the main concurrency group for hours.
+    timeout-minutes: 15
+    steps:
+      - name: Check that every production value is set
+        # A missing secret or variable reads as an empty string. An empty
+        # Supabase value still builds and would publish a blank site, and an
+        # empty Sentry or Netlify value fails quietly, so stop here with the
+        # name instead.
+        run: |
+          for v in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_SENTRY_DSN SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v is empty in the production environment"
+              exit 1
+            fi
+          done
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Build the production bundle
+        # With SENTRY_AUTH_TOKEN set, the Sentry Vite plugin uploads the
+        # sourcemaps and tags the release with the commit.
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_APP_ENV: production
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+      - name: Publish to Netlify
+        # --no-build because the bundle is built above; the CLI would
+        # otherwise build again without the production values. --prod
+        # publishes even while auto-publishing is locked. The CLI applies the
+        # redirect in netlify.toml.
+        run: >-
+          npx --yes netlify-cli@27.9.0 deploy
+          --prod --no-build --dir dist
+          --site "$NETLIFY_SITE_ID"
+          --message "Deploy $GITHUB_SHA from GitHub Actions"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}

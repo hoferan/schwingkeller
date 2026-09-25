@@ -2,11 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
-[build.environment]
-  NODE_VERSION = "20"
-
-[context.production.environment]
-  VITE_APP_ENV = "production"
+# Netlify builds deploy previews and branch deploys. Production is published by
+# the deploy job in .github/workflows/ci.yml, and auto-publishing is locked in
+# the Netlify UI. Node comes from .nvmrc.
 
 [context.deploy-preview.environment]
   VITE_APP_ENV = "stage"

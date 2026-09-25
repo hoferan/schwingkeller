@@ -88,17 +88,29 @@ in `docs/adr/README.md`.
 
 ## CI
 
-`.github/workflows/ci.yml` has four jobs. `build-test` runs lint, typecheck,
-coverage and build. `e2e` runs the Playwright suite in `e2e/` against the
-Compose backend, with Vite on the runner rather than in a container. `migrate`
-pushes Supabase migrations and runs only on pushes to `main`. `all-green`
-depends on the other three and is the single required status check.
+`.github/workflows/ci.yml` has five jobs. `build-test` runs lint, typecheck,
+coverage and a compile-only build. `e2e` runs the Playwright suite in `e2e/`
+against the Compose backend, with Vite on the runner rather than in a
+container. `all-green` depends on both and is the single required status
+check. On pushes to `main`, `migrate` pushes the Supabase migrations once
+`all-green` passed, and `deploy` then builds the production bundle and
+publishes it to Netlify.
 
 - A new job protects `main` only once it is listed in `all-green`'s `needs`.
 - `all-green` reads `needs['build-test']`, not `needs.build-test`: a hyphen in a
   job id parses as subtraction in a GitHub expression and yields an empty string.
 - The workflow runs with `contents: read`. A job that needs more asks for it.
-- Node comes from `.nvmrc`. Change the version there, not in the workflow.
+- Production secrets live in the GitHub environment `production`, which only
+  `main` may use, and only `migrate` and `deploy` declare it. Test jobs never get
+  a production secret. `CODECOV_TOKEN` is the only repository secret. Public
+  production values (Supabase URL and publishable key, Sentry DSN and slugs,
+  Netlify site ID) are environment variables, not secrets.
+- `migrate` pushes with `supabase db push --db-url` and the session pooler
+  string in `SUPABASE_DB_URL`. CI holds no Supabase account token.
+- Netlify's auto-publishing is locked, so `deploy` is the only way onto the live
+  site. Netlify still builds deploy previews, with the variables set in its UI.
+- Node comes from `.nvmrc`, for CI and for Netlify. Change the version there, not
+  in the workflow.
 - `main` takes squash merges only.
 - Coverage does not block: Codecov comments on pull requests, but `codecov/patch`
   is not a required check.
