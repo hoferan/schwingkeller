@@ -50,9 +50,13 @@ jobs:
         # A compile check only. Production values stay out of this job, so a
         # pull request never sees a production secret. The deploy job builds
         # the bundle that ships. CODECOV_TOKEN is here for the bundle analysis.
+        # The placeholder DSN keeps Sentry in the bundle: with an empty DSN,
+        # Vite inlines "" and the minifier drops Sentry as dead code, so the
+        # size Codecov reports would no longer match production.
         run: npm run build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          VITE_SENTRY_DSN: https://public@example.invalid/0
 
   # Browser tests against the local Supabase stack. Only the backend runs in
   # containers: Vite runs on the runner, on the Node version in .nvmrc, so CI
