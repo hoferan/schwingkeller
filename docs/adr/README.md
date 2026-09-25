@@ -13,15 +13,42 @@ something that should outlast the task, write it up as an ADR.
 1. Copy [`adr-template.md`](adr-template.md) to `NNNN-short-title.md`, using the next free number.
 2. Fill in the context, the options you considered, and the one you chose. Leave out sections that
    have nothing to say.
-3. Set `status` to `proposed` while it's under review and to `accepted` once it's merged.
+3. Set `status` to `accepted` when the work behind the decision is done. For work that runs over
+   several issues, such as a milestone, the record can be merged as `proposed` with the first issue
+   that settles something. Later issues in that work extend it, and the last one sets it to
+   `accepted`.
 4. Add it to the index below.
 
-Records aren't edited after the fact to describe a new decision. When a decision changes, write a
-new record, set the old one's status to `superseded by [NNNN](NNNN-....md)`, and link back to it
-from the new one.
+An accepted record isn't edited to describe a new decision. When a decision changes, write a new
+record, set the old one's status to `superseded by [NNNN](NNNN-....md)`, and link back to it from
+the new one.
 
-Where a record was written after the decision was made, its `date` is the date of the original
-decision.
+## When a record is done
+
+A record is ready for `accepted` when the decision meets the
+[ecADR definition of done](https://www.ozimmer.ch/practices/2020/05/22/ADDefinitionOfDone.html):
+
+* Evidence: something shows the choice works, such as a spike or the implemented issue.
+* Criteria and alternatives: at least two real options were compared against the drivers.
+* Agreement: the decision makers challenged the choice and agreed to it.
+* Documentation: the record exists and matches what was built.
+* Realization and review: the decision is implemented, and the record says when to look at it again.
+
+[How to create ADRs, and how not to](https://www.ozimmer.ch/practices/2023/04/03/ADRCreation.html)
+names two traps worth avoiding here. A Mega-ADR packs design details, implementation plans and code
+into the record. A Blueprint in disguise reads like a rulebook. Rules that contributors have to
+follow belong in CLAUDE.md or CONTRIBUTING.md, and the record explains the decision behind them.
+[How to review ADRs](https://www.ozimmer.ch/practices/2023/04/05/ADRReview.html) has a checklist for
+reviewing a record.
+
+## Dates and format
+
+A record's `date` is the day the decision was last updated, as in MADR. A proposed record that a
+later issue extends gets that issue's date. Where a record was written after the decision was made,
+its `date` is the date of the original decision.
+
+The template follows MADR 4.0.0 with sentence-case headings. The records live in `docs/adr/`
+instead of MADR's suggested `docs/decisions/`, which MADR allows.
 
 ## Index
 
