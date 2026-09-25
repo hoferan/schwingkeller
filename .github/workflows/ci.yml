@@ -71,34 +71,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Start the Supabase backend
-        # Every one of these reports health, so --wait blocks until the stack
-        # can actually answer. `web` is left out on purpose, because Playwright
-        # starts Vite itself; studio comes along regardless as kong depends on
-        # it, which costs a few seconds and is not worth working around.
-        run: docker compose up -d --wait db kong auth rest storage imgproxy meta
-      - name: Apply migrations, seed venues, create the admin
-        # Both are one-shot containers, so `up -d` returns before they finish.
-        # Their exit codes are then read one at a time: `compose wait` over two
-        # services reports a single code, and a silently failed admin-init
-        # would otherwise reappear much later as an unexplained login failure.
-        run: |
-          docker compose up -d db-init admin-init
-          docker compose wait db-init admin-init
-          for service in db-init admin-init; do
-            code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq "$service")")
-            if [ "$code" != "0" ]; then
-              echo "$service exited with $code"
-              docker compose logs --no-color "$service"
-              exit 1
-            fi
-          done
-      - name: Point Vite at the local stack
-        # Read from docker/supabase.env rather than copied here, so rotating
-        # the demo key in that file cannot leave this job on a stale one.
-        run: |
-          echo "VITE_SUPABASE_URL=http://localhost:54321" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_PUBLISHABLE_KEY=$(grep -m1 '^ANON_KEY=' docker/supabase.env | cut -d= -f2-)" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/local-stack
       - run: npm run test:e2e
       - name: Upload the Playwright report
         uses: actions/upload-artifact@v4
@@ -112,6 +85,24 @@ jobs:
         if: failure()
         run: docker compose logs --no-color --tail 200
 
+  # RLS, table grants and database functions, tested against the local stack
+  # as real users. db-init gives the stack production's default privileges, so
+  # a right that exists only in the dashboard fails here, not in production.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/local-stack
+      - run: npm run test:integration
+      - name: Backend logs
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
   # The single required check on main, and the gate for migrate and deploy. A
   # job added to this workflow does not protect main until it is listed in
   # `needs` here.
@@ -120,7 +111,7 @@ jobs:
     # on a failed run, leaving the required check unreported and the pull
     # request waiting instead of failing.
     if: always()
-    needs: [build-test, e2e]
+    needs: [build-test, e2e, integration]
     # The job compares strings and calls nothing, so it has no use for the
     # token at all.
     permissions: {}
@@ -135,8 +126,10 @@ jobs:
         run: |
           echo "build-test=${{ needs['build-test'].result }}"
           echo "e2e=${{ needs.e2e.result }}"
+          echo "integration=${{ needs.integration.result }}"
           [ "${{ needs['build-test'].result }}" = "success" ] || exit 1
           [ "${{ needs.e2e.result }}" = "success" ] || exit 1
+          [ "${{ needs.integration.result }}" = "success" ] || exit 1
 
   # Pushes the migrations to the production database. It runs only on main,
   # after every test layer passed, so a failing run never changes the schema.
