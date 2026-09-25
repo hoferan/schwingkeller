@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { assertLocalTargets } from './local-only';
 
 // Shared by the E2E and integration layers. Both reach the local Compose stack through PostgREST
 // as ordinary users: anonymous with the demo anon key, or signed in as the local admin. No
@@ -17,6 +18,11 @@ export const supabaseEnv = (key: string): string => {
 };
 
 export const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? 'http://localhost:54321';
+
+// globalSetup runs in a separate process from the one that loads .env.local into process.env, so
+// its own assertLocalTargets call can miss a cloud URL there. Every process that builds a client
+// from SUPABASE_URL checks it again here, at the point the value is actually read.
+assertLocalTargets({ supabaseURL: SUPABASE_URL });
 
 // The admin that docker-compose.yml's admin-init creates through the GoTrue admin API. These are
 // local-stack-only credentials, committed alongside the demo JWTs in docker/supabase.env for the

@@ -29,7 +29,7 @@ describe('venue photos', () => {
   it('cannot be added anonymously', async () => {
     const seed = await seedVenue(admin);
     const { error } = await anon.from('venue_photos').insert(photo(seed.id, 0));
-    expect(error?.message).toMatch(/permission denied for table venue_photos/);
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for table venue_photos/);
   });
 
   it('stop at six per venue', async () => {
@@ -40,6 +40,6 @@ describe('venue photos', () => {
       expect(error, `photo ${position + 1}`).toBeNull();
     }
     const { error } = await admin.from('venue_photos').insert(photo(venue.id, 6));
-    expect(error?.message).toMatch(/maximum of 6 photos/);
+    expect(error?.message ?? '(no error)').toMatch(/maximum of 6 photos/);
   });
 });

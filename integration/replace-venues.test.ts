@@ -22,7 +22,7 @@ describe('replace_venues', () => {
     // An empty list inserts nothing; before 0007 an anonymous call went through and deleted
     // nothing only because RLS filtered every row.
     const { error } = await anonClient().rpc('replace_venues', { rows: [] });
-    expect(error?.message).toMatch(/permission denied for function replace_venues/);
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for function replace_venues/);
   });
 
   it('leaves every venue untouched when one row is broken', async () => {
@@ -35,7 +35,7 @@ describe('replace_venues', () => {
         { name: `${INT_PREFIX} broken`, canton: 'GR', lat: 'not-a-number', lng: 9.53 },
       ],
     });
-    expect(error).not.toBeNull();
+    expect(error?.message ?? '(no error)').toMatch(/invalid input syntax for type double precision/);
     expect(await snapshot()).toEqual(before);
   });
 });

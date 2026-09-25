@@ -11,7 +11,7 @@ describe('local grant parity', () => {
       .delete()
       .eq('id', '00000000-0000-0000-0000-000000000000');
     expect(
-      error?.message,
+      error?.message ?? 'no error: the anonymous delete was allowed',
       'The local database still has the broad default grants from before the parity step in db-init. Run `docker compose down -v` once, then start the stack again.',
     ).toMatch(/permission denied for table venues/);
   });

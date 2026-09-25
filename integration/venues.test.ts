@@ -29,13 +29,13 @@ describe('venues as an anonymous visitor', () => {
 
   it('cannot insert a venue', async () => {
     const { error } = await anon.from('venues').insert(newVenueRow('anon insert'));
-    expect(error?.message).toMatch(/permission denied for table venues/);
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for table venues/);
   });
 
   it('cannot change a venue', async () => {
     const seed = await seedVenue(admin);
     const { error } = await anon.from('venues').update({ address: 'changed by anon' }).eq('id', seed.id);
-    expect(error?.message).toMatch(/permission denied for table venues/);
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for table venues/);
     const { data } = await admin.from('venues').select('address').eq('id', seed.id).single();
     expect(data?.address).toBe(seed.address);
   });
@@ -43,7 +43,7 @@ describe('venues as an anonymous visitor', () => {
   it('cannot delete a venue', async () => {
     const seed = await seedVenue(admin);
     const { error } = await anon.from('venues').delete().eq('id', seed.id);
-    expect(error?.message).toMatch(/permission denied for table venues/);
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for table venues/);
     const { data } = await admin.from('venues').select('id').eq('id', seed.id);
     expect(data).toHaveLength(1);
   });
