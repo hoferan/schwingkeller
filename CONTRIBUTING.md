@@ -160,7 +160,11 @@ already-applied migration — create a new one:
    supabase db reset
    ```
 
-4. Verify the change in Studio (`http://localhost:54323`) and add/update tests as needed.
+4. Declare every grant the change needs (`grant select on ... to anon`, and so on). The local
+   stack, like production, grants nothing by default, so a missing grant fails locally too.
+
+5. Add or update integration tests in `integration/` for the tables, policies, grants and
+   functions you touched, and run them with `npm run test:integration`.
 
 Migrations reach the cloud project through the `migrate` job in CI, once a pull request is merged
 and every check passed. The README's Supabase setup covers the first push by hand.

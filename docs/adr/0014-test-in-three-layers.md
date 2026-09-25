@@ -46,7 +46,9 @@ playwright-bdd.
 * Unit tests (Vitest in jsdom) cover logic, hooks and components, with Supabase mocked. Whatever
   can be tested without a browser and a database is tested here.
 * Integration tests (Vitest in Node) reach the Compose stack through supabase-js as real users,
-  never with the service-role key, and cover RLS, grants, database functions and migrations.
+  never with the service-role key, and cover RLS, grants and database functions. The stack has
+  production's default privileges, so every right comes from a migration and a missing grant
+  fails locally.
 * End-to-end tests describe user journeys in Gherkin feature files, in English, one per capability.
   playwright-bdd compiles them into Playwright tests, so the runner, fixtures, projects and reports
   stay. Edge cases go down a layer.
@@ -90,6 +92,7 @@ playwright-bdd.
 
 ## More information
 
-* E2E against the production bundle came with #60. The integration layer (#78) and the feature
-  files (#79) extend this record, and the last issue of the milestone accepts it.
+* E2E against the production bundle came with #60, the integration layer and grant parity with
+  #78. Migration 0007 declares the venues grants and keeps replace_venues to signed-in users. The
+  feature files (#79) extend this record, and the last issue of the milestone accepts it.
 * German feature files were turned down while developers, not the Verbände, are the readers.

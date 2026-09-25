@@ -72,6 +72,7 @@ in `docs/adr/README.md`.
 - Keep i18n keys in sync across DE/FR/IT when touching UI text
 - Use TanStack Query for all Supabase data fetching; never fetch directly in components
 - Use RLS policies on the Supabase side; never rely on client-side auth guards alone
+- A migration that touches a table, policy, grant or function comes with integration tests in `integration/`, and declares its grants explicitly
 - Geocoding goes through Nominatim — respect rate limits (1 req/s, User-Agent header required)
 - Use Conventional Commits format for PR titles (e.g. `feat: add Codecov integration`, `fix: supabase db push flag`) — matching the existing commit history
 - Commit on a feature branch named `claude/<topic>`; never commit directly to `main`
@@ -88,17 +89,21 @@ in `docs/adr/README.md`.
 
 ## CI
 
-`.github/workflows/ci.yml` has five jobs. `build-test` runs lint, typecheck,
+`.github/workflows/ci.yml` has six jobs. `build-test` runs lint, typecheck,
 coverage and a compile-only build. `e2e` runs the Playwright suite in `e2e/`
 against the Compose backend, with the production bundle built and served by
 Vite on the runner rather than in a container. Locally the suite runs against
 the Compose dev server, and it refuses to start if its base URL or Supabase
-URL isn't local. `all-green` depends on both and is the single required status
-check. On pushes to `main`, `migrate` pushes the Supabase migrations once
-`all-green` passed, and `deploy` then builds the production bundle and
-publishes it to Netlify.
+URL isn't local. `integration` runs `npm run test:integration` against another
+fresh Compose backend. `all-green` depends on those three and is the single
+required status check. On pushes to `main`, `migrate` pushes the Supabase
+migrations once `all-green` passed, and `deploy` then builds the production
+bundle and publishes it to Netlify.
 
 - A new job protects `main` only once it is listed in `all-green`'s `needs`.
+- The local stack has production's default privileges (db-init revokes the
+  image's broad ones), so every right on a table, sequence or function comes
+  from a migration, locally as in production.
 - `all-green` reads `needs['build-test']`, not `needs.build-test`: a hyphen in a
   job id parses as subtraction in a GitHub expression and yields an empty string.
 - The workflow runs with `contents: read`. A job that needs more asks for it.
@@ -124,6 +129,7 @@ npm install          # install dependencies
 npm run dev          # start dev server
 npm run build        # production build
 npm run test         # run Vitest tests
+npm run test:integration   # integration tests (needs the Compose stack)
 npm run lint         # ESLint
 npm run preview      # preview production build
 ```
