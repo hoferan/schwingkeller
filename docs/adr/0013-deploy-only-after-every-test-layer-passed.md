@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-09-25
+status: accepted
+date: 2026-09-26
 decision-makers: André Hofer
 ---
 
@@ -89,7 +89,7 @@ behaviour.
 ## More information
 
 * Setup: README, sections "GitHub setup" and "Netlify setup".
-* Part of the milestone
-  [Testing and deploy pipeline](https://github.com/hoferan/schwingkeller/milestone/3). It stays
-  `proposed` until the milestone's last issue accepts it.
+* Accepted with #79, the last issue of the milestone
+  [Testing and deploy pipeline](https://github.com/hoferan/schwingkeller/milestone/3), after the
+  chain had deployed through every change in it.
 * Revisit if deploy previews move to GitHub Actions or get their own database (#80).

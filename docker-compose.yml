@@ -374,10 +374,11 @@ services:
         fi
         # Production parity (ADR 0014): migrations run as postgres, and in the
         # hosted project postgres grants anon, authenticated and service_role
-        # nothing by default on new tables, sequences or functions in public.
-        # The image grants them everything, which hid the missing venue_photos
-        # grant until production failed (0006). Revoking the same defaults here
-        # means every right comes from a migration, locally as in production.
+        # no read, write or execute rights by default on new tables, sequences
+        # or functions in public. The image grants them all of those, which
+        # hid the missing venue_photos grant until production failed (0006).
+        # Revoking the same defaults here means every such right comes from a
+        # migration, locally as in production.
         psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke select, insert, update, delete on tables from anon, authenticated, service_role;"
         psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;"
         psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated, service_role;"
