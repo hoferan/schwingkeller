@@ -91,5 +91,5 @@ behaviour.
 * Setup: README, sections "GitHub setup" and "Netlify setup".
 * Accepted with #79, the last issue of the milestone
   [Testing and deploy pipeline](https://github.com/hoferan/schwingkeller/milestone/3), after the
-  chain had deployed through every change in it.
+  chain had deployed every earlier change in it.
 * Revisit if deploy previews move to GitHub Actions or get their own database (#80).

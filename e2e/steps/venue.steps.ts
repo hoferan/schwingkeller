@@ -1,6 +1,7 @@
 import { STR } from '../../src/i18n/translations';
 import { countVenuesNamed } from '../../test-support/local-stack';
 import { When, Then, expect, venueSearchPlaceholder } from '../fixtures';
+import { WRITE_CANTON } from '../db';
 
 const t = STR.de;
 
@@ -9,6 +10,7 @@ const t = STR.de;
 const newVenueName = (prefix: string) => `${prefix}Trainingshalle`;
 
 When('I add a venue in canton {string}', async ({ page, venuePrefix }, canton: string) => {
+  expect(canton, 'scenarios write only into WRITE_CANTON (e2e/db.ts)').toBe(WRITE_CANTON);
   await page.getByRole('button', { name: t.add }).click();
   // Name is the only required field. The address stays empty on purpose: typing into it schedules
   // a geocode, and although the fixture stubs Nominatim, the empty result would only add a wait.

@@ -21,9 +21,7 @@ When('I search for {string}', async ({ page }, query: string) => {
   await page.getByPlaceholder(t.search).fill(query);
 });
 
-// Anchored at both ends: "the list shows {string}" would otherwise also match this text, and
-// bddgen refuses to generate an ambiguous step.
-Then(/^the list shows "([^"]*)" and no other venue$/, async ({ page }, name: string) => {
+Then('the list shows {string} and no other venue', async ({ page }, name: string) => {
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page).first()).toContainText(name);
 });

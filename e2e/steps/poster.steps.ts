@@ -104,6 +104,7 @@ Then('{int} venue names label the pins', async ({ page }, count: number) => {
 
 Then('no two names overlap', async ({ page }) => {
   const { items: placed } = await readRects(page, LABEL);
+  expect(placed.length, 'no labels to compare').toBeGreaterThan(1);
   placed.forEach((a, i) => {
     placed.slice(i + 1).forEach((b, j) => {
       const overlaps = a.x < b.x + b.width && b.x < a.x + a.width

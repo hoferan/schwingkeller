@@ -64,9 +64,15 @@ English, one file per capability. The admin capabilities live under `e2e/feature
 with the saved admin session; the visitor capabilities live under `e2e/features/visitor` and run
 anonymously, with no session at all.
 
-Step definitions live in `e2e/steps`, take `Given`, `When` and `Then` from `e2e/fixtures.ts`, and
-hold the selectors and the `STR` texts a scenario needs. A feature file describes behavior, never a
-click.
+Step definitions live in `e2e/steps`, take `Given`, `When`, `Then` and `expect` from
+`e2e/fixtures.ts`, and hold the selectors and the `STR` texts a scenario needs. A feature file
+describes behavior, never a click.
+
+Map tiles are served from `e2e/fixtures/tile.png` rather than fetched, and Nominatim is stubbed:
+OpenStreetMap's usage policy does not cover a CI suite, and a fixed tile keeps the poster export
+deterministic. `e2e/auth.setup.ts` signs in once as the admin and writes the session to
+`e2e/.auth`, which the admin project reuses, so the login form runs once rather than in front of
+every scenario.
 
 ```bash
 docker compose up -d      # or let Playwright start it
@@ -86,10 +92,10 @@ behavior; edge cases and error paths belong in a unit or an integration test ins
 
 The scenarios share one database and run in parallel, so a scenario that creates or edits data
 takes a `venuePrefix` fixture, names everything with it, and lets the fixture delete those rows
-afterwards, including when the scenario fails. Steps use `WRITE_CANTON` (`e2e/db.ts`) rather than a
-canton the seed fills, so a venue in flight cannot disturb a scenario that counts Fribourg's
-labels. Never assert on a total: another worker may be mid-write. Search for your own record
-instead.
+afterwards, including when the scenario fails. The add-venue step accepts only `WRITE_CANTON`
+(`e2e/db.ts`), a canton the seed leaves empty, because other scenarios count the seed's cantons
+exactly, Fribourg above all, and a venue in flight would throw those counts off. Never assert on a
+total: another worker may be mid-write. Search for your own record instead.
 
 Cleanup reaches Postgres through PostgREST as the signed-in admin, not with the service-role key,
 so a policy that stopped permitting a write would fail the scenario rather than be bypassed. A run

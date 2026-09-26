@@ -3,10 +3,10 @@ import { defineBddConfig } from 'playwright-bdd';
 import { SUPABASE_URL } from './test-support/local-stack';
 import { assertLocalTargets } from './test-support/local-only';
 
-// End-to-end specs drive a real browser against the local Compose stack (see docker-compose.yml):
-// Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite app on 5173 and the
-// venues from supabase/seed.sql already loaded. Nothing here talks to the cloud project, and the
-// guard below refuses to start if either URL points anywhere else.
+// End-to-end scenarios drive a real browser against the local Compose stack (see
+// docker-compose.yml): Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite
+// app on 5173 and the venues from supabase/seed.sql already loaded. Nothing here talks to the
+// cloud project, and the guard below refuses to start if either URL points anywhere else.
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const CI = !!process.env.CI;
 
