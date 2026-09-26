@@ -1,5 +1,5 @@
 import { STR } from '../src/i18n/translations';
-import { test as setup, expect, ADMIN, STORAGE_STATE } from './fixtures';
+import { setupTest as setup, expect, ADMIN, STORAGE_STATE } from './fixtures';
 
 const t = STR.de;
 

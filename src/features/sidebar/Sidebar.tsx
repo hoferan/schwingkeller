@@ -776,7 +776,7 @@ export const Sidebar = ({
                     group.venues.map((v) => {
                       const sel = v.id === selectedId;
                       return (
-                        <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+                        <div key={v.id} data-testid="venue-row" onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div
                               style={{
@@ -816,7 +816,7 @@ export const Sidebar = ({
           flatList.map((v) => {
             const sel = v.id === selectedId;
             return (
-              <div key={v.id} onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
+              <div key={v.id} data-testid="venue-row" onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
                 <img
                   src={wappenUrl(v.canton)}
                   alt=""

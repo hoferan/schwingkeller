@@ -201,10 +201,13 @@ docker compose up -d          # the stack, as for local development
 npm run test:integration
 ```
 
-The local database has the same default privileges as production, so every right comes from a
-migration. A database volume created before that still has broader rights, and the parity test
-says so. Reset it once with `docker compose down -v`, which deletes the local data; the next
-`docker compose up` rebuilds it from the migrations and the seed.
+The local database has the same default privileges as production, so every select, insert, update,
+delete and execute right comes from a migration. A database volume created before that still has
+broader rights, and the parity test says so. Reset it once with `docker compose down -v`, which
+deletes the local data; the next `docker compose up` rebuilds it from the migrations and the seed.
+
+`npm run test:e2e` runs the browser suite: `bddgen` generates the Playwright tests from the feature
+files in `e2e/features`, then Playwright runs them against the Compose stack.
 
 Other useful scripts: `npm run lint` (ESLint), `npm run typecheck` (TypeScript), `npm run build`
 (production build), `npm run preview` (preview the production build).

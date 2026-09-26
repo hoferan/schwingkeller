@@ -90,7 +90,8 @@ in `docs/adr/README.md`.
 ## CI
 
 `.github/workflows/ci.yml` has six jobs. `build-test` runs lint, typecheck,
-coverage and a compile-only build. `e2e` runs the Playwright suite in `e2e/`
+coverage and a compile-only build. `e2e` runs the Gherkin feature files in
+`e2e/features` through playwright-bdd, in an admin and a visitor project,
 against the Compose backend, with the production bundle built and served by
 Vite on the runner rather than in a container. Locally the suite runs against
 the Compose dev server, and it refuses to start if its base URL or Supabase
@@ -102,8 +103,9 @@ bundle and publishes it to Netlify.
 
 - A new job protects `main` only once it is listed in `all-green`'s `needs`.
 - The local stack has production's default privileges (db-init revokes the
-  image's broad ones), so every right on a table, sequence or function comes
-  from a migration, locally as in production.
+  image's broad ones), so every select, insert, update, delete and execute
+  right on a table, sequence or function comes from a migration, locally as
+  in production.
 - `all-green` reads `needs['build-test']`, not `needs.build-test`: a hyphen in a
   job id parses as subtraction in a GitHub expression and yields an empty string.
 - The workflow runs with `contents: read`. A job that needs more asks for it.

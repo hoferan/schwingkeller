@@ -59,9 +59,20 @@ implementation details.
 
 ## Browser tests
 
-A small [Playwright](https://playwright.dev/) suite in `e2e/` drives a real browser against the
-local Compose stack. It covers the seams jsdom cannot reach: the admin signing in, Leaflet placing
-pins, and the canvas exporter producing a PNG.
+The end-to-end suite is [Gherkin](https://cucumber.io/docs/gherkin/) feature files, written in
+English, one file per capability. The admin capabilities live under `e2e/features/admin` and run
+with the saved admin session; the visitor capabilities live under `e2e/features/visitor` and run
+anonymously, with no session at all.
+
+Step definitions live in `e2e/steps`, take `Given`, `When`, `Then` and `expect` from
+`e2e/fixtures.ts`, and hold the selectors and the `STR` texts a scenario needs. A feature file
+describes behavior, never a click.
+
+Map tiles are served from `e2e/fixtures/tile.png` rather than fetched, and Nominatim is stubbed:
+OpenStreetMap's usage policy does not cover a CI suite, and a fixed tile keeps the poster export
+deterministic. `e2e/auth.setup.ts` signs in once as the admin and writes the session to
+`e2e/.auth`, which the admin project reuses, so the login form runs once rather than in front of
+every scenario.
 
 ```bash
 docker compose up -d      # or let Playwright start it
@@ -69,22 +80,25 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`e2e/auth.setup.ts` signs in once as the admin that `admin-init` creates and saves the session to
-`e2e/.auth`, so the other specs start authenticated. Map tiles are served from
-`e2e/fixtures/tile.png` rather than fetched: OpenStreetMap's tile usage policy does not cover a CI
-suite, and a fixed tile makes the poster export deterministic. The specs read Fribourg, which
-`supabase/seed.sql` deliberately seeds densely enough to make the poster's venue labels collide.
+Locally the suite runs against the Compose stack started above. `npm run test:e2e` first runs
+`bddgen`, which compiles the feature files into Playwright tests and fails the run if a step has no
+definition, then runs Playwright.
 
-### Specs that write
+To add a scenario, write it in the feature file for its capability, run `npx bddgen`, and implement
+whatever steps it reports missing in `e2e/steps`. Keep the scenario itself at the level of user
+behavior; edge cases and error paths belong in a unit or an integration test instead.
 
-The specs share one database and run in parallel, so a spec that creates or edits data takes a
-`venuePrefix` fixture, names everything with it, and lets the fixture delete those rows afterwards
-— including when the test fails. Use `WRITE_CANTON` (`e2e/db.ts`) rather than a canton the seed
-fills, so a venue in flight cannot disturb a spec that counts Fribourg's labels. Never assert on a
+### Scenarios that write
+
+The scenarios share one database and run in parallel, so a scenario that creates or edits data
+takes a `venuePrefix` fixture, names everything with it, and lets the fixture delete those rows
+afterwards, including when the scenario fails. The add-venue step accepts only `WRITE_CANTON`
+(`e2e/db.ts`), a canton the seed leaves empty, because other scenarios count the seed's cantons
+exactly, Fribourg above all, and a venue in flight would throw those counts off. Never assert on a
 total: another worker may be mid-write. Search for your own record instead.
 
 Cleanup reaches Postgres through PostgREST as the signed-in admin, not with the service-role key,
-so a policy that stopped permitting a write would fail the tests rather than be bypassed. A run
+so a policy that stopped permitting a write would fail the scenario rather than be bypassed. A run
 that dies before cleaning up leaves rows behind; the next run's global setup sweeps anything named
 `[e2e]…`.
 
@@ -173,7 +187,8 @@ already-applied migration — create a new one:
    and no local admin user, so it cannot stand in for the Compose stack here.
 
 4. Declare every grant the change needs (`grant select on ... to anon`, and so on). The local
-   stack, like production, grants nothing by default, so a missing grant fails locally too.
+   stack, like production, grants no read, write or execute rights by default, so a missing grant
+   fails locally too.
 
 5. Add or update integration tests in `integration/` for the tables, policies, grants and
    functions you touched, and run them with `npm run test:integration`. This also needs the

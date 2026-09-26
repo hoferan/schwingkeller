@@ -1,21 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
 import { SUPABASE_URL } from './test-support/local-stack';
 import { assertLocalTargets } from './test-support/local-only';
 
-// End-to-end specs drive a real browser against the local Compose stack (see docker-compose.yml):
-// Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite app on 5173 and the
-// venues from supabase/seed.sql already loaded. Nothing here talks to the cloud project, and the
-// guard below refuses to start if either URL points anywhere else.
+// End-to-end scenarios drive a real browser against the local Compose stack (see
+// docker-compose.yml): Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite
+// app on 5173 and the venues from supabase/seed.sql already loaded. Nothing here talks to the
+// cloud project, and the guard below refuses to start if either URL points anywhere else.
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const CI = !!process.env.CI;
 
 assertLocalTargets({ baseURL: BASE_URL, supabaseURL: SUPABASE_URL });
 
 export default defineConfig({
-  testDir: './e2e',
-  // Specs only. Playwright's default would also load e2e/*.test.ts, the Vitest unit tests of the
-  // e2e helpers, and fail on their Vitest imports.
-  testMatch: '**/*.spec.ts',
   // Sweeps venues left by a run that died before cleaning up. See e2e/global-setup.ts.
   globalSetup: './e2e/global-setup.ts',
   outputDir: './test-results',
@@ -36,13 +33,29 @@ export default defineConfig({
   },
 
   projects: [
-    // Signs in once and writes the session to e2e/.auth; every other project reuses it, so the
-    // login form is exercised exactly once rather than in front of each spec.
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    // Signs in once and writes the session to e2e/.auth; the admin project reuses it, so the
+    // login form is exercised exactly once rather than in front of each scenario.
+    { name: 'setup', testDir: './e2e', testMatch: /auth\.setup\.ts/ },
     {
-      name: 'chromium',
+      // Feature files in e2e/features/admin; bddgen writes the Playwright tests to .features-gen.
+      name: 'admin',
+      testDir: defineBddConfig({
+        outputDir: '.features-gen/admin',
+        features: 'e2e/features/admin/*.feature',
+        steps: ['e2e/steps/*.ts', 'e2e/fixtures.ts'],
+      }),
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/admin.json' },
       dependencies: ['setup'],
+    },
+    {
+      // Visitors are anonymous: no saved session and no dependency on the sign-in setup.
+      name: 'visitor',
+      testDir: defineBddConfig({
+        outputDir: '.features-gen/visitor',
+        features: 'e2e/features/visitor/*.feature',
+        steps: ['e2e/steps/*.ts', 'e2e/fixtures.ts'],
+      }),
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 

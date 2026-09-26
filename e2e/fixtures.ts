@@ -1,4 +1,5 @@
-import { test as base, expect } from '@playwright/test';
+import { test as playwrightTest, expect, type Download } from '@playwright/test';
+import { test as bddTest, createBdd } from 'playwright-bdd';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -52,19 +53,28 @@ export const stubGeocoding = async (page: import('@playwright/test').Page) => {
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
 };
 
-// Every spec gets the tile stub, including the sign-in one: the app renders its map behind the
-// login dialog, so even that page would otherwise reach for real tiles.
+// Every page gets the tile and geocoding stubs, including the sign-in one: the app renders its
+// map behind the login dialog, so even that page would otherwise reach for real tiles.
 //
-// `venuePrefix` is what makes writing safe under fullyParallel. Specs run against one shared
-// database, so a spec that creates venues has to name them something no other worker will touch
+// `venuePrefix` is what makes writing safe under fullyParallel. Scenarios run against one shared
+// database, so a test that creates venues has to name them something no other worker will touch
 // and remove them afterwards. Taking the prefix from the fixture guarantees both: the name is
 // unique per test, and the cleanup runs even when the test fails.
-export const test = base.extend<{ venuePrefix: string }, { adminDb: SupabaseClient }>({
-  page: async ({ page }, use) => {
-    await stubMapTiles(page);
-    await stubGeocoding(page);
-    await use(page);
-  },
+const stubbedPage = async ({ page }: { page: import('@playwright/test').Page }, use: (page: import('@playwright/test').Page) => Promise<void>) => {
+  await stubMapTiles(page);
+  await stubGeocoding(page);
+  await use(page);
+};
+
+// auth.setup.ts is a plain Playwright test, not a generated scenario, so it extends Playwright's
+// own test and only takes the stubbed page.
+export const setupTest = playwrightTest.extend({ page: stubbedPage });
+
+export const test = bddTest.extend<
+  { venuePrefix: string; posterDownload: { current?: Download } },
+  { adminDb: SupabaseClient }
+>({
+  page: stubbedPage,
 
   // One sign-in per worker rather than per test.
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
@@ -78,6 +88,14 @@ export const test = base.extend<{ venuePrefix: string }, { adminDb: SupabaseClie
     await use(prefix);
     await deleteVenuesNamed(adminDb, prefix);
   },
+
+  // The download step hands its file to the steps that check it.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  posterDownload: async ({}, use) => {
+    await use({});
+  },
 });
+
+export const { Given, When, Then } = createBdd(test);
 
 export { expect };
