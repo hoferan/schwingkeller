@@ -284,14 +284,23 @@ export function MapView({
   // Deferred via whenReady: calling flyToBounds before Leaflet's internal
   // load state is established throws inside Leaflet's own animation code
   // (TypeError reading '_leaflet_pos') and silently aborts the fly.
+  // Also waits until the container has a size: flying a 0×0 map (a page opened
+  // hidden, e.g. in an in-app browser) makes Leaflet compute NaN coordinates and
+  // throw "Invalid LatLng object: (NaN, NaN)" (SCHWINGKELLER-4/-5).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !initialFocusBounds || appliedInitialFocusRef.current) return;
-    map.whenReady(() => {
-      if (!mapRef.current || appliedInitialFocusRef.current) return;
+    let timer: number | undefined;
+    const apply = () => {
+      if (mapRef.current !== map || appliedInitialFocusRef.current) return;
+      map.invalidateSize();
+      const sz = map.getSize();
+      if (sz.x <= 0 || sz.y <= 0) { timer = window.setTimeout(apply, 120); return; }
       appliedInitialFocusRef.current = true;
-      mapRef.current.flyToBounds(initialFocusBounds, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
-    });
+      map.flyToBounds(initialFocusBounds, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
+    };
+    map.whenReady(apply);
+    return () => window.clearTimeout(timer);
   }, [initialFocusBounds]);
 
   // User position → drop / move the "you are here" marker and gently center on it.
