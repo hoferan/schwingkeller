@@ -72,7 +72,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
           <X size={16} />
         </button>
       </div>
-      <div style={{ padding: '18px 20px 20px' }}>
+      <div style={{ padding: '18px 20px 20px' }} data-testid="venue-detail">
         <div
           style={{
             fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '21px', fontWeight: 700,

@@ -47,6 +47,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/admin.json' },
       dependencies: ['setup'],
     },
+    {
+      // Visitors are anonymous: no saved session and no dependency on the sign-in setup.
+      name: 'visitor',
+      testDir: defineBddConfig({
+        outputDir: '.features-gen/visitor',
+        features: 'e2e/features/visitor/*.feature',
+        steps: ['e2e/steps/*.ts', 'e2e/fixtures.ts'],
+      }),
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 
   // Locally the Compose stack serves the app itself, and a stack already on 5173 is reused
