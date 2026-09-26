@@ -193,6 +193,19 @@ npm test          # run the test suite once
 npm run coverage  # run with a coverage report
 ```
 
+The integration tests check RLS, grants and database functions against the local Compose stack,
+signed in as real users:
+
+```bash
+docker compose up -d          # the stack, as for local development
+npm run test:integration
+```
+
+The local database has the same default privileges as production, so every right comes from a
+migration. A database volume created before that still has broader rights, and the parity test
+says so. Reset it once with `docker compose down -v`, which deletes the local data; the next
+`docker compose up` rebuilds it from the migrations and the seed.
+
 Other useful scripts: `npm run lint` (ESLint), `npm run typecheck` (TypeScript), `npm run build`
 (production build), `npm run preview` (preview the production build).
 

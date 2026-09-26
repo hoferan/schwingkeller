@@ -20,9 +20,9 @@ export default defineConfig([
     },
   },
   {
-    // Playwright specs run in Node and drive the browser from outside it, so the React rules do
-    // not apply. `rules-of-hooks` in particular misreads a fixture's `use` callback as a hook.
-    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    // The test layers run in Node, not in the browser, so the React rules do not apply.
+    // `rules-of-hooks` in particular misreads a fixture's `use` callback as a hook.
+    files: ['e2e/**/*.ts', 'test-support/**/*.ts', 'integration/**/*.ts', 'playwright.config.ts', 'vitest.integration.config.ts'],
     languageOptions: {
       globals: globals.node,
     },

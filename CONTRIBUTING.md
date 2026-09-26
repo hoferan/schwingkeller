@@ -150,17 +150,35 @@ already-applied migration — create a new one:
    supabase migration new <name>
    ```
 
-   This writes a timestamped SQL file to `supabase/migrations/`.
+   This writes a timestamped SQL file to `supabase/migrations/`. The Supabase CLI is fine for
+   this step alone.
 
 2. Write your SQL (table changes, RLS policies, storage policies, etc.) into the new file.
 
-3. Apply it locally by resetting the database, which re-runs all migrations and the seed:
+3. Apply it locally with the Compose stack, not the Supabase CLI stack. Restart the db-init
+   service so it re-runs and picks up the new migration file:
 
    ```bash
-   supabase db reset
+   docker compose up -d db-init
    ```
 
-4. Verify the change in Studio (`http://localhost:54323`) and add/update tests as needed.
+   For a fresh database, tear the stack down and bring it back up instead, which also re-runs
+   the seed:
+
+   ```bash
+   docker compose down -v && docker compose up -d
+   ```
+
+   The Supabase CLI stack (`supabase db reset` and similar commands) has no grant parity step
+   and no local admin user, so it cannot stand in for the Compose stack here.
+
+4. Declare every grant the change needs (`grant select on ... to anon`, and so on). The local
+   stack, like production, grants nothing by default, so a missing grant fails locally too.
+
+5. Add or update integration tests in `integration/` for the tables, policies, grants and
+   functions you touched, and run them with `npm run test:integration`. This also needs the
+   Compose stack; the Supabase CLI stack fails the same way, with no grant parity and no local
+   admin.
 
 Migrations reach the cloud project through the `migrate` job in CI, once a pull request is merged
 and every check passed. The README's Supabase setup covers the first push by hand.

@@ -372,6 +372,15 @@ services:
             psql -v ON_ERROR_STOP=1 -c "insert into public.schema_migrations(filename) values ('$$(basename "$$f")') on conflict do nothing;"
           done
         fi
+        # Production parity (ADR 0014): migrations run as postgres, and in the
+        # hosted project postgres grants anon, authenticated and service_role
+        # nothing by default on new tables, sequences or functions in public.
+        # The image grants them everything, which hid the missing venue_photos
+        # grant until production failed (0006). Revoking the same defaults here
+        # means every right comes from a migration, locally as in production.
+        psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke select, insert, update, delete on tables from anon, authenticated, service_role;"
+        psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;"
+        psql -v ON_ERROR_STOP=1 -c "alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated, service_role;"
         for f in /supabase/migrations/*.sql; do
           name=$$(basename "$$f")
           applied=$$(psql -tA -c "select 1 from public.schema_migrations where filename='$$name' limit 1;")

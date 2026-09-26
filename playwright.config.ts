@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
-import { SUPABASE_URL } from './e2e/db';
-import { assertLocalTargets } from './e2e/local-only';
+import { SUPABASE_URL } from './test-support/local-stack';
+import { assertLocalTargets } from './test-support/local-only';
 
 // End-to-end specs drive a real browser against the local Compose stack (see docker-compose.yml):
 // Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the Vite app on 5173 and the
