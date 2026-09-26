@@ -49,6 +49,7 @@ interface HarnessProps {
   onRequestLocation?: () => void;
   onAdd?: () => void;
   onGeneratePoster?: (code: string) => void;
+  onSelect?: (id: string) => void;
 }
 
 const Harness = ({
@@ -64,6 +65,7 @@ const Harness = ({
   onRequestLocation = () => {},
   onAdd = () => {},
   onGeneratePoster = () => {},
+  onSelect = () => {},
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -77,7 +79,7 @@ const Harness = ({
       expanded={expanded}
       onToggleCanton={(code) => setExpanded((e) => ({ ...e, [code]: !e[code] }))}
       selectedId={selectedId}
-      onSelect={setSelectedId}
+      onSelect={(id) => { setSelectedId(id); onSelect(id); }}
       isMobile={isMobile}
       isTablet={isTablet}
       sidebarOpen={sidebarOpen}
@@ -663,6 +665,36 @@ describe('Sidebar', () => {
     renderSidebar({ sortModeInit: 'distance', userPosition: { lat: 46.95, lng: 7.45 } });
     await waitFor(() => expect(screen.getByText(STR.de.byDistance)).toBeInTheDocument());
     expect(screen.queryByText(STR.de.byCanton)).not.toBeInTheDocument();
+  });
+
+  it('selects a venue when its row is clicked in the canton list', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ onSelect });
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'willi');
+
+    const row = await screen.findByTestId('venue-row');
+    expect(row).toHaveTextContent('Willisau');
+    await user.click(row);
+
+    expect(onSelect).toHaveBeenCalledWith('2');
+  });
+
+  it('selects a venue when its row is clicked in the list sorted by name', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ sortModeInit: 'name', onSelect });
+
+    const rows = await screen.findAllByTestId('venue-row');
+    // The flat list shows every venue, alphabetically, without expanding a canton first.
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringContaining('Allmend'),
+      expect.stringContaining('Emmental'),
+      expect.stringContaining('Willisau'),
+    ]);
+    await user.click(rows[0]);
+
+    expect(onSelect).toHaveBeenCalledWith('3');
   });
 
   it('shows the total count only once (header pill, not the section header)', async () => {
