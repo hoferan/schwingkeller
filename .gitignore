@@ -16,6 +16,9 @@ playwright-report
 test-results
 e2e/.auth
 
+# playwright-bdd generates the Playwright tests here from e2e/features
+.features-gen/
+
 # Superpowers specs and plans are working documents; decisions go into docs/adr (ADR 0000)
 docs/superpowers/
 
