@@ -41,15 +41,14 @@ Chosen option: one node of the tree per profile.
   picker.
 * Status and scope change only through `security definer` RPCs that re-check the caller.
 * Canton scopes were turned down because a canton doesn't match a Verband. A separate role would
-  say the same thing as the root scope in a second place. Several scopes per editor weren't needed
-  for anyone in view, and a parent node already covers more than one Verband.
+  say the same thing as the root scope in a second place. Several scopes per editor were left out
+  because nobody is expected to look after two Teilverbände, and a parent node already covers more
+  than one Verband.
 
 ### Consequences
 
 * Good, because a new level in the tree, such as clubs, works without touching the policies.
 * Good, because checking for a super-admin is a comparison with `esv`.
-* Bad, because someone who looks after two Verbände in different Teilverbände needs either the
-  ESV scope or a second account.
 * A venue without a Verband is writable only by a super-admin.
 * `replace_venues` deletes everything before inserting, so it's limited to super-admins.
 * Existing accounts are bootstrapped to `esv`, so production keeps working when the policies
