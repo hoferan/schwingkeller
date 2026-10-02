@@ -71,4 +71,4 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0014](0014-test-in-three-layers.md) | Test in three layers: unit, integration against the local stack, and Gherkin end to end | accepted |
 | [0015](0015-organise-venues-by-schwingerverband.md) | Organise venues by Schwingerverband, keep the canton as geography | proposed |
 | [0016](0016-editor-scope-is-a-verband-node.md) | An editor's scope is one node of the Verband tree | proposed |
-| [0017](0017-feature-flags-from-one-registry.md) | Feature flags from one registry, overridable by URL | proposed |
+| [0017](0017-feature-flags-from-one-registry.md) | Feature flags as one table in code, with a value per environment | proposed |
