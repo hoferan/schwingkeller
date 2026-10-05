@@ -207,7 +207,14 @@ broader rights, and the parity test says so. Reset it once with `docker compose 
 deletes the local data; the next `docker compose up` rebuilds it from the migrations and the seed.
 
 `npm run test:e2e` runs the browser suite: `bddgen` generates the Playwright tests from the feature
-files in `e2e/features`, then Playwright runs them against the Compose stack.
+files in `e2e/features`, then Playwright runs them against the Compose stack. The app under test is
+a production build on <http://localhost:4173> with production's feature flag values, built and
+served by Playwright on each run, locally as in CI.
+
+The dev server, from `docker compose up` or `npm run dev`, leaves `VITE_APP_ENV` unset, which reads
+as `development`, so it shows the flags that are on in development, such as the Verband view.
+To see what visitors get, run `VITE_APP_ENV=production npm run dev`, or set it in `.env.local`. The
+flags and their values per environment are in `src/lib/features.ts`.
 
 Other useful scripts: `npm run lint` (ESLint), `npm run typecheck` (TypeScript), `npm run build`
 (production build), `npm run preview` (preview the production build).

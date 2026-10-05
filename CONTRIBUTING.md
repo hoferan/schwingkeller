@@ -80,9 +80,11 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Locally the suite runs against the Compose stack started above. `npm run test:e2e` first runs
-`bddgen`, which compiles the feature files into Playwright tests and fails the run if a step has no
-definition, then runs Playwright.
+Locally the suite runs against the Compose stack started above, with a production bundle that
+Playwright builds and serves on port 4173 with production's feature flag values, as in CI. A
+scenario therefore sees what visitors see, while the dev server on 5173 keeps the development
+flags. `npm run test:e2e` first runs `bddgen`, which compiles the feature files into Playwright
+tests and fails the run if a step has no definition, then runs Playwright.
 
 To add a scenario, write it in the feature file for its capability, run `npx bddgen`, and implement
 whatever steps it reports missing in `e2e/steps`. Keep the scenario itself at the level of user
