@@ -6,6 +6,9 @@
 --
 -- The tree is read-only for every client. Changes to it go through migrations.
 --
+-- The functions in this file run with an empty search_path and name every table with its schema,
+-- so an object someone creates in another schema can't stand in for one of ours.
+--
 -- Additive and safe to run twice: the current UI keeps working against it until the verband flag
 -- is switched on.
 
@@ -151,6 +154,7 @@ alter table public.venues
 create or replace function public.venues_check_association_level()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 declare
   association_level text;
@@ -189,6 +193,7 @@ create or replace function public.association_is_within(node text, scope text)
 returns boolean
 language sql
 stable
+set search_path = ''
 as $$
   with recursive chain(id, parent_id) as (
     select id, parent_id from public.associations where id = node
@@ -207,6 +212,7 @@ create or replace function public.replace_venues(rows jsonb)
 returns void
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 begin
   delete from public.venues where true;
