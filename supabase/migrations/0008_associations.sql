@@ -139,3 +139,64 @@ drop policy if exists "association_home_areas_public_read" on public.association
 create policy "association_home_areas_public_read" on public.association_home_areas
   for select using (true);
 grant select on public.association_home_areas to anon, authenticated;
+
+-- Every venue belongs to one association on the lowest level, today a cantonal or Gau
+-- association. Nullable until #64 has given the Bernese venues their Gau; #72 makes it not null.
+alter table public.venues
+  add column if not exists association_id text references public.associations(id);
+
+-- The foreign key checks that the association exists; this checks its level. 'cantonal' is spelled
+-- out on purpose: if a club level is added below it, venues move there in a migration, and this
+-- rule changes in the same migration.
+create or replace function public.venues_check_association_level()
+returns trigger
+language plpgsql
+as $$
+declare
+  association_level text;
+begin
+  if new.association_id is not null then
+    select level into association_level from public.associations where id = new.association_id;
+    -- An unknown id leaves association_level null; the foreign key reports that one.
+    if association_level <> 'cantonal' then
+      raise exception 'association % is %; a venue needs a cantonal association',
+        new.association_id, association_level;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_venues_association_level on public.venues;
+create trigger trg_venues_association_level
+  before insert or update of association_id on public.venues
+  for each row execute function public.venues_check_association_level();
+
+-- Venues outside Bern get the association of their canton. Bernese venues need their
+-- Verwaltungskreis, which only reverse geocoding knows, so #64 assigns them. Only rows that are
+-- still null are touched, so a second run changes nothing.
+update public.venues v
+   set association_id = h.association_id
+  from public.association_home_areas h
+ where v.association_id is null
+   and upper(btrim(v.canton)) <> 'BE'
+   and h.canton = upper(btrim(v.canton))
+   and h.bern_district is null;
+
+-- True when scope is node itself or one of its ancestors. Walks up the tree, so it stays right if
+-- another level is added. UNION, not UNION ALL, so the recursion ends even on a cycle.
+create or replace function public.association_is_within(node text, scope text)
+returns boolean
+language sql
+stable
+as $$
+  with recursive chain(id, parent_id) as (
+    select id, parent_id from public.associations where id = node
+    union
+    select a.id, a.parent_id from public.associations a join chain c on a.id = c.parent_id
+  )
+  select exists (select 1 from chain where id = scope);
+$$;
+
+revoke execute on function public.association_is_within(text, text) from public;
+grant execute on function public.association_is_within(text, text) to anon, authenticated;

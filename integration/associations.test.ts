@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CANTONS } from '../src/data/cantons';
-import { ADMIN, anonClient, signInAsAdmin } from '../test-support/local-stack';
+import { ADMIN, anonClient, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
+import { INT_PREFIX, insertVenue, newVenueRow } from './support';
 
 let admin: SupabaseClient;
 const anon = anonClient();
@@ -92,5 +93,71 @@ describe.each(Object.keys(WRITES))('%s', (table) => {
       const deleted = await client.from(table).delete().eq(...match);
       expect(deleted.error?.message ?? '(no error)').toMatch(denied);
     }
+  });
+});
+
+// RLS in the user-management milestone asks whether a venue's association lies within an editor's
+// scope. Nothing calls this yet.
+describe('association_is_within', () => {
+  it.each([
+    ['emmental', 'bksv', true],
+    ['emmental', 'esv', true],
+    ['emmental', 'emmental', true],
+    ['emmental', 'isv', false],
+    ['nowhere', 'esv', false],
+    ['emmental', 'nowhere', false],
+  ])('(%s, %s) is %s', async (node, scope, expected) => {
+    const { data, error } = await anon.rpc('association_is_within', { node, scope });
+    expect(error).toBeNull();
+    expect(data).toBe(expected);
+  });
+});
+
+describe('a venue association', () => {
+  afterEach(async () => {
+    await deleteVenuesNamed(admin, INT_PREFIX);
+  });
+
+  const associationOf = async (id: string) => {
+    const { data, error } = await admin.from('venues').select('association_id').eq('id', id).single();
+    if (error) throw new Error(`reading venue ${id} failed: ${error.message}`);
+    return data.association_id as string | null;
+  };
+
+  it.each([
+    ['bksv', 'regional'],
+    ['esv', 'federation'],
+  ])('cannot be the %s association, which is %s', async (id, level) => {
+    const { error } = await admin.from('venues').insert({ ...newVenueRow('non-cantonal'), association_id: id });
+    expect(error?.message ?? '(no error)').toBe(`association ${id} is ${level}; a venue needs a cantonal association`);
+  });
+
+  it('can be a cantonal association, and change to another one but not to a regional one', async () => {
+    const venue = await insertVenue(admin, 'cantonal', { association_id: 'emmental' });
+    expect(await associationOf(venue.id)).toBe('emmental');
+
+    const moved = await admin.from('venues').update({ association_id: 'luzern' }).eq('id', venue.id);
+    expect(moved.error).toBeNull();
+    const raised = await admin.from('venues').update({ association_id: 'bksv' }).eq('id', venue.id);
+    expect(raised.error?.message ?? '(no error)').toMatch(/association bksv is regional/);
+    expect(await associationOf(venue.id)).toBe('luzern');
+  });
+
+  it('stays when an edit leaves it out', async () => {
+    // Today's edit form sends no association_id.
+    const venue = await insertVenue(admin, 'edit', { association_id: 'emmental' });
+    const { error } = await admin.from('venues').update({ address: 'Hauptstrasse 1' }).eq('id', venue.id);
+    expect(error).toBeNull();
+    expect(await associationOf(venue.id)).toBe('emmental');
+  });
+
+  it('must exist', async () => {
+    const { error } = await admin.from('venues').insert({ ...newVenueRow('unknown'), association_id: 'nowhere' });
+    expect(error?.message ?? '(no error)').toMatch(/violates foreign key constraint "venues_association_id_fkey"/);
+  });
+
+  it('is readable for anonymous visitors', async () => {
+    const { error } = await anon.from('venues').select('id, association_id').limit(1);
+    expect(error).toBeNull();
   });
 });
