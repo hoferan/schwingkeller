@@ -47,8 +47,10 @@ Chosen option: store a node of the ESV tree on each venue.
   levels `federation`, `regional` and `cantonal`. Values stay German, because the slugs,
   abbreviations and names are proper names and the slugs appear on posters and in URLs. The levels
   are rows of their own table, so a club level would be one more row.
-* Schwingklubs were left out for now. The tree can take them later as children of the 29 without
-  migrating existing data.
+* A venue always sits on the lowest level, today one of the 29. The levels above it exist for
+  editor scopes ([ADR 0016](0016-editor-scope-is-a-verband-node.md)). Schwingklubs were left out
+  for now. Adding them means one more level below the 29, and a migration that moves each venue to
+  its club and changes the level the database accepts on a venue.
 * A label on the canton grouping would keep the structure the scene doesn't use. Working the
   Verband out from the canton fails in Bern without reverse geocoding, and fails for every club
   across a border.
