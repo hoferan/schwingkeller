@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-25
+date: 2026-10-05
 decision-makers: André Hofer
 ---
 
@@ -33,7 +33,7 @@ scoped editors to a canton with a separate super-admin role. Once venues belong 
 Chosen option: one node of the tree per profile.
 
 * A venue is writable when its Verband is at or below the caller's scope node, checked by a
-  recursive `verband_is_within(node, scope)`.
+  recursive `association_is_within(node, scope)`.
 * Super-admin is scope `esv`. There's no role column, so there's no second concept to keep
   consistent with the scope.
 * Phase 1 grants one of the 5 Teilverbände. The admin panel applies that by default and the
