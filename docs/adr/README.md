@@ -69,3 +69,6 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0012](0012-posters-from-an-off-screen-map.md) | Build posters from an off-screen map drawn onto a canvas | accepted |
 | [0013](0013-deploy-only-after-every-test-layer-passed.md) | Deploy from GitHub Actions only after every test layer passed | accepted |
 | [0014](0014-test-in-three-layers.md) | Test in three layers: unit, integration against the local stack, and Gherkin end to end | accepted |
+| [0015](0015-organise-venues-by-schwingerverband.md) | Organise venues by Schwingerverband, keep the canton as geography | proposed |
+| [0016](0016-editor-scope-is-a-verband-node.md) | An editor's scope is one node of the Verband tree | proposed |
+| [0017](0017-feature-flags-from-one-registry.md) | Feature flags as one table in code, with a value per environment | proposed |
