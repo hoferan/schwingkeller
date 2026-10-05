@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { CANTONS } from '../src/data/cantons';
 import { ADMIN, anonClient, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
 import { INT_PREFIX, insertVenue, newVenueRow } from './support';
 
@@ -10,6 +9,13 @@ const anon = anonClient();
 beforeAll(async () => {
   admin = await signInAsAdmin(ADMIN.email, ADMIN.password);
 });
+
+// The 26 cantons as in venues.canton. Listed here rather than imported from src/data/cantons.ts,
+// which reads import.meta.env and so doesn't typecheck in the Node-only test projects.
+const CANTON_CODES = [
+  'ZH', 'BE', 'LU', 'UR', 'SZ', 'OW', 'NW', 'GL', 'ZG', 'FR', 'SO', 'BS', 'BL',
+  'SH', 'AR', 'AI', 'SG', 'GR', 'AG', 'TG', 'TI', 'VD', 'VS', 'NE', 'GE', 'JU',
+];
 
 type Association = { id: string; parent_id: string | null; level: string };
 type HomeArea = { canton: string; bern_district: string | null; association_id: string };
@@ -56,7 +62,7 @@ describe('the association tree as an anonymous visitor', () => {
   it('has a home area for every canton, and ten Bernese districts', async () => {
     const rows = await homeAreas();
     const cantonRows = rows.filter((r) => r.bern_district === null);
-    CANTONS.filter((c) => c.code !== 'BE').forEach(({ code }) => {
+    CANTON_CODES.filter((code) => code !== 'BE').forEach((code) => {
       expect(cantonRows.filter((r) => r.canton === code), code).toHaveLength(1);
     });
     expect(cantonRows.filter((r) => r.canton === 'BE')).toHaveLength(0);
