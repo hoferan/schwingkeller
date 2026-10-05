@@ -38,4 +38,24 @@ describe('replace_venues', () => {
     expect(error?.message ?? '(no error)').toMatch(/invalid input syntax for type double precision/);
     expect(await snapshot()).toEqual(before);
   });
+
+  // The guard on venues.association_id can only reject the value if replace_venues copies it, so
+  // the rejection shows the copy without a call that succeeds.
+  it('copies association_id, so the guard rejects a regional association', async () => {
+    const before = await snapshot();
+    const { error } = await admin.rpc('replace_venues', {
+      rows: [{ name: `${INT_PREFIX} regional`, canton: 'GR', lat: 46.85, lng: 9.53, association_id: 'bksv' }],
+    });
+    expect(error?.message ?? '(no error)').toBe('association bksv is regional; a venue needs a cantonal association');
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('rejects an unknown association_id and keeps every venue', async () => {
+    const before = await snapshot();
+    const { error } = await admin.rpc('replace_venues', {
+      rows: [{ name: `${INT_PREFIX} unknown`, canton: 'GR', lat: 46.85, lng: 9.53, association_id: 'nowhere' }],
+    });
+    expect(error?.message ?? '(no error)').toMatch(/violates foreign key constraint "venues_association_id_fkey"/);
+    expect(await snapshot()).toEqual(before);
+  });
 });
