@@ -11,3 +11,7 @@ Feature: Adding a venue
   Scenario: Saving a venue stores it exactly once
     When I add a venue in canton "GR"
     Then exactly one venue with its name is stored
+
+  Scenario: A new venue is stored with its canton's association
+    When I add a venue in canton "GR"
+    Then it is stored with the association "graubuenden"

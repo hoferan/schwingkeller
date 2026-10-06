@@ -31,3 +31,14 @@ Then('exactly one venue with its name is stored', async ({ adminDb, venuePrefix 
   // one when the test ends.
   await expect.poll(() => countVenuesNamed(adminDb, venuePrefix)).toBe(1);
 });
+
+Then('it is stored with the association {string}', async ({ adminDb, venuePrefix }, associationId: string) => {
+  // The production path with the flag off: the form shows no association field, yet the save has to
+  // send the canton's association.
+  const associationOf = async () => {
+    const { data, error } = await adminDb.from('venues').select('association_id').like('name', `${venuePrefix}%`);
+    if (error) throw new Error(`reading the new venue failed: ${error.message}`);
+    return data.length === 1 ? data[0].association_id : `${data.length} rows`;
+  };
+  await expect.poll(associationOf).toBe(associationId);
+});
