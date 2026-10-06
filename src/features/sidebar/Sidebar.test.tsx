@@ -86,9 +86,6 @@ const Harness = ({
       onToggleSidebar={onToggleSidebar}
       onSetSidebarOpen={onSetSidebarOpen}
       onAdd={onAdd}
-      onExportJSON={vi.fn()}
-      onExportCSV={vi.fn()}
-      onImport={vi.fn()}
       sortMode={sortMode}
       onSortMode={setSortMode}
       userPosition={userPosition}
@@ -236,19 +233,11 @@ describe('Sidebar', () => {
     expect(band.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('collapses the Verwaltung band by default, hiding Export/Import', async () => {
-    renderAdminSidebar();
-    await screen.findByTestId('admin-section');
-    expect(screen.queryByText('JSON')).not.toBeInTheDocument();
-    expect(screen.queryByText('CSV')).not.toBeInTheDocument();
-    expect(screen.queryByText(STR.de.import)).not.toBeInTheDocument();
-  });
-
-  it('adds a venue in one click while the band is collapsed', async () => {
+  it('adds a venue in one click', async () => {
     const user = userEvent.setup();
     const onAdd = vi.fn();
     renderAdminSidebar({ onAdd });
-    // Band is collapsed by default (Export/Import not rendered), yet Add is reachable directly.
+    // Add is the band's only action and is reachable directly.
     const addBtn = await screen.findByRole('button', { name: STR.de.add });
     expect(screen.queryByText('JSON')).not.toBeInTheDocument();
 
@@ -257,39 +246,16 @@ describe('Sidebar', () => {
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 
-  it('reveals Export/Import and persists open state when expanded', async () => {
-    const user = userEvent.setup();
-    renderAdminSidebar();
-    const toggle = await screen.findByRole('button', { name: STR.de.adminToggle });
-
-    await user.click(toggle);
-
-    expect(screen.getByText('JSON')).toBeInTheDocument();
-    expect(screen.getByText('CSV')).toBeInTheDocument();
-    expect(screen.getByText(STR.de.import)).toBeInTheDocument();
-    expect(localStorage.getItem('sk-verwaltung-open')).toBe('true');
-  });
-
-  it('restores the expanded band from localStorage on mount', async () => {
+  it('shows no import or export to the admin, even with an old open-band setting', async () => {
+    // The band once had an expand toggle that revealed export and import; both are gone, and a value
+    // a browser kept from then must not bring anything back.
     localStorage.setItem('sk-verwaltung-open', 'true');
     renderAdminSidebar();
-    await screen.findByTestId('admin-section');
-    expect(screen.getByText('JSON')).toBeInTheDocument();
-  });
-
-  it('collapses an open band and persists the closed state', async () => {
-    const user = userEvent.setup();
-    localStorage.setItem('sk-verwaltung-open', 'true');
-    renderAdminSidebar();
-    const toggle = await screen.findByRole('button', { name: STR.de.adminToggle });
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('JSON')).toBeInTheDocument();
-
-    await user.click(toggle);
-
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('JSON')).not.toBeInTheDocument();
-    expect(localStorage.getItem('sk-verwaltung-open')).toBe('false');
+    await screen.findByRole('button', { name: STR.de.add });
+    expect(screen.queryByText('JSON')).toBeNull();
+    expect(screen.queryByText('CSV')).toBeNull();
+    expect(screen.queryByText('Import')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Verwaltung ein-/ausblenden' })).toBeNull();
   });
 
   it('closes the mobile drawer on tap outside it', async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Crosshair, ArrowRight } from 'lucide-react';
+import { Crosshair } from 'lucide-react';
 import { Topbar } from './components/Topbar';
 import { Modal } from './components/Modal';
 import { Sidebar } from './features/sidebar/Sidebar';
@@ -8,8 +8,7 @@ import { DetailModal } from './features/venue-detail/DetailModal';
 import { EditForm } from './features/venue-edit/EditForm';
 import { LoginModal } from './features/auth/LoginModal';
 import { useVenues, useVenueMutations } from './features/venues/useVenues';
-import { parseCSV, toCSV, toJSON, validateImport, formatImportErrors } from './features/venues/importExport';
-import type { Venue, VenueInput } from './features/venues/types';
+import type { Venue } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
@@ -24,29 +23,6 @@ import type { SortMode } from './features/venues/grouping';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
-
-// Strip the synthetic id and flatten the gallery into photo_urls for the
-// bulk-replace RPC shape.
-const toInput = (v: Venue): VenueInput & { photo_urls: string[] } => {
-  const { id: _id, photos, ...rest } = v;
-  void _id;
-  return { ...rest, photo_urls: photos.map((p) => p.url) };
-};
-
-const download = (name: string, type: string, data: string) => {
-  try {
-    const blob = new Blob([data], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    window.setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 120);
-  } catch (err) {
-    console.warn('download failed', err);
-  }
-};
 
 const downloadBlob = (name: string, blob: Blob) => {
   try {
@@ -111,10 +87,6 @@ function AppShell() {
   const [placing, setPlacing] = useState(false);
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Import confirmation (staged file) + transient status toast.
-  const [pendingImport, setPendingImport] = useState<
-    { count: number; inputs: (VenueInput & { photo_urls: string[] })[] } | null
-  >(null);
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [posterEditorCode, setPosterEditorCode] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
@@ -246,61 +218,6 @@ function AppShell() {
   const toggleCanton = (code: string) =>
     setExpanded((e) => ({ ...e, [code]: !e[code] }));
 
-  // ---- import / export ----
-  const onExportJSON = () => download('schwingkeller.json', 'application/json', toJSON(venues));
-  const onExportCSV = () => download('schwingkeller.csv', 'text/csv;charset=utf-8', toCSV(venues));
-
-  // Parse + validate the file, then STAGE it for an explicit confirmation
-  // (the import replaces all venues, so it must not run silently).
-  const onImport = (file: File) => {
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        const txt = String(r.result);
-        const trimmed = txt.trim();
-        const isCsv = file.name.toLowerCase().endsWith('.csv') || (trimmed[0] !== '[' && trimmed[0] !== '{');
-        let rows: Record<string, unknown>[];
-        if (isCsv) {
-          rows = parseCSV(txt);
-        } else {
-          const j = JSON.parse(txt);
-          rows = Array.isArray(j) ? j : (j.venues ?? []);
-        }
-        if (!Array.isArray(rows) || rows.length === 0) {
-          showFlash('err', t.importEmpty);
-          return;
-        }
-        const format = isCsv ? 'csv' : 'json';
-        const { venues: parsed, errors } = validateImport(rows, format);
-        if (errors.length > 0) {
-          showFlash('err', formatImportErrors(errors, format, t));
-          return;
-        }
-        const inputs = parsed.map(toInput);
-        setPendingImport({ count: inputs.length, inputs });
-      } catch {
-        showFlash('err', t.importFailed);
-      }
-    };
-    r.readAsText(file);
-  };
-
-  const cancelImport = () => setPendingImport(null);
-  const runImport = async () => {
-    if (!pendingImport) return;
-    const { count, inputs } = pendingImport;
-    setPendingImport(null);
-    try {
-      await m.replaceAll.mutateAsync(inputs);
-      setDetailId(null);
-      setSelectedId(null);
-      setSearch('');
-      showFlash('ok', t.importDone + ' (' + count + ')');
-    } catch (err) {
-      showFlash('err', captureAndFormat(err, t.importFailed));
-    }
-  };
-
   // Keep EditForm mounted whenever editOpen, even while placing, so its internal
   // draft (pre-pick edits) survives. While placing we visually hide it and remove
   // it from layout (display:none) so the map underneath is clickable for the pick.
@@ -330,9 +247,6 @@ function AppShell() {
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onSetSidebarOpen={setSidebarOpen}
           onAdd={openAdd}
-          onExportJSON={onExportJSON}
-          onExportCSV={onExportCSV}
-          onImport={onImport}
           sortMode={sortMode}
           onSortMode={setSortMode}
           userPosition={geo.position}
@@ -457,52 +371,6 @@ function AppShell() {
         </Modal>
       )}
 
-      {/* Import confirm — import replaces ALL venues, so require explicit confirmation. */}
-      {pendingImport && (
-        <Modal onClose={cancelImport} width={360} zIndex={1600}>
-          <div style={{ padding: '22px' }}>
-            <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700, color: theme.color.ink }}>
-              {t.importTitle}
-            </div>
-            <div style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '8px', lineHeight: 1.5 }}>
-              {t.importBody}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '14px', alignItems: 'center', fontSize: '12px' }}>
-              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
-                <div style={{ opacity: 0.7 }}>{t.importExisting}</div>
-                <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{venues.length}</div>
-              </div>
-              <div style={{ color: theme.color.accent, flex: 'none', display: 'flex', alignItems: 'center' }}>
-                <ArrowRight size={18} />
-              </div>
-              <div style={{ flex: 1, background: theme.color.paper, border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '9px 11px', color: theme.color.ink }}>
-                <div style={{ opacity: 0.7 }}>{t.import}</div>
-                <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: theme.font.display }}>{pendingImport.count}</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
-              <button
-                onClick={cancelImport}
-                style={{
-                  flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
-                }}
-              >
-                {t.cancel}
-              </button>
-              <button
-                onClick={() => { void runImport(); }}
-                style={{
-                  flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
-                  fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
-                }}
-              >
-                {t.importReplace}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Transient status toast (import result, etc.) */}
       {flash && (

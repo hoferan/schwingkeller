@@ -20,12 +20,12 @@ const { order, from, rpc, select, insert, update, del, eq, single } = vi.hoisted
 vi.mock('../../lib/supabase', () => ({ supabase: { from, rpc } }));
 
 import {
-  listVenues, replaceAllVenues, insertVenuePhoto, deleteVenuePhoto,
+  listVenues, insertVenuePhoto, deleteVenuePhoto,
   updateVenuePhotoPosition, syncVenuePhotos, uploadPhoto,
 } from './api';
 import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
 import { supabase } from '../../lib/supabase';
-import type { VenueInput, VenuePhoto } from './types';
+import type { VenuePhoto } from './types';
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -123,33 +123,6 @@ describe('syncVenuePhotos', () => {
     expect(del).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
-  });
-});
-
-const SAMPLE_VENUE: VenueInput & { photo_urls: string[] } = {
-  name: 'Testkeller', canton: 'BE', address: 'Musterweg 1', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', association_id: 'emmental',
-  photo_urls: ['https://example.com/1.jpg'],
-};
-
-describe('replaceAllVenues', () => {
-  it('calls replace_venues RPC with the given rows', async () => {
-    rpc.mockResolvedValue({ error: null });
-    await replaceAllVenues([SAMPLE_VENUE]);
-    expect(rpc).toHaveBeenCalledWith('replace_venues', { rows: [SAMPLE_VENUE] });
-  });
-  it('works with an empty list', async () => {
-    rpc.mockResolvedValue({ error: null });
-    await replaceAllVenues([]);
-    expect(rpc).toHaveBeenCalledWith('replace_venues', { rows: [] });
-  });
-  it('throws with error code prefix on RPC error', async () => {
-    rpc.mockResolvedValue({ error: { message: 'function does not exist', code: '42883' } });
-    await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[42883] function does not exist');
-  });
-  it('propagates pg_safeupdate 21000 error when DELETE lacks WHERE clause', async () => {
-    rpc.mockResolvedValue({ error: { message: 'DELETE requires a WHERE clause', code: '21000' } });
-    await expect(replaceAllVenues([SAMPLE_VENUE])).rejects.toThrow('[21000] DELETE requires a WHERE clause');
   });
 });
 

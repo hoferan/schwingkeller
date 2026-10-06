@@ -33,16 +33,11 @@ vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: strin
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
 vi.mock('./features/map/MapView', () => ({ MapView: () => <div data-testid="mapview" /> }));
 vi.mock('./features/sidebar/Sidebar', () => ({
-  Sidebar: ({ onGeneratePoster, expanded, onImport }: {
-    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>; onImport: (file: File) => void;
+  Sidebar: ({ onGeneratePoster, expanded }: {
+    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>;
   }) => (
     <div>
       <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
-      <button
-        onClick={() => onImport(new File(['name,canton,association_id\nA,BE,bksv\nB,ZH,emental\n'], 'v.csv', { type: 'text/csv' }))}
-      >
-        import-bad
-      </button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
     </div>
   ),
@@ -117,18 +112,5 @@ describe('App — poster editor wiring', () => {
     await user.click(await screen.findByText('ed-close'));
 
     await waitFor(() => expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument());
-  });
-});
-
-describe('App — import validation', () => {
-  it('names the rows with an unknown association and stages nothing', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByText('import-bad'));
-    const flash = await screen.findByRole('status');
-    expect(flash).toHaveTextContent('Zeile 2: unbekannter Verband «bksv»');
-    expect(flash).toHaveTextContent('Zeile 3: unbekannter Verband «emental»');
-    expect(flash).toHaveStyle({ whiteSpace: 'pre-line' });
-    expect(screen.queryByText(STR.de.importTitle)).not.toBeInTheDocument();
   });
 });

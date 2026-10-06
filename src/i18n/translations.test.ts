@@ -12,7 +12,6 @@ describe('translations', () => {
   it('defines the admin-section and sort-label keys in every language', () => {
     for (const lang of LANGS) {
       expect(STR[lang].adminSection).toBeTruthy();
-      expect(STR[lang].adminToggle).toBeTruthy();
       expect(STR[lang].byName).toBeTruthy();
       expect(STR[lang].byDistance).toBeTruthy();
     }
