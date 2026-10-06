@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-05
+date: 2026-10-06
 decision-makers: André Hofer
 ---
 
@@ -50,7 +50,9 @@ Chosen option: one node of the tree per profile.
 * Good, because a new level in the tree, such as clubs, works without touching the policies.
 * Good, because checking for a super-admin is a comparison with `esv`.
 * A venue without a Verband is writable only by a super-admin.
-* `replace_venues` deletes everything before inserting, so it's limited to super-admins.
+* No function replaces every venue at once any more
+  ([ADR 0018](0018-remove-the-import-and-replace-venues.md)), so the scoped policies need no
+  exception for one.
 * Existing accounts are bootstrapped to `esv`, so production keeps working when the policies
   tighten.
 

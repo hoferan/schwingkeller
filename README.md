@@ -95,7 +95,7 @@ Supabase schema and seed data live under `supabase/`:
 
 - `supabase/migrations/` — numbered SQL migrations: the `venues` table and its RLS policies, the
   `venue-photos` Storage bucket and its policies, the `venue_photos` gallery table, and the
-  `replace_venues` import function.
+  Verband tree.
 - `supabase/seed.sql` — seeds 30 example venues for local development.
 
 ## Prerequisites
