@@ -46,8 +46,8 @@ export const stubMapTiles = async (page: import('@playwright/test').Page) => {
 };
 
 // Nominatim is a volunteer service with a published rate limit of one request a second, so a test
-// suite has no business calling it — the edit form geocodes 900ms after an address is typed.
-// Answering with an empty result set leaves the form's own "nothing found" path intact.
+// suite has no business calling it, and the edit form's "Adresse suchen" button would. Answering
+// with an empty result set leaves the form's own "nothing found" path intact.
 export const stubGeocoding = async (page: import('@playwright/test').Page) => {
   await page.route('https://nominatim.openstreetmap.org/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));

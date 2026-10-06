@@ -372,7 +372,7 @@ function AppShell() {
       )}
 
 
-      {/* Transient status toast (import result, etc.) */}
+      {/* Transient status toast */}
       {flash && (
         <div
           role="status"
@@ -381,7 +381,6 @@ function AppShell() {
             background: flash.kind === 'ok' ? theme.color.ink : theme.color.accent, color: theme.color.bg,
             padding: '12px 18px', borderRadius: theme.radius.sm, boxShadow: theme.shadow,
             fontSize: '13.5px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center',
-            whiteSpace: 'pre-line',
             animation: 'popIn .24s ease',
           }}
         >

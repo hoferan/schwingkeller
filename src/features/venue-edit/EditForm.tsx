@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Check, Home, Mountain, Crosshair, ArrowUpDown, Search } from 'lucide-react';
+import { X, Check, Home, Mountain, Crosshair, Search } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
@@ -74,6 +74,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   const [associationMissing, setAssociationMissing] = useState(false);
   // The address as typed right now, so a search result for an older address can be dropped.
   const currentAddress = useRef(draft.address);
+  // A blocked save focuses the field, which scrolls it into view inside the modal.
+  const associationRef = useRef<HTMLSelectElement>(null);
   // Track which picked-coords payload we've already consumed.
   const lastPicked = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -90,9 +92,14 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
 
   const searchAddress = async () => {
     const address = draft.address;
+    setAddressNotFound(false);
     setSearching(true);
-    const res = await forwardGeocode(address);
-    setSearching(false);
+    let res: Awaited<ReturnType<typeof forwardGeocode>> = null;
+    try {
+      res = await forwardGeocode(address);
+    } finally {
+      setSearching(false);
+    }
     if (currentAddress.current !== address) return;
     if (!res) {
       setAddressNotFound(true);
@@ -131,6 +138,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     if (!draft.name.trim()) return;
     if (!draft.association_id) {
       setAssociationMissing(true);
+      associationRef.current?.focus();
       return;
     }
     try {
@@ -256,8 +264,10 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             setAssociationMissing(false);
             setDraft((d) => ({ ...d, association_id: value || null }));
           }}
+          ref={associationRef}
           aria-invalid={associationMissing}
-          style={{ ...inputStyle, ...(associationMissing ? { borderColor: theme.color.accent } : {}) }}
+          aria-describedby={associationMissing ? 'venue-association-error' : undefined}
+          style={{ ...inputStyle, border: '1px solid ' + (associationMissing ? theme.color.accent : theme.color.line) }}
         >
           <option value="" disabled>{t.associationPlaceholder}</option>
           {associations.childrenOf('esv').map((regional) => (
@@ -269,7 +279,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           ))}
         </select>
         {associationMissing && (
-          <div style={{ fontSize: '11px', color: theme.color.accent, marginTop: '5px', fontWeight: 600 }}>
+          <div id="venue-association-error" style={{ fontSize: '11px', color: theme.color.accent, marginTop: '5px', fontWeight: 600 }}>
             {t.associationRequired}
           </div>
         )}
@@ -312,14 +322,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           >
             <Crosshair size={14} /> {t.pickOnMap}
           </button>
-        </div>
-        <div
-          style={{
-            fontSize: '11px', color: theme.color.muted, marginTop: '5px',
-            display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          <ArrowUpDown size={12} /> {t.locSync}
         </div>
 
         {/* contact */}

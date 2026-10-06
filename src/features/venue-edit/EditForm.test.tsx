@@ -303,6 +303,41 @@ describe('EditForm association and address', () => {
     expect((await savedPayload()).association_id).toBe('emmental');
   });
 
+  it('promises no automatic sync between address and pin', () => {
+    renderWith(base);
+    expect(screen.queryByText(/automatisch synchronisiert/)).toBeNull();
+  });
+
+  it('clears "not found" when a later search succeeds', async () => {
+    renderWith(base);
+    fireEvent.change(address(), { target: { value: 'Murtengasse 18, 1700 Fribourg' } });
+    vi.mocked(forwardGeocode).mockResolvedValueOnce(null);
+    fireEvent.click(search());
+    await flush();
+    expect(screen.getByText(STR.de.addressNotFound)).toBeInTheDocument();
+    vi.mocked(forwardGeocode).mockResolvedValueOnce({ lat: 46.81, lng: 7.16, canton: 'FR' });
+    fireEvent.click(search());
+    await flush();
+    expect(screen.queryByText(STR.de.addressNotFound)).toBeNull();
+  });
+
+  it('moves focus to the association when a save is blocked, and names the reason', async () => {
+    renderWith({ ...base, association_id: null });
+    save();
+    await flush();
+    expect(document.activeElement).toBe(association());
+    const message = screen.getByText(STR.de.associationRequired);
+    expect(association()).toHaveAttribute('aria-describedby', message.id);
+  });
+
+  it('gives the association field its normal border back once the error clears', async () => {
+    renderWith({ ...base, association_id: null });
+    save();
+    await flush();
+    fireEvent.change(association(), { target: { value: 'freiburg' } });
+    expect(association().style.border).toBe(canton().style.border);
+  });
+
   it('starts the next venue without an association after "Speichern & neu"', () => {
     const { rerender } = renderWith(null);
     fireEvent.change(association(), { target: { value: 'zuerich' } });

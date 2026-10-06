@@ -77,8 +77,8 @@ Chosen option: store a node of the ESV tree on each venue.
 
 A database trigger rejects an `association_id` that isn't on the cantonal level, the lowest one, and
 a seed test checks every row has a valid one. An integration test compares the frontend's copy of
-the tree with the database. The cross-border seed venue covers the override in the grouping and
-permalink tests.
+the tree with the database. The cross-border seed venue, filed under a Verband outside its canton,
+covers that case in the grouping and permalink tests.
 
 ## More information
 

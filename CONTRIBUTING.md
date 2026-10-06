@@ -16,7 +16,7 @@ src/
 ├── i18n/          # translations.ts, useTranslation.ts (DE / FR / IT)
 ├── features/
 │   ├── auth/      # AuthProvider, useAuth, LoginModal
-│   ├── venues/    # types, api, useVenues, geocoding, importExport, grouping
+│   ├── venues/    # types, api, useVenues, geocoding, grouping
 │   ├── map/       # MapView, markers
 │   ├── sidebar/   # Sidebar
 │   ├── venue-detail/  # DetailModal

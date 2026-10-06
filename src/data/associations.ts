@@ -60,8 +60,8 @@ export type CantonalId = Extract<Entry, { level: 'cantonal' }>['id'];
 const IDS: ReadonlySet<string> = new Set(ASSOCIATIONS.map((a) => a.id));
 export const isAssociationId = (x: unknown): x is AssociationId => typeof x === 'string' && IDS.has(x);
 
-// Suggests an association for a venue: by canton, or inside Bern by Verwaltungskreis. The value stored
-// on the venue is the truth, so a club across a border can pick another one.
+// Where each association is at home: a canton, or inside Bern a Verwaltungskreis. The form suggests
+// nothing from it; it frames an association without venues (associationBounds.ts).
 export const HOME_AREAS: readonly { canton: string; bernDistrict: string | null; associationId: CantonalId }[] = [
   { canton: 'ZH', bernDistrict: null, associationId: 'zuerich' },
   { canton: 'LU', bernDistrict: null, associationId: 'luzern' },
