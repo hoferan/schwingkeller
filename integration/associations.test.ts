@@ -49,6 +49,14 @@ describe('the association tree as an anonymous visitor', () => {
       .forEach((r) => expect(levelOf.get(r.parent_id ?? ''), `parent of ${r.id}`).toBe('regional'));
   });
 
+  // Monograms, abbreviations and logos are display data and live in the frontend with the
+  // translated names. The table holds the structure only.
+  it('holds the structure only, without display columns', async () => {
+    const { data, error } = await anon.from('associations').select('*').eq('id', 'emmental').single();
+    expect(error).toBeNull();
+    expect(Object.keys(data ?? {}).sort()).toEqual(['id', 'level', 'name', 'parent_id', 'sort_order']);
+  });
+
   it('has the three levels with depths 0, 1 and 2', async () => {
     const { data, error } = await anon.from('association_levels').select('id, depth').order('depth');
     expect(error).toBeNull();
@@ -80,7 +88,7 @@ describe('the association tree as an anonymous visitor', () => {
 const WRITES: Record<string, { insert: object; update: object; match: [string, string] }> = {
   association_levels: { insert: { id: 'club', depth: 3 }, update: { depth: 9 }, match: ['id', 'cantonal'] },
   associations: {
-    insert: { id: 'nowhere', parent_id: 'esv', level: 'regional', name: 'Nowhere', short: 'NW', sort_order: 9 },
+    insert: { id: 'nowhere', parent_id: 'esv', level: 'regional', name: 'Nowhere', sort_order: 9 },
     update: { name: 'Renamed' },
     match: ['id', 'esv'],
   },

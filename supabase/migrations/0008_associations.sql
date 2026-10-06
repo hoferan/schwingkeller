@@ -28,49 +28,48 @@ create table if not exists public.associations (
   parent_id   text references public.associations(id),
   level       text not null references public.association_levels(id),
   name        text not null,                                       -- German name, for SQL readability; the UI uses i18n
-  short       text not null,                                       -- monogram or abbreviation
-  sort_order  int  not null,                                       -- order among siblings
-  logo_path   text                                                 -- null: the UI draws the monogram
+  sort_order  int  not null                                        -- order among siblings
 );
 
 -- Names and grouping follow schlussgang.ch (Kantonal- und Gauverbände, Struktur). Parents come
--- before their children.
-insert into public.associations (id, parent_id, level, name, short, sort_order) values
-  ('esv', null, 'federation', 'Eidgenössischer Schwingerverband', 'ESV', 1),
-  ('bksv', 'esv', 'regional', 'Berner Kantonal-Schwingerverband', 'BKSV', 1),
-  ('isv', 'esv', 'regional', 'Innerschweizer Schwingerverband', 'ISV', 2),
-  ('nosv', 'esv', 'regional', 'Nordostschweizer Schwingerverband', 'NOSV', 3),
-  ('nwsv', 'esv', 'regional', 'Nordwestschweizer Schwingerverband', 'NWSV', 4),
-  ('swsv', 'esv', 'regional', 'Südwestschweizer Schwingerverband', 'SWSV', 5),
-  ('berner-jura', 'bksv', 'cantonal', 'Berner Jura', 'BJ', 1),
-  ('emmental', 'bksv', 'cantonal', 'Emmental', 'EM', 2),
-  ('mittelland', 'bksv', 'cantonal', 'Mittelland', 'MI', 3),
-  ('oberaargau', 'bksv', 'cantonal', 'Oberaargau', 'OA', 4),
-  ('oberland', 'bksv', 'cantonal', 'Oberland', 'OL', 5),
-  ('seeland', 'bksv', 'cantonal', 'Seeland', 'SL', 6),
-  ('luzern', 'isv', 'cantonal', 'Luzern', 'LU', 1),
-  ('ob-nidwalden', 'isv', 'cantonal', 'Ob- und Nidwalden', 'UW', 2),
-  ('schwyz', 'isv', 'cantonal', 'Schwyz', 'SZ', 3),
-  ('tessin', 'isv', 'cantonal', 'Tessin', 'TI', 4),
-  ('uri', 'isv', 'cantonal', 'Uri', 'UR', 5),
-  ('zug', 'isv', 'cantonal', 'Zug', 'ZG', 6),
-  ('appenzell', 'nosv', 'cantonal', 'Appenzell', 'AP', 1),
-  ('glarus', 'nosv', 'cantonal', 'Glarus', 'GL', 2),
-  ('graubuenden', 'nosv', 'cantonal', 'Graubünden', 'GR', 3),
-  ('schaffhausen', 'nosv', 'cantonal', 'Schaffhausen', 'SH', 4),
-  ('st-gallen', 'nosv', 'cantonal', 'St. Gallen', 'SG', 5),
-  ('thurgau', 'nosv', 'cantonal', 'Thurgau', 'TG', 6),
-  ('zuerich', 'nosv', 'cantonal', 'Zürich', 'ZH', 7),
-  ('aargau', 'nwsv', 'cantonal', 'Aargau', 'AG', 1),
-  ('baselland', 'nwsv', 'cantonal', 'Baselland', 'BL', 2),
-  ('baselstadt', 'nwsv', 'cantonal', 'Baselstadt', 'BS', 3),
-  ('solothurn', 'nwsv', 'cantonal', 'Solothurn', 'SO', 4),
-  ('freiburg', 'swsv', 'cantonal', 'Freiburg', 'FR', 1),
-  ('genf', 'swsv', 'cantonal', 'Genf', 'GE', 2),
-  ('jura', 'swsv', 'cantonal', 'Jura', 'JU', 3),
-  ('neuenburg', 'swsv', 'cantonal', 'Neuenburg', 'NE', 4),
-  ('waadt', 'swsv', 'cantonal', 'Waadt', 'VD', 5),
-  ('wallis', 'swsv', 'cantonal', 'Wallis', 'VS', 6)
+-- before their children. Monograms, abbreviations and logos are display data and live in the
+-- frontend with the translated names.
+insert into public.associations (id, parent_id, level, name, sort_order) values
+  ('esv', null, 'federation', 'Eidgenössischer Schwingerverband', 1),
+  ('bksv', 'esv', 'regional', 'Berner Kantonal-Schwingerverband', 1),
+  ('isv', 'esv', 'regional', 'Innerschweizer Schwingerverband', 2),
+  ('nosv', 'esv', 'regional', 'Nordostschweizer Schwingerverband', 3),
+  ('nwsv', 'esv', 'regional', 'Nordwestschweizer Schwingerverband', 4),
+  ('swsv', 'esv', 'regional', 'Südwestschweizer Schwingerverband', 5),
+  ('berner-jura', 'bksv', 'cantonal', 'Berner Jura', 1),
+  ('emmental', 'bksv', 'cantonal', 'Emmental', 2),
+  ('mittelland', 'bksv', 'cantonal', 'Mittelland', 3),
+  ('oberaargau', 'bksv', 'cantonal', 'Oberaargau', 4),
+  ('oberland', 'bksv', 'cantonal', 'Oberland', 5),
+  ('seeland', 'bksv', 'cantonal', 'Seeland', 6),
+  ('luzern', 'isv', 'cantonal', 'Luzern', 1),
+  ('ob-nidwalden', 'isv', 'cantonal', 'Ob- und Nidwalden', 2),
+  ('schwyz', 'isv', 'cantonal', 'Schwyz', 3),
+  ('tessin', 'isv', 'cantonal', 'Tessin', 4),
+  ('uri', 'isv', 'cantonal', 'Uri', 5),
+  ('zug', 'isv', 'cantonal', 'Zug', 6),
+  ('appenzell', 'nosv', 'cantonal', 'Appenzell', 1),
+  ('glarus', 'nosv', 'cantonal', 'Glarus', 2),
+  ('graubuenden', 'nosv', 'cantonal', 'Graubünden', 3),
+  ('schaffhausen', 'nosv', 'cantonal', 'Schaffhausen', 4),
+  ('st-gallen', 'nosv', 'cantonal', 'St. Gallen', 5),
+  ('thurgau', 'nosv', 'cantonal', 'Thurgau', 6),
+  ('zuerich', 'nosv', 'cantonal', 'Zürich', 7),
+  ('aargau', 'nwsv', 'cantonal', 'Aargau', 1),
+  ('baselland', 'nwsv', 'cantonal', 'Baselland', 2),
+  ('baselstadt', 'nwsv', 'cantonal', 'Baselstadt', 3),
+  ('solothurn', 'nwsv', 'cantonal', 'Solothurn', 4),
+  ('freiburg', 'swsv', 'cantonal', 'Freiburg', 1),
+  ('genf', 'swsv', 'cantonal', 'Genf', 2),
+  ('jura', 'swsv', 'cantonal', 'Jura', 3),
+  ('neuenburg', 'swsv', 'cantonal', 'Neuenburg', 4),
+  ('waadt', 'swsv', 'cantonal', 'Waadt', 5),
+  ('wallis', 'swsv', 'cantonal', 'Wallis', 6)
 on conflict (id) do nothing;
 
 -- Where an association is at home: a canton, or a Verwaltungskreis inside Bern, where the canton
