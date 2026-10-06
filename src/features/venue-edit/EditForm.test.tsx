@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import { render, fireEvent, waitFor, screen, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const { uploadMock } = vi.hoisted(() => ({
@@ -50,6 +50,9 @@ import { STR } from '../../i18n/translations';
 import { EditForm } from './EditForm';
 import { captureAndFormat } from '../../lib/sentry';
 import { syncVenuePhotos } from '../venues/api';
+import { forwardGeocode } from '../venues/geocoding';
+import { supabase } from '../../lib/supabase';
+import type { Venue } from '../venues/types';
 
 const makeClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -146,5 +149,126 @@ describe('EditForm field labels', () => {
     expect(screen.getByLabelText(STR.de.name).tagName).toBe('INPUT');
     expect(screen.getByLabelText(STR.de.address).tagName).toBe('INPUT');
     expect(screen.getByLabelText(STR.de.canton).tagName).toBe('SELECT');
+  });
+});
+
+describe('EditForm association', () => {
+  const base: Venue = {
+    id: 'v9', name: 'Halle', canton: 'ZH', address: '', lat: 47.37, lng: 8.54, indoor: true, outdoor: false,
+    person: '', phone: '', website: '', photos: [], association_id: null,
+  };
+
+  const renderWith = (initial: Venue | null) =>
+    render(
+      <QueryClientProvider client={makeClient()}>
+        <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+          <EditForm initial={initial} onClose={vi.fn()} onSaved={vi.fn()} onStartPlacing={vi.fn()} pickedCoords={null} />
+        </I18nContext.Provider>
+      </QueryClientProvider>,
+    );
+
+  // The insert or update payload the form sent to Supabase. With fake timers the mutation only runs
+  // once the clock moves, and waitFor can't move Vitest's clock, so this advances it directly.
+  type Chain = { insert: Mock; update: Mock };
+  const savedPayload = async () => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    const chain = vi.mocked(supabase.from).mock.results[0]?.value as Chain | undefined;
+    expect((chain?.insert.mock.calls.length ?? 0) + (chain?.update.mock.calls.length ?? 0)).toBe(1);
+    return (chain!.insert.mock.calls[0] ?? chain!.update.mock.calls[0])[0] as Record<string, unknown>;
+  };
+  const save = () => fireEvent.click(screen.getByText(STR.de.saveClose));
+  const association = () => screen.getByLabelText(STR.de.association) as HTMLSelectElement;
+  const canton = () => screen.getByLabelText(STR.de.canton) as HTMLSelectElement;
+  const typeAddress = async (value: string) => {
+    fireEvent.change(screen.getByLabelText(STR.de.address), { target: { value } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  };
+  const geocodeOnce = (canton: string, bernDistrict: string | null) =>
+    vi.mocked(forwardGeocode).mockResolvedValueOnce({ lat: 47, lng: 7.5, canton, bernDistrict });
+
+  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
+
+  it('suggests Emmental for a Langnau address', async () => {
+    renderWith(null);
+    geocodeOnce('BE', 'Emmental');
+    fireEvent.change(screen.getByLabelText(STR.de.address), { target: { value: 'Schlossstrasse 3, 3550 Langnau i. E.' } });
+    expect(canton().value).toBe('BE');
+    expect(association().value).toBe('');
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(association().value).toBe('emmental');
+    expect(screen.getByText(STR.de.associationAuto)).toBeInTheDocument();
+  });
+
+  it('keeps a manual pick through a later address change', async () => {
+    renderWith(null);
+    fireEvent.change(association(), { target: { value: 'oberland' } });
+    expect(screen.queryByText(STR.de.associationAuto)).toBeNull();
+    geocodeOnce('ZH', null);
+    await typeAddress('Bahnhofstrasse 1, 8001 Zürich');
+    expect(canton().value).toBe('ZH');
+    expect(association().value).toBe('oberland');
+  });
+
+  it('saves null for "Ohne Verband"', async () => {
+    renderWith({ ...base, association_id: 'zuerich' });
+    fireEvent.change(association(), { target: { value: '' } });
+    save();
+    expect((await savedPayload()).association_id).toBeNull();
+  });
+
+  it('keeps a deliberate association when the canton changes', async () => {
+    renderWith({ ...base, canton: 'LU', association_id: 'emmental' });
+    fireEvent.change(canton(), { target: { value: 'ZH' } });
+    save();
+    expect((await savedPayload()).association_id).toBe('emmental');
+  });
+
+  it('follows the canton for an automatic association', async () => {
+    renderWith({ ...base, canton: 'ZH', association_id: 'zuerich' });
+    fireEvent.change(canton(), { target: { value: 'SG' } });
+    save();
+    expect((await savedPayload()).association_id).toBe('st-gallen');
+  });
+
+  it('keeps a Bernese Gau', async () => {
+    renderWith({ ...base, canton: 'BE', association_id: 'oberland' });
+    geocodeOnce('BE', 'Emmental');
+    await typeAddress('Schlossstrasse 3, 3550 Langnau i. E.');
+    save();
+    expect((await savedPayload()).association_id).toBe('oberland');
+  });
+
+  it('assigns a venue that had none', async () => {
+    renderWith({ ...base, canton: 'BE', association_id: null });
+    geocodeOnce('BE', 'Emmental');
+    await typeAddress('Schlossstrasse 3, 3550 Langnau i. E.');
+    save();
+    expect((await savedPayload()).association_id).toBe('emmental');
+  });
+
+  it('sends the stored association on an unrelated edit', async () => {
+    renderWith({ ...base, canton: 'LU', association_id: 'emmental' });
+    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neuer Name' } });
+    save();
+    expect((await savedPayload()).association_id).toBe('emmental');
+  });
+
+  it('drops to no association when an automatic venue moves to Bern', async () => {
+    renderWith({ ...base, canton: 'ZH', association_id: 'zuerich' });
+    fireEvent.change(canton(), { target: { value: 'BE' } });
+    save();
+    expect((await savedPayload()).association_id).toBeNull();
+  });
+
+  it('flag off: no association field, but the suggestion is saved', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    renderWith(null);
+    expect(document.getElementById('venue-association')).toBeNull();
+    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });
+    fireEvent.change(canton(), { target: { value: 'ZH' } });
+    expect(screen.queryByText(STR.de.associationAuto)).toBeNull();
+    save();
+    expect((await savedPayload()).association_id).toBe('zuerich');
   });
 });

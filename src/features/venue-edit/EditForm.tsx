@@ -10,6 +10,9 @@ import type { Venue, VenueInput } from '../venues/types';
 import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
 import { PhotoGalleryEditor } from './PhotoGalleryEditor';
+import { isFeatureOn } from '../../lib/features';
+import { suggestAssociation } from '../associations/suggest';
+import { useAssociations } from '../associations/useAssociations';
 
 interface EditFormProps {
   initial: Venue | null;
@@ -20,8 +23,36 @@ interface EditFormProps {
   onError?: (msg: string) => void;
 }
 
-// Editable copy of a Venue plus a transient UI flag mirroring the prototype's `cantonAuto`.
-type Draft = Venue & { cantonAuto: boolean };
+// Editable copy of a Venue plus transient UI state: `cantonAuto` mirrors the prototype, and the
+// association fields drive the suggestion. None of them is saved.
+type Draft = Venue & {
+  cantonAuto: boolean;
+  associationAuto: boolean;
+  // Set once the association is a deliberate choice; suggestions no longer overwrite it.
+  associationManual: boolean;
+  // The Verwaltungskreis geocoding last returned, for a Bernese suggestion.
+  bernDistrict: string | null;
+};
+
+// An existing venue's association counts as deliberate when it differs from what its canton
+// suggests: a club across a border, or any Bernese Gau, since the venue stores no district. A
+// stored null counts as automatic, so the venue gets one once its location changes.
+const draftOf = (venue: Venue): Draft => ({
+  ...venue,
+  cantonAuto: false,
+  associationAuto: false,
+  associationManual:
+    venue.association_id !== null && venue.association_id !== suggestAssociation({ canton: venue.canton }),
+  bernDistrict: null,
+});
+
+// Every change to the canton or district goes through here, so the association follows the
+// location unless it was chosen deliberately.
+const withLocation = (d: Draft, canton: string, bernDistrict: string | null): Draft => {
+  if (d.associationManual) return { ...d, canton, bernDistrict };
+  const association_id = suggestAssociation({ canton, bernDistrict });
+  return { ...d, canton, bernDistrict, association_id, associationAuto: association_id !== null };
+};
 
 const blankDraft = (): Draft => ({
   id: '',
@@ -38,6 +69,9 @@ const blankDraft = (): Draft => ({
   photos: [],
   association_id: null,
   cantonAuto: false,
+  associationAuto: false,
+  associationManual: false,
+  bernDistrict: null,
 });
 
 const inputStyle: React.CSSProperties = {
@@ -62,9 +96,11 @@ const spOff: React.CSSProperties = {
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
   const { t } = useTranslation();
   const { create, update, syncPhotos } = useVenueMutations();
+  const associations = useAssociations();
+  const showAssociation = isFeatureOn('verband');
 
   const [draft, setDraft] = useState<Draft>(() =>
-    initial ? { ...initial, cantonAuto: false } : blankDraft());
+    initial ? draftOf(initial) : blankDraft());
 
   // Debounce timer for forward geocoding (prototype `_geoT`).
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,11 +115,10 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   const applyReverse = async (lat: number, lng: number) => {
     const res = await reverseGeocode(lat, lng);
     if (!res) return;
-    setDraft((d) => ({
-      ...d,
-      address: res.address,
-      ...(res.canton ? { canton: res.canton, cantonAuto: true } : {}),
-    }));
+    setDraft((d) => {
+      const next = { ...d, address: res.address };
+      return res.canton ? { ...withLocation(next, res.canton, res.bernDistrict), cantonAuto: true } : next;
+    });
   };
 
   // When the map delivers a new picked coordinate, update draft + backfill address/canton.
@@ -104,7 +139,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     setDraft((d) => {
       // Ignore stale results if the address has since changed.
       if (d.address !== address) return d;
-      return { ...d, lat: res.lat, lng: res.lng, ...(res.canton ? { canton: res.canton, cantonAuto: true } : {}) };
+      const next = { ...d, lat: res.lat, lng: res.lng };
+      return res.canton ? { ...withLocation(next, res.canton, res.bernDistrict), cantonAuto: true } : next;
     });
   };
 
@@ -113,11 +149,11 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     const c = plzToCanton(val);
     if (geoTimer.current) clearTimeout(geoTimer.current);
     geoTimer.current = setTimeout(() => { void runForwardGeocode(val); }, 900);
-    setDraft((d) => ({
-      ...d,
-      address: val,
-      ...(c ? { canton: c, cantonAuto: true } : {}),
-    }));
+    setDraft((d) => {
+      const next = { ...d, address: val };
+      // The postcode gives no district; keep the last one while the canton stays the same.
+      return c ? { ...withLocation(next, c, c === d.canton ? d.bernDistrict : null), cantonAuto: true } : next;
+    });
   };
 
   const buildInput = (): VenueInput => ({
@@ -131,6 +167,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     person: draft.person,
     phone: draft.phone,
     website: draft.website,
+    association_id: draft.association_id,
   });
 
   const save = async (andNew: boolean) => {
@@ -209,7 +246,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <select
           id="venue-canton"
           value={draft.canton}
-          onChange={(e) => setDraft((d) => ({ ...d, canton: e.target.value, cantonAuto: false }))}
+          onChange={(e) => setDraft((d) => ({ ...withLocation(d, e.target.value, null), cantonAuto: false }))}
           style={inputStyle}
         >
           {CANTONS.map((c) => (
@@ -225,6 +262,41 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           >
             <Check size={12} /> {t.cantonAuto}
           </div>
+        )}
+
+        {/* association */}
+        {showAssociation && (
+          <>
+            <label htmlFor="venue-association" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.association}</label>
+            <select
+              id="venue-association"
+              value={draft.association_id ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraft((d) => ({ ...d, association_id: value || null, associationManual: true, associationAuto: false }));
+              }}
+              style={inputStyle}
+            >
+              <option value="">{t.associationNone}</option>
+              {associations.childrenOf('esv').map((regional) => (
+                <optgroup key={regional.id} label={associations.nameOf(regional.id)}>
+                  {associations.childrenOf(regional.id).map((a) => (
+                    <option key={a.id} value={a.id}>{associations.nameOf(a.id)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {draft.associationAuto && (
+              <div
+                style={{
+                  fontSize: '11px', color: theme.color.ink, marginTop: '5px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                }}
+              >
+                <Check size={12} /> {t.associationAuto}
+              </div>
+            )}
+          </>
         )}
 
         {/* spaces */}

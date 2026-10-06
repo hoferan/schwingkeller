@@ -128,7 +128,8 @@ describe('syncVenuePhotos', () => {
 
 const SAMPLE_VENUE: VenueInput & { photo_urls: string[] } = {
   name: 'Testkeller', canton: 'BE', address: 'Musterweg 1', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photo_urls: ['https://example.com/1.jpg'],
+  indoor: true, outdoor: false, person: '', phone: '', website: '', association_id: 'emmental',
+  photo_urls: ['https://example.com/1.jpg'],
 };
 
 describe('replaceAllVenues', () => {
