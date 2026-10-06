@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by [0018](0018-remove-the-import-and-replace-venues.md)
 date: 2026-06-20
 decision-makers: André Hofer
 ---

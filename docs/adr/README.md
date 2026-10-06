@@ -56,7 +56,7 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 |---|---|---|
 | [0000](0000-use-madr-for-decisions.md) | Record decisions in MADR, keep specs and plans out of the repo | accepted |
 | [0001](0001-rls-is-the-security-boundary.md) | Row Level Security is the only security boundary | accepted |
-| [0002](0002-replace-venues-in-one-rpc.md) | Replace all venues atomically in one `security invoker` function | accepted |
+| [0002](0002-replace-venues-in-one-rpc.md) | Replace all venues atomically in one `security invoker` function | superseded by [0018](0018-remove-the-import-and-replace-venues.md) |
 | [0003](0003-report-errors-to-sentry-with-codes.md) | Report caught errors to Sentry and show a translated message with a code | accepted |
 | [0004](0004-inline-styles-and-theme-module.md) | Style with inline style objects and a TypeScript theme module | accepted |
 | [0005](0005-plain-map-without-mask-or-borders.md) | Show a plain map, without a mask outside Switzerland or canton borders | accepted |
@@ -72,3 +72,4 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0015](0015-organise-venues-by-schwingerverband.md) | Organise venues by Schwingerverband, keep the canton as geography | proposed |
 | [0016](0016-editor-scope-is-a-verband-node.md) | An editor's scope is one node of the Verband tree | proposed |
 | [0017](0017-feature-flags-from-one-registry.md) | Feature flags as one table in code, with a value per environment | proposed |
+| [0018](0018-remove-the-import-and-replace-venues.md) | Remove the import and drop `replace_venues` | accepted |

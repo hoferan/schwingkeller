@@ -66,4 +66,13 @@ describe('venues as the signed-in admin', () => {
     const { data: gone } = await admin.from('venues').select('id').eq('id', venue.id);
     expect(gone).toHaveLength(0);
   });
+
+  // 0009 dropped replace_venues (ADR 0018). The broken lat matters only if the function comes
+  // back: the call then fails on the cast and rolls back, instead of deleting every venue.
+  it('cannot call replace_venues, because it no longer exists', async () => {
+    const { error } = await admin.rpc('replace_venues', {
+      rows: [{ name: `${INT_PREFIX} replace`, canton: 'GR', lat: 'not-a-number', lng: 9.53 }],
+    });
+    expect(error?.code ?? '(no error)', error?.message).toBe('PGRST202');
+  });
 });
