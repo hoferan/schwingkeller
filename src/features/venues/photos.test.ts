@@ -4,7 +4,7 @@ import type { Venue } from './types';
 
 const baseVenue: Venue = {
   id: 'v1', name: 'Test', canton: 'BE', address: '', lat: 46.8, lng: 8.2,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [],
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null,
 };
 
 describe('coverPhotoUrl', () => {

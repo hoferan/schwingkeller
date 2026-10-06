@@ -24,7 +24,7 @@ export const plzToCanton = (addr: string): string | null => {
   return null;
 };
 
-export interface GeoAddress { 'ISO3166-2-lvl4'?: string; postcode?: string }
+export interface GeoAddress { 'ISO3166-2-lvl4'?: string; postcode?: string; county?: string }
 
 export const cantonFromGeo = (a: GeoAddress | null | undefined): string | null => {
   if (!a) return null;
@@ -33,4 +33,18 @@ export const cantonFromGeo = (a: GeoAddress | null | undefined): string | null =
   if (m && cantonByCode(m[1])) return m[1];
   if (a.postcode) return plzToCanton(a.postcode);
   return null;
+};
+
+// The Bernese Verwaltungskreis from Nominatim's `county`, named as in HOME_AREAS. Nominatim sends
+// 'Verwaltungskreis Thun' when asked in German; the French form is mapped too, in case a request
+// goes out in another language. Null outside Bern or without a county.
+export const bernDistrictFromGeo = (a: GeoAddress | null | undefined): string | null => {
+  if (cantonFromGeo(a) !== 'BE') return null;
+  const county = a?.county?.trim();
+  if (!county) return null;
+  const name = county
+    .replace(/^Verwaltungskreis\s+/, '')
+    .replace(/^Arrondissement administratif\s+(?:du |de la |de |d')?/, '')
+    .trim();
+  return name === 'Jura bernois' ? 'Berner Jura' : name || null;
 };

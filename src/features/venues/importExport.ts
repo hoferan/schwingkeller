@@ -26,6 +26,8 @@ export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => 
     phone: String(v.phone ?? ''),
     website: String(v.website ?? ''),
     photos,
+    // Import and export of the column come with #66.
+    association_id: null,
   };
 };
 

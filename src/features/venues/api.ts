@@ -22,6 +22,7 @@ interface VenueRow {
   person: string;
   phone: string;
   website: string;
+  association_id: string | null;
   venue_photos: VenuePhoto[];
 }
 

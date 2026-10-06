@@ -5,7 +5,7 @@ import type { Venue } from '../venues/types';
 
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '3550 Langnau', lat: 46.9, lng: 7.7,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [],
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null,
 };
 
 describe('markers html', () => {

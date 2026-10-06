@@ -36,6 +36,7 @@ const blankDraft = (): Draft => ({
   phone: '',
   website: '',
   photos: [],
+  association_id: null,
   cantonAuto: false,
 });
 
