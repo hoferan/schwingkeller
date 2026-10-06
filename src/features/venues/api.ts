@@ -57,11 +57,6 @@ export const removeVenue = async (id: string): Promise<void> => {
   if (error) throw toError(error);
 };
 
-export const replaceAllVenues = async (venues: (VenueInput & { photo_urls: string[] })[]): Promise<void> => {
-  const { error } = await supabase.rpc('replace_venues', { rows: venues });
-  if (error) throw toError(error);
-};
-
 export const insertVenuePhoto = async (venueId: string, url: string, position: number): Promise<VenuePhoto> => {
   const { data, error } = await supabase
     .from('venue_photos')

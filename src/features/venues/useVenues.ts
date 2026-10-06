@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  listVenues, createVenue, updateVenue, removeVenue, replaceAllVenues, syncVenuePhotos,
+  listVenues, createVenue, updateVenue, removeVenue, syncVenuePhotos,
 } from './api';
 import type { VenueInput, VenuePhoto } from './types';
 
@@ -19,10 +19,6 @@ export const useVenueMutations = () => {
       onSuccess: invalidate,
     }),
     remove: useMutation({ mutationFn: (id: string) => removeVenue(id), onSuccess: invalidate }),
-    replaceAll: useMutation({
-      mutationFn: (v: (VenueInput & { photo_urls: string[] })[]) => replaceAllVenues(v),
-      onSuccess: invalidate,
-    }),
     syncPhotos: useMutation({
       mutationFn: (a: { venueId: string; original: VenuePhoto[]; draft: VenuePhoto[] }) =>
         syncVenuePhotos(a.venueId, a.original, a.draft),

@@ -8,3 +8,6 @@ export const E2E_PREFIX = '[e2e]';
 // Scenarios write into a canton the seed leaves empty, so a venue in flight can never disturb a
 // test that counts Fribourg's labels.
 export const WRITE_CANTON = 'GR';
+
+// The association those venues get: Graubünden's own.
+export const WRITE_ASSOCIATION = 'graubuenden';

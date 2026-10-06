@@ -29,7 +29,6 @@ Supabase, available in German, French and Italian.
     `venue-photos` Supabase Storage bucket.
   - **Address geocoding** via Nominatim (OpenStreetMap).
   - **Pick-on-map** coordinate entry for venues without a precise address.
-- **CSV / JSON import & export** — bulk-manage the venue dataset.
 - **Sentry error tracking** — runtime errors are reported to Sentry in production.
 
 ## Tech stack
@@ -77,7 +76,7 @@ src/
 │   └── useTranslation.ts      # translation hook
 ├── features/
 │   ├── auth/                  # AuthProvider, useAuth, LoginModal
-│   ├── venues/                # types, api, useVenues, geocoding, importExport, grouping, posters
+│   ├── venues/                # types, api, useVenues, geocoding, grouping, posters
 │   ├── map/                   # MapView, markers, MarkerPopup, tile layers
 │   ├── geo/                   # useGeolocation
 │   ├── sidebar/               # Sidebar
@@ -97,7 +96,7 @@ Supabase schema and seed data live under `supabase/`:
 - `supabase/migrations/` — numbered SQL migrations: the `venues` table and its RLS policies, the
   `venue-photos` Storage bucket and its policies, the `venue_photos` gallery table, and the
   `replace_venues` import function.
-- `supabase/seed.sql` — seeds 29 example venues for local development.
+- `supabase/seed.sql` — seeds 30 example venues for local development.
 
 ## Prerequisites
 

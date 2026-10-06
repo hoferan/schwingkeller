@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Check, Home, Mountain, Crosshair, ArrowUpDown } from 'lucide-react';
+import { X, Check, Home, Mountain, Crosshair, Search } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
-import { plzToCanton } from '../../data/plzRanges';
-import { forwardGeocode, reverseGeocode } from '../venues/geocoding';
+import { forwardGeocode } from '../venues/geocoding';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
 import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
 import { PhotoGalleryEditor } from './PhotoGalleryEditor';
+import { useAssociations } from '../associations/useAssociations';
 
 interface EditFormProps {
   initial: Venue | null;
@@ -62,31 +62,24 @@ const spOff: React.CSSProperties = {
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
   const { t } = useTranslation();
   const { create, update, syncPhotos } = useVenueMutations();
+  const associations = useAssociations();
 
   const [draft, setDraft] = useState<Draft>(() =>
     initial ? { ...initial, cantonAuto: false } : blankDraft());
 
-  // Debounce timer for forward geocoding (prototype `_geoT`).
-  const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The editor's own actions are the only thing that changes the form: typing touches the address
+  // alone, the search button geocodes on request, and a map pick moves the pin.
+  const [searching, setSearching] = useState(false);
+  const [addressNotFound, setAddressNotFound] = useState(false);
+  const [associationMissing, setAssociationMissing] = useState(false);
+  // The address as typed right now, so a search result for an older address can be dropped.
+  const currentAddress = useRef(draft.address);
+  // A blocked save focuses the field, which scrolls it into view inside the modal.
+  const associationRef = useRef<HTMLSelectElement>(null);
   // Track which picked-coords payload we've already consumed.
   const lastPicked = useRef<{ lat: number; lng: number } | null>(null);
 
-  useEffect(() => () => {
-    if (geoTimer.current) clearTimeout(geoTimer.current);
-  }, []);
-
-  // Apply a reverse-geocode result, backfilling the address and canton from the picked coordinates.
-  const applyReverse = async (lat: number, lng: number) => {
-    const res = await reverseGeocode(lat, lng);
-    if (!res) return;
-    setDraft((d) => ({
-      ...d,
-      address: res.address,
-      ...(res.canton ? { canton: res.canton, cantonAuto: true } : {}),
-    }));
-  };
-
-  // When the map delivers a new picked coordinate, update draft + backfill address/canton.
+  // A map pick moves the pin and nothing else.
   useEffect(() => {
     if (!pickedCoords) return;
     const prev = lastPicked.current;
@@ -95,29 +88,36 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     const lat = +pickedCoords.lat.toFixed(5);
     const lng = +pickedCoords.lng.toFixed(5);
     setDraft((d) => ({ ...d, lat, lng }));
-    void applyReverse(lat, lng);
   }, [pickedCoords]);
 
-  const runForwardGeocode = async (address: string) => {
-    const res = await forwardGeocode(address);
-    if (!res) return;
-    setDraft((d) => {
-      // Ignore stale results if the address has since changed.
-      if (d.address !== address) return d;
-      return { ...d, lat: res.lat, lng: res.lng, ...(res.canton ? { canton: res.canton, cantonAuto: true } : {}) };
-    });
+  const searchAddress = async () => {
+    const address = draft.address;
+    setAddressNotFound(false);
+    setSearching(true);
+    let res: Awaited<ReturnType<typeof forwardGeocode>> = null;
+    try {
+      res = await forwardGeocode(address);
+    } finally {
+      setSearching(false);
+    }
+    if (currentAddress.current !== address) return;
+    if (!res) {
+      setAddressNotFound(true);
+      return;
+    }
+    setDraft((d) => ({
+      ...d,
+      lat: res.lat,
+      lng: res.lng,
+      ...(res.canton ? { canton: res.canton, cantonAuto: true } : {}),
+    }));
   };
 
   const onAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    const c = plzToCanton(val);
-    if (geoTimer.current) clearTimeout(geoTimer.current);
-    geoTimer.current = setTimeout(() => { void runForwardGeocode(val); }, 900);
-    setDraft((d) => ({
-      ...d,
-      address: val,
-      ...(c ? { canton: c, cantonAuto: true } : {}),
-    }));
+    currentAddress.current = val;
+    setAddressNotFound(false);
+    setDraft((d) => ({ ...d, address: val }));
   };
 
   const buildInput = (): VenueInput => ({
@@ -131,10 +131,16 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     person: draft.person,
     phone: draft.phone,
     website: draft.website,
+    association_id: draft.association_id,
   });
 
   const save = async (andNew: boolean) => {
     if (!draft.name.trim()) return;
+    if (!draft.association_id) {
+      setAssociationMissing(true);
+      associationRef.current?.focus();
+      return;
+    }
     try {
       const input = buildInput();
       const saved = initial
@@ -196,13 +202,34 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
 
         {/* address */}
         <label htmlFor="venue-address" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.address}</label>
-        <input
-          id="venue-address"
-          value={draft.address}
-          onChange={onAddressChange}
-          placeholder={t.addressPlaceholder}
-          style={inputStyle}
-        />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            id="venue-address"
+            value={draft.address}
+            onChange={onAddressChange}
+            placeholder={t.addressPlaceholder}
+            style={inputStyle}
+          />
+          <button
+            type="button"
+            onClick={() => { void searchAddress(); }}
+            disabled={searching || draft.address.trim().length < 6}
+            style={{
+              flex: 'none', border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm,
+              background: theme.color.bg, color: theme.color.ink, fontWeight: 600, fontSize: '13px',
+              padding: '0 12px', display: 'flex', alignItems: 'center', gap: '6px',
+              cursor: searching ? 'default' : 'pointer',
+              opacity: searching || draft.address.trim().length < 6 ? 0.5 : 1,
+            }}
+          >
+            <Search size={14} /> {t.addressSearch}
+          </button>
+        </div>
+        {addressNotFound && (
+          <div style={{ fontSize: '11px', color: theme.color.accent, marginTop: '5px', fontWeight: 600 }}>
+            {t.addressNotFound}
+          </div>
+        )}
 
         {/* canton */}
         <label htmlFor="venue-canton" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.canton}</label>
@@ -224,6 +251,36 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
             }}
           >
             <Check size={12} /> {t.cantonAuto}
+          </div>
+        )}
+
+        {/* association */}
+        <label htmlFor="venue-association" style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.association}</label>
+        <select
+          id="venue-association"
+          value={draft.association_id ?? ''}
+          onChange={(e) => {
+            const value = e.target.value;
+            setAssociationMissing(false);
+            setDraft((d) => ({ ...d, association_id: value || null }));
+          }}
+          ref={associationRef}
+          aria-invalid={associationMissing}
+          aria-describedby={associationMissing ? 'venue-association-error' : undefined}
+          style={{ ...inputStyle, border: '1px solid ' + (associationMissing ? theme.color.accent : theme.color.line) }}
+        >
+          <option value="" disabled>{t.associationPlaceholder}</option>
+          {associations.childrenOf('esv').map((regional) => (
+            <optgroup key={regional.id} label={associations.nameOf(regional.id)}>
+              {associations.childrenOf(regional.id).map((a) => (
+                <option key={a.id} value={a.id}>{associations.nameOf(a.id)}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {associationMissing && (
+          <div id="venue-association-error" style={{ fontSize: '11px', color: theme.color.accent, marginTop: '5px', fontWeight: 600 }}>
+            {t.associationRequired}
           </div>
         )}
 
@@ -265,14 +322,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           >
             <Crosshair size={14} /> {t.pickOnMap}
           </button>
-        </div>
-        <div
-          style={{
-            fontSize: '11px', color: theme.color.muted, marginTop: '5px',
-            display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          <ArrowUpDown size={12} /> {t.locSync}
         </div>
 
         {/* contact */}

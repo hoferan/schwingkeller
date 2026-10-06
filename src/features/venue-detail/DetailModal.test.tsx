@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => {
@@ -90,5 +90,28 @@ describe('DetailModal', () => {
     fireEvent.click(screen.getByRole('button', { name: STR.de.navigate }));
     expect(onNavigate).toHaveBeenCalledTimes(1);
     expect(onShare).not.toHaveBeenCalled();
+  });
+});
+
+describe('DetailModal association', () => {
+  beforeEach(() => {
+    getSession.mockResolvedValue({ data: { session: null } });
+  });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('shows the association with the flag on', () => {
+    renderModal({ venue: { ...venue, association_id: 'emmental' } });
+    expect(screen.getByTestId('venue-association')).toHaveTextContent('Emmental');
+  });
+
+  it('shows nothing for a venue without an association', () => {
+    renderModal({ venue: { ...venue, association_id: null } });
+    expect(screen.queryByTestId('venue-association')).toBeNull();
+  });
+
+  it('shows nothing with the flag off', () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    renderModal({ venue: { ...venue, association_id: 'emmental' } });
+    expect(screen.queryByTestId('venue-association')).toBeNull();
   });
 });

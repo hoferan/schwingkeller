@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, ChevronDown, Plus, Download, Upload, Home, Mountain, Camera } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, Plus, Home, Mountain, Camera } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { filterVenues, groupByCanton, flatSorted, type SortMode, type Facets } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
@@ -23,9 +23,6 @@ interface SidebarProps {
   onToggleSidebar: () => void;
   onSetSidebarOpen: (open: boolean) => void;
   onAdd: () => void;
-  onExportJSON: () => void;
-  onExportCSV: () => void;
-  onImport: (file: File) => void;
   sortMode: SortMode;
   onSortMode: (m: SortMode) => void;
   userPosition: LatLng | null;
@@ -43,23 +40,6 @@ const PEEK_HEIGHT = 116;
 // Matches the desktop sidebar's fixed column width — the tablet/landscape overlay panel uses the
 // same width, just slid off-screen via `left` instead of removed from flow (issue #8).
 const TABLET_PANEL_WIDTH = 344;
-
-const exportBtnStyle: CSSProperties = {
-  flex: 1,
-  border: '1px solid ' + theme.color.line,
-  background: theme.color.bg,
-  color: theme.color.ink,
-  fontWeight: 600,
-  fontSize: '11.5px',
-  padding: '8px 6px',
-  borderRadius: theme.radius.sm,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '5px',
-};
 
 const rowStyle = (sel: boolean): CSSProperties => ({
   display: 'flex',
@@ -115,9 +95,6 @@ export const Sidebar = ({
   onToggleSidebar,
   onSetSidebarOpen,
   onAdd,
-  onExportJSON,
-  onExportCSV,
-  onImport,
   sortMode,
   onSortMode,
   userPosition,
@@ -127,7 +104,6 @@ export const Sidebar = ({
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
   const { isAdmin } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -148,23 +124,6 @@ export const Sidebar = ({
   const startedOnDragZoneRef = useRef(false);
   const [dragX, setDragX] = useState<number | null>(null);
   const [facets, setFacets] = useState<Facets>({ indoor: false, outdoor: false });
-  const [adminOpen, setAdminOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('sk-verwaltung-open') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const toggleAdmin = () =>
-    setAdminOpen((open) => {
-      const next = !open;
-      try {
-        localStorage.setItem('sk-verwaltung-open', String(next));
-      } catch {
-        /* localStorage unavailable — keep in-memory state only */
-      }
-      return next;
-    });
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
@@ -498,53 +457,7 @@ export const Sidebar = ({
             >
               <Plus size={16} />
             </button>
-            <button
-              type="button"
-              onClick={toggleAdmin}
-              aria-label={t.adminToggle}
-              aria-expanded={adminOpen}
-              title={t.adminToggle}
-              style={{
-                width: '30px',
-                height: '30px',
-                border: '1px solid ' + theme.color.line,
-                borderRadius: theme.radius.sm,
-                background: theme.color.bg,
-                color: theme.color.ink,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 'none',
-              }}
-            >
-              {adminOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
           </div>
-          {adminOpen && (
-            <div style={{ display: 'flex', gap: '7px', marginTop: '10px' }}>
-              <button onClick={onExportJSON} style={exportBtnStyle}>
-                <Download size={13} /> JSON
-              </button>
-              <button onClick={onExportCSV} style={exportBtnStyle}>
-                <Download size={13} /> CSV
-              </button>
-              <label style={exportBtnStyle}>
-                <Upload size={13} /> {t.import}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".json,.csv,application/json,text/csv"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onImport(f);
-                    if (fileRef.current) fileRef.current.value = '';
-                  }}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            </div>
-          )}
         </div>
       )}
 
