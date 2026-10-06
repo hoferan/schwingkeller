@@ -1,4 +1,7 @@
 import type { Venue, VenuePhoto } from './types';
+import type { STR } from '../../i18n/translations';
+import { isCantonalId } from '../../data/associations';
+import { suggestAssociation } from '../associations/suggest';
 
 const truthy = (v: unknown) =>
   v === true || /^(true|1|ja|yes|x)$/i.test(String(v ?? ''));
@@ -9,14 +12,23 @@ const parsePhotoUrls = (v: Record<string, unknown>): string[] => {
   return legacy ? [legacy] : [];
 };
 
+// The association a row carries, matched without regard to case or surrounding spaces. A missing,
+// empty or null column falls back to the canton's suggestion; a Bernese row then has none, since a
+// file carries no district. Whether the id is valid is validateImport's job.
+const associationOf = (v: Record<string, unknown>, canton: string): string | null => {
+  const raw = typeof v.association_id === 'string' ? v.association_id.trim().toLowerCase() : '';
+  return raw || suggestAssociation({ canton });
+};
+
 export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => {
   const photos: VenuePhoto[] = parsePhotoUrls(v).map((url, idx) => (
     { id: `import_${i}_${idx}`, url, position: idx }
   ));
+  const canton = String(v.canton ?? 'BE').toUpperCase();
   return {
     id: (v.id != null && v.id !== '' ? String(v.id) : '') || `import_${i}`,
     name: String(v.name ?? ''),
-    canton: String(v.canton ?? 'BE').toUpperCase(),
+    canton,
     address: String(v.address ?? ''),
     lat: parseFloat(String(v.lat)) || 46.8,
     lng: parseFloat(String(v.lng)) || 8.2,
@@ -26,14 +38,13 @@ export const normalizeVenue = (v: Record<string, unknown>, i: number): Venue => 
     phone: String(v.phone ?? ''),
     website: String(v.website ?? ''),
     photos,
-    // Import and export of the column come with #66.
-    association_id: null,
+    association_id: associationOf(v, canton),
   };
 };
 
 const CSV_COLS: (keyof Omit<Venue, 'photos'>)[] = [
   'id', 'name', 'canton', 'address', 'lat', 'lng',
-  'indoor', 'outdoor', 'person', 'phone', 'website',
+  'indoor', 'outdoor', 'person', 'phone', 'website', 'association_id',
 ];
 
 const esc = (v: unknown) => {
@@ -84,4 +95,37 @@ export const parseCSV = (txt: string): Record<string, string>[] => {
     head.forEach((h, i) => { o[h] = cells[i]; });
     return o;
   });
+};
+
+export interface ImportError { row: number; id: string }
+type ImportFormat = 'csv' | 'json';
+
+// An import replaces every venue, so a row with an unknown association stops the whole file rather
+// than being dropped or saved without one. Rows are numbered as the file shows them: a CSV by its
+// spreadsheet row (the header is row 1), JSON by its entry.
+export const validateImport = (
+  rows: Record<string, unknown>[],
+  format: ImportFormat,
+): { venues: Venue[]; errors: ImportError[] } => {
+  const venues = rows.map(normalizeVenue);
+  const errors = venues.flatMap((v, i) =>
+    v.association_id === null || isCantonalId(v.association_id)
+      ? []
+      : [{ row: i + (format === 'csv' ? 2 : 1), id: String(rows[i].association_id).trim() }],
+  );
+  return { venues, errors };
+};
+
+const SHOWN_ERRORS = 5;
+
+export const formatImportErrors = (
+  errors: ImportError[],
+  format: ImportFormat,
+  t: Pick<typeof STR.de, 'importBadAssociation' | 'importBadAssociationEntry' | 'importBadAssociationMore'>,
+): string => {
+  const line = format === 'csv' ? t.importBadAssociation : t.importBadAssociationEntry;
+  const lines = errors.slice(0, SHOWN_ERRORS).map((e) => line.replace('{row}', String(e.row)).replace('{id}', e.id));
+  const rest = errors.length - SHOWN_ERRORS;
+  if (rest > 0) lines.push(t.importBadAssociationMore.replace('{n}', String(rest)));
+  return lines.join('\n');
 };

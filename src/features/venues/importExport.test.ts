@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseCSV, toCSV, normalizeVenue, toJSON } from './importExport';
+import { parseCSV, toCSV, normalizeVenue, toJSON, validateImport, formatImportErrors } from './importExport';
+import { STR } from '../../i18n/translations';
 
 describe('parseCSV', () => {
   it('parses header + rows with quoted commas', () => {
@@ -65,5 +66,64 @@ describe('toJSON', () => {
     const venue = normalizeVenue({ name: 'X', photos: ['https://a'] }, 0);
     const json = JSON.parse(toJSON([venue]));
     expect(json[0].photos).toEqual(['https://a']);
+  });
+});
+
+describe('the association_id column', () => {
+  it('is the last CSV column, and export writes it', () => {
+    const venue = { ...normalizeVenue({ name: 'A', canton: 'FR' }, 0), association_id: 'freiburg' };
+    const [header, row] = toCSV([venue]).replace(/^\uFEFF/, '').split('\n');
+    expect(header.endsWith(',association_id')).toBe(true);
+    expect(row.endsWith(',freiburg')).toBe(true);
+  });
+
+  it('keeps a valid id and matches it after trimming and lower-casing', () => {
+    expect(normalizeVenue({ name: 'A', canton: 'FR', association_id: 'freiburg' }, 0).association_id).toBe('freiburg');
+    expect(normalizeVenue({ name: 'A', canton: 'LU', association_id: ' Emmental ' }, 0).association_id).toBe('emmental');
+  });
+
+  it('suggests from the canton when the column is missing, empty or null', () => {
+    expect(normalizeVenue({ name: 'A', canton: 'zh' }, 0).association_id).toBe('zuerich');
+    expect(normalizeVenue({ name: 'A', canton: 'ZH', association_id: '' }, 0).association_id).toBe('zuerich');
+    expect(normalizeVenue({ name: 'A', canton: 'ZH', association_id: null }, 0).association_id).toBe('zuerich');
+  });
+
+  it('leaves a Bernese row without an association, since the file has no district', () => {
+    expect(normalizeVenue({ name: 'A', canton: 'BE' }, 0).association_id).toBeNull();
+  });
+});
+
+describe('validateImport', () => {
+  const rows = [
+    { name: 'A', canton: 'FR', association_id: 'freiburg' },
+    { name: 'B', canton: 'BE', association_id: 'bksv' },
+    { name: 'C', canton: 'ZH', association_id: 'emental' },
+  ];
+
+  it('numbers CSV errors by spreadsheet row, the header being row 1', () => {
+    expect(validateImport(rows, 'csv').errors).toEqual([{ row: 3, id: 'bksv' }, { row: 4, id: 'emental' }]);
+  });
+
+  it('numbers JSON errors by entry', () => {
+    expect(validateImport(rows, 'json').errors).toEqual([{ row: 2, id: 'bksv' }, { row: 3, id: 'emental' }]);
+  });
+
+  it('returns every venue and no errors for a clean file', () => {
+    const { venues, errors } = validateImport([rows[0], { name: 'D', canton: 'ZH' }, { name: 'E', canton: 'BE' }], 'csv');
+    expect(errors).toEqual([]);
+    expect(venues.map((v) => v.association_id)).toEqual(['freiburg', 'zuerich', null]);
+  });
+});
+
+describe('formatImportErrors', () => {
+  it('lists five rows and counts the rest', () => {
+    const errors = Array.from({ length: 7 }, (_, i) => ({ row: i + 2, id: `x${i + 2}` }));
+    expect(formatImportErrors(errors, 'csv', STR.de)).toBe(
+      [2, 3, 4, 5, 6].map((r) => `Zeile ${r}: unbekannter Verband «x${r}»`).join('\n') + '\n… und 2 weitere',
+    );
+  });
+
+  it('names JSON entries', () => {
+    expect(formatImportErrors([{ row: 1, id: 'x' }], 'json', STR.de)).toBe('Eintrag 1: unbekannter Verband «x»');
   });
 });
