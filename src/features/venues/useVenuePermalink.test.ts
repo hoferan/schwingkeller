@@ -16,6 +16,7 @@ const venue = (over: Partial<Venue> = {}): Venue => ({
   phone: '',
   website: '',
   photos: [],
+  association_id: null,
   ...over,
 });
 

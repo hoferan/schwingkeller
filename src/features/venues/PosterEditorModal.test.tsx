@@ -68,7 +68,7 @@ import { cqw, POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null, ...over,
 });
 
 const renderEditor = (props: Partial<Parameters<typeof PosterEditorModal>[0]> = {}) =>

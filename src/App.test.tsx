@@ -8,7 +8,7 @@ import type { Venue } from './features/venues/types';
 // (Sidebar's onGeneratePoster → open editor → onSave downloads + closes → onError flashes).
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [],
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null,
 };
 
 // supabase.ts calls createClient at import time and throws without env vars — stub it (App's

@@ -4,7 +4,7 @@ import type { Venue } from './types';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null, ...over,
 });
 
 describe('CANTON_POSTER_MAX_DEFAULT_ZOOM', () => {

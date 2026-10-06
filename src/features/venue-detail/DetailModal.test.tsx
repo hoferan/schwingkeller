@@ -32,6 +32,7 @@ const venue: Venue = {
   phone: '+41 31 123 45 67',
   website: 'schwingkeller-bern.ch',
   photos: [],
+  association_id: null,
 };
 
 const noop = () => {};
