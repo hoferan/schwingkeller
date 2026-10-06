@@ -3,6 +3,9 @@ import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { wappenUrl } from '../../data/cantons';
+import { isFeatureOn } from '../../lib/features';
+import { AssociationMark } from '../associations/AssociationMark';
+import { useAssociations } from '../associations/useAssociations';
 import type { Venue } from '../venues/types';
 import { theme } from '../../theme';
 import { PhotoGallery } from './PhotoGallery';
@@ -36,6 +39,8 @@ const tag: React.CSSProperties = {
 export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDelete }: DetailModalProps) => {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
+  const { nameOf } = useAssociations();
+  const association = isFeatureOn('verband') ? venue.association_id : null;
 
   const wappen = wappenUrl(venue.canton);
   const phoneUrl = 'tel:' + venue.phone.replace(/\s/g, '');
@@ -90,6 +95,15 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
           <span style={{ marginTop: '1px', display: 'flex' }}><MapPin size={13} /></span>
           <span>{venue.address}</span>
         </div>
+        {association && (
+          <div
+            data-testid="venue-association"
+            style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '4px', color: theme.color.muted, fontSize: '13px' }}
+          >
+            <span style={{ width: '13px', display: 'flex', justifyContent: 'center' }}><AssociationMark id={association} /></span>
+            <span>{nameOf(association)}</span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
           {venue.indoor && <span style={tag}><Home size={13} /> {t.indoor}</span>}
           {venue.outdoor && <span style={tag}><Mountain size={13} /> {t.outdoor}</span>}
