@@ -60,10 +60,6 @@ export type CantonalId = Extract<Entry, { level: 'cantonal' }>['id'];
 const IDS: ReadonlySet<string> = new Set(ASSOCIATIONS.map((a) => a.id));
 export const isAssociationId = (x: unknown): x is AssociationId => typeof x === 'string' && IDS.has(x);
 
-const CANTONAL_IDS: ReadonlySet<string> = new Set(ASSOCIATIONS.filter((a) => a.level === 'cantonal').map((a) => a.id));
-// The only ids a venue may carry (the database guard enforces the same).
-export const isCantonalId = (x: unknown): x is CantonalId => typeof x === 'string' && CANTONAL_IDS.has(x);
-
 // Suggests an association for a venue: by canton, or inside Bern by Verwaltungskreis. The value stored
 // on the venue is the truth, so a club across a border can pick another one.
 export const HOME_AREAS: readonly { canton: string; bernDistrict: string | null; associationId: CantonalId }[] = [

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LANGS } from '../i18n/translations';
-import { ASSOCIATIONS, ASSOCIATION_NAMES, HOME_AREAS, isAssociationId, isCantonalId } from './associations';
+import { ASSOCIATIONS, ASSOCIATION_NAMES, HOME_AREAS, isAssociationId } from './associations';
 
 // The database is the authority; integration/association-parity.test.ts compares against it. This
 // reads the migration as text so a drift shows up in the unit run already.
@@ -76,12 +76,5 @@ describe('isAssociationId', () => {
   it('accepts tree ids only', () => {
     expect(isAssociationId('emmental')).toBe(true);
     expect([isAssociationId('nowhere'), isAssociationId(null), isAssociationId(42)]).toEqual([false, false, false]);
-  });
-});
-
-describe('isCantonalId', () => {
-  it('accepts the 29 cantonal associations only', () => {
-    expect(isCantonalId('emmental')).toBe(true);
-    expect(['bksv', 'esv', 'nowhere', null, 42].map(isCantonalId)).toEqual([false, false, false, false, false]);
   });
 });
