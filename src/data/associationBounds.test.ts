@@ -45,7 +45,9 @@ describe('ASSOCIATION_HOME_BOUNDS', () => {
   // inside the Emmental box: the Verwaltungskreis reaches east to the Entlebuch border. So the list of
   // exceptions is empty, and a venue added outside its association's box fails here.
   it('contains every seed venue in the box of its association', () => {
-    expect(seedVenues.length).toBeGreaterThan(20);
+    // Every venue tuple must parse, or a row in another format would skip this check unnoticed.
+    const tuples = [...seed.matchAll(/^\('[^']*','[A-Z]{2}',/gm)].length;
+    expect(seedVenues).toHaveLength(tuples);
     const outside = seedVenues
       .filter(({ lat, lng, associationId }) => {
         const box = ASSOCIATION_HOME_BOUNDS[associationId as keyof typeof ASSOCIATION_HOME_BOUNDS];

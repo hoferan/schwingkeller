@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
@@ -42,5 +43,21 @@ describe('useAssociations', () => {
     expect(screen.getByTestId('cantonal-short')).toHaveTextContent('null');
     expect(screen.getByTestId('unknown')).toHaveTextContent('nowhere');
     expect(screen.getByTestId('regional')).toHaveTextContent('swsv');
+  });
+
+  it('returns the same value while the language stays, so effects and memos depending on it hold', () => {
+    const seen: unknown[] = [];
+    const Capture = () => {
+      seen.push(useAssociations());
+      return null;
+    };
+    const wrap = (lang: Lang, children: ReactNode) => (
+      <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>{children}</I18nContext.Provider>
+    );
+    const { rerender } = render(wrap('de', <Capture />));
+    rerender(wrap('de', <Capture />));
+    rerender(wrap('fr', <Capture />));
+    expect(seen[1]).toBe(seen[0]);
+    expect(seen[2]).not.toBe(seen[1]);
   });
 });

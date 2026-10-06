@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-05
+date: 2026-10-06
 decision-makers: André Hofer
 ---
 
@@ -40,9 +40,10 @@ Chosen option: store a node of the ESV tree on each venue.
   Verband) only suggests one, and the editor can override it from a fixed dropdown.
 * The canton stays on the venue as geography: address, coat of arms, search by canton name.
   Grouping, counts, links, posters and permissions use the Verband.
-* Whatever the UI shows for a Verband comes from the Verband itself (name, monogram or logo) or
-  from its venues (bounds, counts), never from a canton. Canton arms on Verband rows were turned
-  down because a Verband can span cantons and a venue can sit outside its Verband's home cantons.
+* Whatever the UI shows for a Verband comes from the Verband itself (its name, and a dot in its
+  Teilverband's colour) or from its venues (bounds, counts), never from a canton. Canton arms on
+  Verband rows were turned down because a Verband can span cantons and a venue can sit outside its
+  Verband's home cantons.
 * Identifiers in the schema and the code are English: `associations`, `association_id`, and the
   levels `federation`, `regional` and `cantonal`. Values stay German, because the slugs,
   abbreviations and names are proper names and the slugs appear on posters and in URLs. The levels
@@ -51,6 +52,11 @@ Chosen option: store a node of the ESV tree on each venue.
   editor scopes ([ADR 0016](0016-editor-scope-is-a-verband-node.md)). Schwingklubs were left out
   for now. Adding them means one more level below the 29, and a migration that moves each venue to
   its club and changes the level the database accepts on a venue.
+* The frontend carries the tree as static data, next to the names, colours and home-area boxes it
+  needs anyway, and components reach it through one hook. The database stays the authority for
+  foreign keys and RLS, and an integration test fails when the two copies differ. Loading the tree
+  at runtime was turned down: it only changes with a migration and a deploy, and it would give the
+  sidebar, form and poster a loading state to handle.
 * A label on the canton grouping would keep the structure the scene doesn't use. Working the
   Verband out from the canton fails in Bern without reverse geocoding, and fails for every club
   across a border.
@@ -67,9 +73,10 @@ Chosen option: store a node of the ESV tree on each venue.
 
 ### Confirmation
 
-A database trigger rejects an `association_id` that isn't on the cantonal level, the lowest one,
-and a seed test checks every row has a valid one. The cross-border seed venue covers the override
-in the grouping and permalink tests.
+A database trigger rejects an `association_id` that isn't on the cantonal level, the lowest one, and
+a seed test checks every row has a valid one. An integration test compares the frontend's copy of
+the tree with the database. The cross-border seed venue covers the override in the grouping and
+permalink tests.
 
 ## More information
 
