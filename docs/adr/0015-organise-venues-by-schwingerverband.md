@@ -36,8 +36,10 @@ Chosen option: store a node of the ESV tree on each venue.
 
 * The tree is ESV, then Teilverband, then Kantonal- or Gauverband. A venue always points at one of
   the 29 leaves, and its Teilverband follows from the tree.
-* The stored value is the truth. A home-area table (canton, or Verwaltungskreis inside Bern, to
-  Verband) only suggests one, and the editor can override it from a fixed dropdown.
+* The editor picks the Verband from a fixed list, and the form suggests nothing: an address says
+  little about club membership, and an automatic guess the editor doesn't notice ends up stored.
+  A home-area table (canton, or Verwaltungskreis inside Bern, to Verband) served the one-off
+  backfill and frames a Verband that has no venues yet.
 * The canton stays on the venue as geography: address, coat of arms, search by canton name.
   Grouping, counts, links, posters and permissions use the Verband.
 * Whatever the UI shows for a Verband comes from the Verband itself (its name, and a dot in its
