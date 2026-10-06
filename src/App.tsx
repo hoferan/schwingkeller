@@ -8,7 +8,7 @@ import { DetailModal } from './features/venue-detail/DetailModal';
 import { EditForm } from './features/venue-edit/EditForm';
 import { LoginModal } from './features/auth/LoginModal';
 import { useVenues, useVenueMutations } from './features/venues/useVenues';
-import { parseCSV, toCSV, toJSON, normalizeVenue } from './features/venues/importExport';
+import { parseCSV, toCSV, toJSON, validateImport, formatImportErrors } from './features/venues/importExport';
 import type { Venue, VenueInput } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
@@ -270,7 +270,13 @@ function AppShell() {
           showFlash('err', t.importEmpty);
           return;
         }
-        const inputs = rows.map((row, i) => toInput(normalizeVenue(row, i)));
+        const format = isCsv ? 'csv' : 'json';
+        const { venues: parsed, errors } = validateImport(rows, format);
+        if (errors.length > 0) {
+          showFlash('err', formatImportErrors(errors, format, t));
+          return;
+        }
+        const inputs = parsed.map(toInput);
         setPendingImport({ count: inputs.length, inputs });
       } catch {
         showFlash('err', t.importFailed);
@@ -507,6 +513,7 @@ function AppShell() {
             background: flash.kind === 'ok' ? theme.color.ink : theme.color.accent, color: theme.color.bg,
             padding: '12px 18px', borderRadius: theme.radius.sm, boxShadow: theme.shadow,
             fontSize: '13.5px', fontWeight: 600, maxWidth: 'calc(100% - 32px)', textAlign: 'center',
+            whiteSpace: 'pre-line',
             animation: 'popIn .24s ease',
           }}
         >
