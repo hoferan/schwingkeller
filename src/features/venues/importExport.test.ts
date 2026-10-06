@@ -108,6 +108,14 @@ describe('validateImport', () => {
     expect(validateImport(rows, 'json').errors).toEqual([{ row: 2, id: 'bksv' }, { row: 3, id: 'emental' }]);
   });
 
+  it('reports an id that is no text, as hand-edited JSON may carry', () => {
+    const errors = validateImport(
+      [{ name: 'A', canton: 'LU', association_id: 42 }, { name: 'B', canton: 'ZH', association_id: true }],
+      'json',
+    ).errors;
+    expect(errors).toEqual([{ row: 1, id: '42' }, { row: 2, id: 'true' }]);
+  });
+
   it('returns every venue and no errors for a clean file', () => {
     const { venues, errors } = validateImport([rows[0], { name: 'D', canton: 'ZH' }, { name: 'E', canton: 'BE' }], 'csv');
     expect(errors).toEqual([]);

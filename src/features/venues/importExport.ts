@@ -14,9 +14,12 @@ const parsePhotoUrls = (v: Record<string, unknown>): string[] => {
 
 // The association a row carries, matched without regard to case or surrounding spaces. A missing,
 // empty or null column falls back to the canton's suggestion; a Bernese row then has none, since a
-// file carries no district. Whether the id is valid is validateImport's job.
+// file carries no district. Anything else, a number from hand-edited JSON included, is kept as text
+// so validateImport reports it. Whether the id is valid is validateImport's job.
 const associationOf = (v: Record<string, unknown>, canton: string): string | null => {
-  const raw = typeof v.association_id === 'string' ? v.association_id.trim().toLowerCase() : '';
+  const value = v.association_id;
+  if (value === null || value === undefined) return suggestAssociation({ canton });
+  const raw = String(value).trim().toLowerCase();
   return raw || suggestAssociation({ canton });
 };
 
