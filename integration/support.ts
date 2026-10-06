@@ -23,8 +23,13 @@ export const newVenueRow = (label: string): VenueRow => ({
 export const insertVenue = async (
   client: SupabaseClient,
   label: string,
+  extra: { association_id?: string | null } = {},
 ): Promise<{ id: string; name: string }> => {
-  const { data, error } = await client.from('venues').insert(newVenueRow(label)).select('id, name').single();
+  const { data, error } = await client
+    .from('venues')
+    .insert({ ...newVenueRow(label), ...extra })
+    .select('id, name')
+    .single();
   if (error) throw new Error(`inserting "${label}" failed: ${error.message}`);
   return data;
 };
