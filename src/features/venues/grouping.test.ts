@@ -101,3 +101,19 @@ describe('flatSorted', () => {
     expect(flatSorted(venues, 'distance', null).map((v) => v.name)).toEqual(['Aare-Keller', 'Zug-Halle']);
   });
 });
+
+describe('filterVenues with extra text', () => {
+  const extra = (x: Venue) => (x.id === '1' ? 'Emmental Bernisch-Kantonaler Schwingerverband BKSV' : '');
+  it('matches the extra text', () => {
+    expect(filterVenues(venues, 'bksv', undefined, extra).map((x) => x.id)).toEqual(['1']);
+  });
+  it('still matches the canton name with extra text given', () => {
+    expect(filterVenues(venues, 'luzern', undefined, extra).map((x) => x.id)).toEqual(['2', '3']);
+  });
+});
+
+describe('flatSorted in association mode', () => {
+  it('keeps the input order', () => {
+    expect(flatSorted(venues, 'association')).toBe(venues);
+  });
+});

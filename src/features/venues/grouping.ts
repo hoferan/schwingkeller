@@ -8,7 +8,13 @@ export interface Facets {
   outdoor: boolean;
 }
 
-export const filterVenues = (venues: Venue[], search: string, facets?: Facets): Venue[] => {
+// `extraText` adds text a query may also match, such as a venue's association names.
+export const filterVenues = (
+  venues: Venue[],
+  search: string,
+  facets?: Facets,
+  extraText?: (v: Venue) => string,
+): Venue[] => {
   const q = search.trim().toLowerCase();
   const anyFacet = !!facets && (facets.indoor || facets.outdoor);
   if (!q && !anyFacet) return venues;
@@ -16,7 +22,9 @@ export const filterVenues = (venues: Venue[], search: string, facets?: Facets): 
     const c = cantonByCode(v.canton);
     const textOk =
       !q ||
-      `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''}`.toLowerCase().includes(q);
+      `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''} ${extraText?.(v) ?? ''}`
+        .toLowerCase()
+        .includes(q);
     const facetOk =
       !anyFacet || (facets!.indoor && v.indoor) || (facets!.outdoor && v.outdoor);
     return textOk && facetOk;
@@ -36,7 +44,7 @@ export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGrou
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 };
 
-export type SortMode = 'canton' | 'name' | 'distance';
+export type SortMode = 'canton' | 'association' | 'name' | 'distance';
 
 export const flatSorted = (
   venues: Venue[],
