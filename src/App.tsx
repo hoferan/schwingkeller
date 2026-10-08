@@ -20,6 +20,9 @@ import { PosterEditorModal } from './features/venues/PosterEditorModal';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
+import { useAssociations } from './features/associations/useAssociations';
+import { UNASSIGNED_KEY } from './features/sidebar/AssociationGroups';
+import { isFeatureOn } from './lib/features';
 
 type Mode = 'd' | 't' | 'm';
 const modeOf = (vw: number): Mode => (vw >= 1024 ? 'd' : vw >= 640 ? 't' : 'm');
@@ -62,17 +65,26 @@ function AppShell() {
     venueParam ? null : parseCantonParam(window.location.search),
   );
   const [search, setSearch] = useState('');
-  // No canton expanded by default — only a ?ctn= permalink pre-expands its canton.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    ctnParam ? { [ctnParam]: true } : {},
-  );
+  // Keyed by canton code or association id. With the verband flag on, the Teilverbände and the
+  // admin group start open and the Verbände closed. No canton starts open; a ?ctn= permalink opens
+  // its own.
+  const associations = useAssociations();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    const open = isFeatureOn('verband')
+      ? [...associations.childrenOf('esv').map((a) => a.id), UNASSIGNED_KEY]
+      : [];
+    if (ctnParam) open.push(ctnParam);
+    return Object.fromEntries(open.map((key) => [key, true]));
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [baseKind, setBaseKind] = useState<'map' | 'sat'>('map');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>('canton');
+  const [sortMode, setSortMode] = useState<SortMode>(() =>
+    isFeatureOn('verband') ? 'association' : 'canton',
+  );
   const geo = useGeolocation();
 
   // Edit-form state. `editOpen` controls whether the form should exist at all;

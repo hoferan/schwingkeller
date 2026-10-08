@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { withVenueParam } from '../../lib/permalink';
+import { isFeatureOn } from '../../lib/features';
+import { useAssociations } from '../associations/useAssociations';
 import type { Venue } from './types';
 
 interface UseVenuePermalinkArgs {
@@ -19,15 +21,20 @@ export function useVenuePermalink({
 }: UseVenuePermalinkArgs): void {
   // Runs at most once — background refetches must not re-trigger it.
   const appliedVenueParamRef = useRef(false);
+  const { byId } = useAssociations();
   useEffect(() => {
     if (!venueParam || appliedVenueParamRef.current || !venuesLoaded) return;
     appliedVenueParamRef.current = true;
     const match = venues.find((v) => v.id === venueParam);
     if (match) {
       openDetail(match.id);
-      setExpanded((e) => ({ ...e, [match.canton]: true }));
+      // With the verband flag on, the venue's row sits under its Teilverband and Verband. A venue
+      // without a cantonal association falls back to its canton.
+      const node = isFeatureOn('verband') && match.association_id ? byId.get(match.association_id) : undefined;
+      const keys = node?.level === 'cantonal' ? [node.parentId, node.id] : [match.canton];
+      setExpanded((e) => ({ ...e, ...Object.fromEntries(keys.map((key) => [key, true])) }));
     }
-  }, [venueParam, venues, venuesLoaded, openDetail, setExpanded]);
+  }, [venueParam, venues, venuesLoaded, openDetail, setExpanded, byId]);
 
   // Skips its first run so it never strips a permalink's ?venue= before the
   // effect above has applied it.
