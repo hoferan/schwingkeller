@@ -33,11 +33,13 @@ vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: strin
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
 vi.mock('./features/map/MapView', () => ({ MapView: () => <div data-testid="mapview" /> }));
 vi.mock('./features/sidebar/Sidebar', () => ({
-  Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
-    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>; sortMode: string;
+  Sidebar: ({ onGeneratePoster, onToggleGroup, expanded, sortMode }: {
+    onGeneratePoster: (code: string) => void; onToggleGroup: (key: string) => void;
+    expanded: Record<string, boolean>; sortMode: string;
   }) => (
     <div>
       <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
+      <button onClick={() => onToggleGroup('emmental')}>toggle-emmental</button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
       <span data-testid="sort-mode">{sortMode}</span>
     </div>
@@ -79,6 +81,22 @@ describe('App — sidebar default state', () => {
     expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toEqual({
       bksv: true, isv: true, nosv: true, nwsv: true, swsv: true, unassigned: true,
     });
+  });
+
+  it('keeps a ?ctn= canton open next to the Teilverbände with the flag on', () => {
+    window.history.replaceState(null, '', '/?ctn=FR');
+    render(<App />);
+    window.history.replaceState(null, '', '/');
+    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toMatchObject({ bksv: true, FR: true });
+  });
+
+  it('toggles a group the sidebar asks for, and back', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByText('toggle-emmental'));
+    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toMatchObject({ emmental: true });
+    await user.click(screen.getByText('toggle-emmental'));
+    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toMatchObject({ emmental: false });
   });
 
   it('sorts by association by default with the flag on', () => {
