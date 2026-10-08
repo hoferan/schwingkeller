@@ -16,6 +16,13 @@ describe('translations', () => {
       expect(STR[lang].byDistance).toBeTruthy();
     }
   });
+  it('defines the Verband sidebar keys in every language', () => {
+    for (const lang of LANGS) {
+      for (const key of ['byAssociation', 'sortAssociation', 'unassignedGroup', 'associationEmpty'] as const) {
+        expect(STR[lang][key]).toBeTruthy();
+      }
+    }
+  });
   it('defines the canton-poster keys in every language', () => {
     for (const lang of LANGS) {
       expect(STR[lang].generatePoster).toBeTruthy();

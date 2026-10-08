@@ -40,4 +40,9 @@ describe('RegionalBadge', () => {
     expect(screen.getByText('ARLS')).toBeInTheDocument();
     expect(screen.queryByText('SWSV')).toBeNull();
   });
+
+  it('takes a fixed width with the abbreviation centred, so a column of badges lines up', () => {
+    render(inLang('de', <RegionalBadge id="isv" width="46px" />));
+    expect(screen.getByText('ISV')).toHaveStyle({ width: '46px', textAlign: 'center', boxSizing: 'border-box' });
+  });
 });
