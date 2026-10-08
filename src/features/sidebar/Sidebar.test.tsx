@@ -804,6 +804,27 @@ describe('Sidebar with the verband flag', () => {
     });
   });
 
+  it('tells a visitor there are no results when only venues without a Verband match', async () => {
+    const user = userEvent.setup();
+    renderFlagged({ venuesData: [...flagVenues, v({ id: 'n1', name: 'Keller Ohnezuordnung', association_id: null })] });
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Ohnezuordnung');
+    expect(rowNames()).toEqual([]);
+    expect(screen.getByText(STR.de.noResults)).toBeInTheDocument();
+  });
+
+  it('shows an admin the match without a Verband and no no-results banner', async () => {
+    const user = userEvent.setup();
+    renderAdminSidebar({
+      venuesData: [...flagVenues, v({ id: 'n1', name: 'Keller Ohnezuordnung', association_id: null })],
+      sortModeInit: 'association',
+      expandedInit: REGIONAL_OPEN,
+    });
+    await screen.findByTestId('admin-section');
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Ohnezuordnung');
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Ohnezuordnung')]);
+    expect(screen.queryByText(STR.de.noResults)).toBeNull();
+  });
+
   it('shows no poster button to admins with the flag on', async () => {
     renderAdminSidebar({ venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN });
     expect(await screen.findByTestId('admin-section')).toBeInTheDocument();

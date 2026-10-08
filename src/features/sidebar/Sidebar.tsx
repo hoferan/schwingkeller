@@ -300,9 +300,14 @@ export const Sidebar = ({
   const searching = search.trim() !== '';
   const filtering = searching || facets.indoor || facets.outdoor;
   const hasSearch = search.trim() !== '';
-  const noResults = filtering && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
   const flat = sortMode !== 'canton' && sortMode !== 'association';
+  // Visitors don't see the grouped view's admin group, so its venues can't count as results there.
+  const shownCount =
+    verband && !flat && !isAdmin
+      ? list.filter((v) => associations.byId.get(v.association_id ?? '')?.level === 'cantonal').length
+      : list.length;
+  const noResults = filtering && shownCount === 0;
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
   const sectionLabel =
     sortMode === 'name'
