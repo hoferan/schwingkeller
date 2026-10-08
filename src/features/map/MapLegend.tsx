@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import { tintOf } from '../../data/associationTints';
+import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
 import { useAssociations } from '../associations/useAssociations';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -28,9 +28,10 @@ const dot = (color: string, size = 10): CSSProperties => ({
 // larger screens; on a phone it starts as a row of dots so it doesn't hide the map.
 export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boolean }) => {
   const { t } = useTranslation();
-  const { childrenOf, shortOf, nameOf } = useAssociations();
+  const { shortOf, nameOf } = useAssociations();
   const [open, setOpen] = useState(!isMobile);
-  const regionals = childrenOf('esv');
+  // REGIONAL_TINTS lists the Teilverbände in their tree order, the same order the cluster ring uses.
+  const regionals = Object.entries(REGIONAL_TINTS);
   const hasUnassigned = venues.some((v) => !tintOf(v.association_id));
 
   return (
@@ -46,17 +47,17 @@ export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boo
           <span>{t.legendTitle}</span>
         ) : (
           <span style={{ display: 'flex', gap: '4px' }}>
-            {regionals.map((r) => <span key={r.id} style={dot(tintOf(r.id) ?? theme.color.accent)} />)}
+            {regionals.map(([id, tint]) => <span key={id} style={dot(tint)} />)}
           </span>
         )}
         <ChevronDown size={14} style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : undefined }} />
       </button>
       {open && (
         <ul style={listStyle} aria-label={t.legendTitle}>
-          {regionals.map((r) => (
-            <li key={r.id} title={nameOf(r.id)} style={rowStyle}>
-              <span aria-hidden="true" style={dot(tintOf(r.id) ?? theme.color.accent)} />
-              {shortOf(r.id)}
+          {regionals.map(([id, tint]) => (
+            <li key={id} title={nameOf(id)} style={rowStyle}>
+              <span aria-hidden="true" style={dot(tint)} />
+              {shortOf(id)}
             </li>
           ))}
           {hasUnassigned && (

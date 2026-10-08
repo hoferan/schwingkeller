@@ -117,6 +117,13 @@ describe('cluster icon', () => {
     expect(parts(clusterHtml(['emmental', 'freiburg']).html).inner).toContain('color:' + theme.color.ink);
   });
 
+  it('grows with the number of venues and shrinks the count from 100 on', () => {
+    const sized = (n: number) => clusterHtml(Array<string | null>(n).fill('isv'));
+    expect([9, 10, 50].map((n) => sized(n).iconSize)).toEqual([[34, 34], [40, 40], [46, 46]]);
+    expect(parts(sized(99).html).inner).toContain('font-size:14px');
+    expect(parts(sized(100).html).inner).toContain('font-size:12px');
+  });
+
   it('writes the count in red when no venue has an association', () => {
     expect(parts(clusterHtml([null, null]).html).inner).toContain('color:' + theme.color.accent);
   });
