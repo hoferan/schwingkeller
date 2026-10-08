@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { STR } from './i18n/translations';
 import type { Venue } from './features/venues/types';
+import { ASSOCIATION_HOME_BOUNDS } from './data/associationBounds';
+import { boundsForCanton } from './data/cantonBounds';
 
 // App is the composition root. We stub the heavy children/hooks and drive the poster-editor wiring
 // (Sidebar's onGeneratePoster → open editor → onSave downloads + closes → onError flashes).
@@ -21,8 +23,9 @@ vi.mock('./lib/supabase', () => ({
     },
   },
 }));
+const mocked = vi.hoisted(() => ({ venues: null as Venue[] | null }));
 vi.mock('./features/venues/useVenues', () => ({
-  useVenues: () => ({ data: [venue], isSuccess: true }),
+  useVenues: () => ({ data: mocked.venues ?? [venue], isSuccess: true }),
   useVenueMutations: () => ({}),
 }));
 vi.mock('./features/geo/useGeolocation', () => ({
@@ -31,7 +34,13 @@ vi.mock('./features/geo/useGeolocation', () => ({
 vi.mock('./features/venues/useVenuePermalink', () => ({ useVenuePermalink: () => {} }));
 vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: string) => fallback }));
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
-vi.mock('./features/map/MapView', () => ({ MapView: () => <div data-testid="mapview" /> }));
+vi.mock('./features/map/MapView', () => ({
+  MapView: ({ initialFocusBounds }: { initialFocusBounds: unknown }) => (
+    <div data-testid="mapview">
+      <span data-testid="focus-bounds">{JSON.stringify(initialFocusBounds ?? null)}</span>
+    </div>
+  ),
+}));
 vi.mock('./features/sidebar/Sidebar', () => ({
   Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
     onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>; sortMode: string;
@@ -84,6 +93,128 @@ describe('App — sidebar default state', () => {
   it('sorts by association by default with the flag on', () => {
     render(<App />);
     expect(screen.getByTestId('sort-mode')).toHaveTextContent('association');
+  });
+});
+
+describe('App — permalinks', () => {
+  const at = (lat: number, lng: number, association_id: string, canton: string, id: string): Venue => ({
+    ...venue, id, lat, lng, association_id, canton,
+  });
+  const expandedState = () => JSON.parse(screen.getByTestId('expanded-state').textContent!) as Record<string, boolean>;
+  const focusBounds = () => JSON.parse(screen.getByTestId('focus-bounds').textContent!) as unknown;
+  const openAt = (search: string) => window.history.replaceState(null, '', '/' + search);
+
+  beforeEach(() => {
+    mocked.venues = [
+      at(46.95, 7.6, 'emmental', 'BE', 'e1'),
+      at(47.05, 7.8, 'emmental', 'BE', 'e2'),
+      at(46.6, 7.9, 'oberland', 'BE', 'o1'),
+      at(47.4, 8.5, 'zuerich', 'ZH', 'z1'),
+      at(47.45, 8.6, 'zuerich', 'AG', 'z2'),
+      at(47.33, 9.41, 'appenzell', 'AI', 'a1'),
+    ];
+  });
+  afterEach(() => {
+    mocked.venues = null;
+    openAt('');
+    vi.unstubAllEnvs();
+  });
+
+  describe('with the verband flag on', () => {
+    it("expands BKSV and Emmental for ?vb=emmental and frames Emmental's venues", () => {
+      openAt('?vb=emmental');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ bksv: true, emmental: true });
+      expect(focusBounds()).toEqual([[46.95, 7.6], [47.05, 7.8]]);
+    });
+
+    it('reads ?vb= case-insensitively', () => {
+      openAt('?vb=EMMENTAL');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ emmental: true });
+    });
+
+    it('frames the home bounds for ?vb=berner-jura, which has no venues', () => {
+      openAt('?vb=berner-jura');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ bksv: true, 'berner-jura': true });
+      expect(focusBounds()).toEqual(ASSOCIATION_HOME_BOUNDS['berner-jura']);
+    });
+
+    it('frames all venues of a Teilverband for ?vb=bksv', () => {
+      openAt('?vb=bksv');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ bksv: true });
+      expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
+    });
+
+    it('ignores an unknown ?vb= id', () => {
+      openAt('?vb=nowhere');
+      render(<App />);
+      expect(expandedState()).not.toHaveProperty('nowhere');
+      expect(focusBounds()).toBeNull();
+    });
+
+    it('lands ?ctn=BE on BKSV', () => {
+      openAt('?ctn=BE');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ bksv: true });
+      expect(expandedState()).not.toHaveProperty('BE');
+      expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
+    });
+
+    it('lands ?ctn=AI on Appenzell', () => {
+      openAt('?ctn=ai');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ nosv: true, appenzell: true });
+      expect(focusBounds()).toEqual([[47.33, 9.41], [47.33, 9.41]]);
+    });
+
+    it("lands ?ctn=ZH on Zürich and frames its venues, including one outside the canton", () => {
+      openAt('?ctn=ZH');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ nosv: true, zuerich: true });
+      expect(focusBounds()).toEqual([[47.4, 8.5], [47.45, 8.6]]);
+    });
+
+    it('prefers ?vb= over ?ctn=', () => {
+      openAt('?ctn=ZH&vb=emmental');
+      render(<App />);
+      expect(expandedState()).toMatchObject({ emmental: true });
+      expect(expandedState()).not.toHaveProperty('zuerich');
+    });
+
+    it('lets ?venue= beat ?vb=', () => {
+      openAt('?venue=e1&vb=zuerich');
+      render(<App />);
+      expect(expandedState()).not.toHaveProperty('zuerich');
+      expect(focusBounds()).toBeNull();
+    });
+  });
+
+  describe('with the verband flag off', () => {
+    beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+
+    it.each(['BE', 'AI', 'ZH'])('opens canton %s for ?ctn= and frames its bounds, as before', (code) => {
+      openAt('?ctn=' + code.toLowerCase());
+      render(<App />);
+      expect(expandedState()).toEqual({ [code]: true });
+      expect(focusBounds()).toEqual(boundsForCanton(code));
+    });
+
+    it('ignores ?vb=', () => {
+      openAt('?vb=emmental');
+      render(<App />);
+      expect(expandedState()).toEqual({});
+      expect(focusBounds()).toBeNull();
+    });
+
+    it('lets ?venue= beat ?ctn=', () => {
+      openAt('?venue=e1&ctn=BE');
+      render(<App />);
+      expect(expandedState()).toEqual({});
+      expect(focusBounds()).toBeNull();
+    });
   });
 });
 
