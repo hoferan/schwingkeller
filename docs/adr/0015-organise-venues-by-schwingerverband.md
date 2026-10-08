@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-06
+date: 2026-10-08
 decision-makers: André Hofer
 ---
 
@@ -42,6 +42,10 @@ Chosen option: store a node of the ESV tree on each venue.
   backfill and frames a Verband that has no venues yet.
 * The canton stays on the venue as geography: address, coat of arms, search by canton name.
   Grouping, counts, links, posters and permissions use the Verband.
+* Links to a Verband use `?vb=<id>`. Old `?ctn=` links, printed on posters, land on the Verband
+  whose home area is that canton. Bern is home to six Gauverbände and the canton doesn't say which,
+  so a Bernese link opens the BKSV. Keeping `?ctn=` on the canton view was turned down: that view
+  goes away with the switch.
 * Whatever the UI shows for a Verband comes from the Verband itself (its name, and a dot in its
   Teilverband's colour) or from its venues (bounds, counts), never from a canton. Canton arms on
   Verband rows were turned down because a Verband can span cantons and a venue can sit outside its
