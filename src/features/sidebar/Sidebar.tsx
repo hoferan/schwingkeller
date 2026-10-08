@@ -1,20 +1,22 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, Plus, Home, Mountain, Camera } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, Plus, Home, Mountain } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import { filterVenues, groupByCanton, flatSorted, type SortMode, type Facets } from '../venues/grouping';
+import { filterVenues, flatSorted, type SortMode, type Facets } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
-import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
+import { CantonGroups } from './CantonGroups';
+import { CantonArms, VenueRow } from './VenueRow';
 
 interface SidebarProps {
   venues: Venue[];
   search: string;
   onSearch: (s: string) => void;
   expanded: Record<string, boolean>;
-  onToggleCanton: (code: string) => void;
+  // Takes a canton code or an association node id.
+  onToggleGroup: (key: string) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
   isMobile: boolean;
@@ -41,19 +43,6 @@ const PEEK_HEIGHT = 116;
 // same width, just slid off-screen via `left` instead of removed from flow (issue #8).
 const TABLET_PANEL_WIDTH = 344;
 
-const rowStyle = (sel: boolean): CSSProperties => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '13px 14px',
-  margin: '7px 0',
-  borderRadius: theme.radius.sm,
-  cursor: 'pointer',
-  background: sel ? theme.color.paper : theme.color.bg,
-  border: sel ? '1.5px solid ' + theme.color.accent : '1px solid ' + theme.color.line,
-  boxShadow: sel ? theme.shadow : 'none',
-});
-
 const distanceBadgeStyle: CSSProperties = {
   flex: 'none',
   fontSize: '11px',
@@ -65,28 +54,13 @@ const distanceBadgeStyle: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const chevronBadgeStyle = (sel: boolean): CSSProperties => ({
-  width: '22px',
-  height: '22px',
-  borderRadius: '50%',
-  background: sel ? theme.color.bg : theme.color.paper,
-  color: theme.color.accent,
-  flex: 'none',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-});
-
-// "town" line: drop the street part of the address, fall back to full address.
-const townOf = (address: string): string =>
-  address.split(',').slice(1).join(',').trim() || address;
 
 export const Sidebar = ({
   venues,
   search,
   onSearch,
   expanded,
-  onToggleCanton,
+  onToggleGroup,
   selectedId,
   onSelect,
   isMobile,
@@ -308,7 +282,6 @@ export const Sidebar = ({
   const list = filterVenues(venues, search, facets);
   const searching = search.trim() !== '';
   const filtering = searching || facets.indoor || facets.outdoor;
-  const groups = groupByCanton(list, !filtering);
   const hasSearch = search.trim() !== '';
   const noResults = filtering && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
@@ -598,157 +571,33 @@ export const Sidebar = ({
         className="sk-scroll"
         style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
       >
-        {!flat && groups.map((group) => {
-          const exp = filtering || !!expanded[group.code];
-          return (
-            <div key={group.code} style={{ borderBottom: '1px solid ' + theme.color.line }}>
-              <div
-                onClick={() => onToggleCanton(group.code)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '13px 2px',
-                  cursor: 'pointer',
-                }}
-              >
-                <img
-                  src={wappenUrl(group.code)}
-                  alt=""
-                  style={{
-                    width: '21px',
-                    height: '26px',
-                    objectFit: 'contain',
-                    flex: 'none',
-                    filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))',
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: theme.font.display,
-                    textTransform: 'uppercase',
-                    fontWeight: 700,
-                    color: theme.color.ink,
-                    fontSize: '15.5px',
-                    flex: 1,
-                  }}
-                >
-                  {group.name}
-                </span>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: theme.color.accentInk,
-                    background: theme.color.ink,
-                    padding: '2px 9px',
-                    borderRadius: theme.radius.pill,
-                  }}
-                >
-                  {group.count}
-                </span>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onGeneratePoster(group.code); }}
-                    aria-label={t.generatePoster}
-                    title={t.generatePoster}
-                    // Every canton row renders this same button under the same label, so the code
-                    // is the only thing that tells them apart from outside the component.
-                    data-testid={`generate-poster-${group.code}`}
-                    style={{
-                      width: '26px', height: '26px', border: 'none', background: 'transparent',
-                      color: theme.color.ink, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
-                    }}
-                  >
-                    <Camera size={15} />
-                  </button>
-                )}
-                <span style={{ color: theme.color.ink, width: '12px', display: 'flex', justifyContent: 'center' }}>
-                  <ChevronRight
-                    size={12}
-                    style={{ transform: exp ? 'rotate(90deg)' : 'none', transition: 'transform .2s ease' }}
-                  />
-                </span>
-              </div>
-              {exp && (
-                <div style={{ padding: '1px 0 9px' }}>
-                  {group.venues.length === 0 ? (
-                    <div
-                      style={{
-                        padding: '10px 12px 14px',
-                        color: theme.color.muted,
-                        fontSize: '12.5px',
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {t.cantonEmpty}
-                    </div>
-                  ) : (
-                    group.venues.map((v) => {
-                      const sel = v.id === selectedId;
-                      return (
-                        <div key={v.id} data-testid="venue-row" onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                color: theme.color.ink,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {v.name}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                color: theme.color.muted,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {townOf(v.address)}
-                            </div>
-                          </div>
-                          <span style={chevronBadgeStyle(sel)}><ChevronRight size={14} /></span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {!flat && (
+          <CantonGroups
+            list={list}
+            filtering={filtering}
+            isAdmin={isAdmin}
+            expanded={expanded}
+            onToggle={onToggleGroup}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onGeneratePoster={onGeneratePoster}
+          />
+        )}
         {flat &&
-          flatList.map((v) => {
-            const sel = v.id === selectedId;
-            return (
-              <div key={v.id} data-testid="venue-row" onClick={() => onSelect(v.id)} style={rowStyle(sel)}>
-                <img
-                  src={wappenUrl(v.canton)}
-                  alt=""
-                  style={{ width: '16px', height: '20px', objectFit: 'contain', flex: 'none', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))' }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: theme.color.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {v.name}
-                  </div>
-                  <div style={{ fontSize: '12px', color: theme.color.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {townOf(v.address)}
-                  </div>
-                </div>
-                {sortMode === 'distance' && userPosition && (
+          flatList.map((v) => (
+            <VenueRow
+              key={v.id}
+              venue={v}
+              selected={v.id === selectedId}
+              onSelect={onSelect}
+              leading={<CantonArms code={v.canton} size="row" />}
+              trailing={
+                sortMode === 'distance' && userPosition ? (
                   <span style={distanceBadgeStyle}>{formatDistance(haversineKm(userPosition, v), lang)}</span>
-                )}
-              </div>
-            );
-          })}
+                ) : null
+              }
+            />
+          ))}
         {noResults && (
           <div style={{ padding: '34px 12px', textAlign: 'center', color: theme.color.muted, fontSize: '13px' }}>
             {t.noResults}

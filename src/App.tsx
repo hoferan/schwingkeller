@@ -215,8 +215,8 @@ function AppShell() {
     closePosterEditor();
   };
 
-  const toggleCanton = (code: string) =>
-    setExpanded((e) => ({ ...e, [code]: !e[code] }));
+  const toggleGroup = (key: string) =>
+    setExpanded((e) => ({ ...e, [key]: !e[key] }));
 
   // Keep EditForm mounted whenever editOpen, even while placing, so its internal
   // draft (pre-pick edits) survives. While placing we visually hide it and remove
@@ -238,7 +238,7 @@ function AppShell() {
           search={search}
           onSearch={setSearch}
           expanded={expanded}
-          onToggleCanton={toggleCanton}
+          onToggleGroup={toggleGroup}
           selectedId={selectedId}
           onSelect={selectVenue}
           isMobile={isMobile}

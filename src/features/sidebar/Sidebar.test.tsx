@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -77,7 +77,7 @@ const Harness = ({
       search={search}
       onSearch={setSearch}
       expanded={expanded}
-      onToggleCanton={(code) => setExpanded((e) => ({ ...e, [code]: !e[code] }))}
+      onToggleGroup={(key) => setExpanded((e) => ({ ...e, [key]: !e[key] }))}
       selectedId={selectedId}
       onSelect={(id) => { setSelectedId(id); onSelect(id); }}
       isMobile={isMobile}
@@ -111,7 +111,11 @@ const renderAdminSidebar = (props: HarnessProps = {}) => {
 };
 
 describe('Sidebar', () => {
+  // These tests describe the canton view, which is what production shows until the verband flag
+  // goes on there.
+  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
