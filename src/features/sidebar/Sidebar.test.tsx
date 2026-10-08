@@ -17,7 +17,7 @@ vi.mock('../../lib/supabase', () => ({
 
 import { AuthProvider } from '../auth/AuthProvider';
 import { I18nContext } from '../../i18n/useTranslation';
-import { STR } from '../../i18n/translations';
+import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
 import type { Venue } from '../venues/types';
 import type { SortMode } from '../venues/grouping';
@@ -50,6 +50,7 @@ interface HarnessProps {
   onAdd?: () => void;
   onGeneratePoster?: (code: string) => void;
   onSelect?: (id: string) => void;
+  expandedInit?: Record<string, boolean>;
 }
 
 const Harness = ({
@@ -66,9 +67,10 @@ const Harness = ({
   onAdd = () => {},
   onGeneratePoster = () => {},
   onSelect = () => {},
+  expandedInit = {},
 }: HarnessProps) => {
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(expandedInit);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(sortModeInit);
   return (
@@ -96,10 +98,10 @@ const Harness = ({
   );
 };
 
-const renderSidebar = (props: HarnessProps = {}) =>
+const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de') =>
   render(
     <AuthProvider>
-      <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+      <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
         <Harness {...props} />
       </I18nContext.Provider>
     </AuthProvider>,
@@ -707,5 +709,104 @@ describe('Sidebar', () => {
 
     expect(onGeneratePoster).toHaveBeenCalledWith('BE');
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
+  });
+});
+
+// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
+describe('Sidebar with the verband flag', () => {
+  const REGIONAL_OPEN = { bksv: true, isv: true, nosv: true, nwsv: true, swsv: true };
+  const flagVenues = [
+    v({ id: 'f1', name: 'Halle Düdingen', canton: 'FR', association_id: 'freiburg', indoor: true, outdoor: false }),
+    v({ id: 'f2', name: 'Keller Plaffeien', canton: 'FR', association_id: 'freiburg', indoor: false, outdoor: true }),
+    v({ id: 'b1', name: 'Keller Langnau', canton: 'BE', association_id: 'emmental' }),
+    v({ id: 'l1', name: 'Keller Willisau', canton: 'LU', association_id: 'luzern' }),
+  ];
+  const renderFlagged = (props: HarnessProps = {}, lang: Lang = 'de') =>
+    renderSidebar({ venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN, ...props }, lang);
+  const rowNames = () => screen.queryAllByTestId('venue-row').map((r) => r.textContent);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('groups by Teilverband and Verband', async () => {
+    renderFlagged();
+    expect(await screen.findByTestId('group-bksv')).toBeInTheDocument();
+    expect(screen.getByTestId('group-emmental')).toBeInTheDocument();
+    expect(screen.queryByText('Bern')).toBeNull();
+  });
+
+  it('offers Verband instead of Kanton in the sort control and labels the section', async () => {
+    renderFlagged();
+    expect(await screen.findByRole('radio', { name: STR.de.sortAssociation })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('radio', { name: STR.de.sortCanton })).toBeNull();
+    expect(screen.getByText(STR.de.byAssociation)).toBeInTheDocument();
+  });
+
+  it('finds venues by Verband name', async () => {
+    const user = userEvent.setup();
+    renderFlagged();
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Emmental');
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Langnau')]);
+  });
+
+  it('finds venues by Teilverband abbreviation, ignoring case and spaces', async () => {
+    const user = userEvent.setup();
+    renderFlagged();
+    await user.type(screen.getByPlaceholderText(STR.de.search), '  bksv ');
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Langnau')]);
+  });
+
+  it('finds venues by canton name', async () => {
+    const user = userEvent.setup();
+    renderFlagged();
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Luzern');
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Willisau')]);
+  });
+
+  it('finds venues by the French abbreviation in French', async () => {
+    const user = userEvent.setup();
+    renderFlagged({}, 'fr');
+    await user.type(screen.getByPlaceholderText(STR.fr.search), 'ARLS');
+    expect(rowNames()).toEqual([
+      expect.stringContaining('Halle Düdingen'),
+      expect.stringContaining('Keller Plaffeien'),
+    ]);
+  });
+
+  it('closes the forced-open groups again when the search is cleared', async () => {
+    const user = userEvent.setup();
+    renderFlagged();
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Emmental');
+    expect(rowNames()).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'clear' }));
+    expect(rowNames()).toEqual([]);
+    expect(screen.getByTestId('group-emmental')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows only matching groups, open, for a facet filter alone', async () => {
+    const user = userEvent.setup();
+    renderFlagged();
+    await user.click(screen.getByRole('button', { name: STR.de.outdoor }));
+    expect(screen.getByTestId('group-freiburg')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByTestId('group-bksv')).toBeNull();
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Plaffeien')]);
+  });
+
+  it('shows the association dot next to the arms when sorted by name', async () => {
+    renderFlagged({ sortModeInit: 'name' });
+    const rows = await screen.findAllByTestId('venue-row');
+    expect(rows).toHaveLength(4);
+    rows.forEach((row) => {
+      expect(row.querySelector('img')).not.toBeNull();
+      expect(row.querySelector('span[aria-hidden="true"]')).not.toBeNull();
+    });
+  });
+
+  it('shows no poster button to admins with the flag on', async () => {
+    renderAdminSidebar({ venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN });
+    expect(await screen.findByTestId('admin-section')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();
   });
 });

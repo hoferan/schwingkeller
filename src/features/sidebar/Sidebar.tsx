@@ -7,6 +7,10 @@ import type { GeoStatus } from '../geo/useGeolocation';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
+import { isFeatureOn } from '../../lib/features';
+import { useAssociations } from '../associations/useAssociations';
+import { AssociationMark } from '../associations/AssociationMark';
+import { AssociationGroups } from './AssociationGroups';
 import { CantonGroups } from './CantonGroups';
 import { CantonArms, VenueRow } from './VenueRow';
 
@@ -78,6 +82,8 @@ export const Sidebar = ({
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
   const { isAdmin } = useAuth();
+  const verband = isFeatureOn('verband');
+  const associations = useAssociations();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -279,15 +285,36 @@ export const Sidebar = ({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isMobile, isTablet, sidebarOpen, onSetSidebarOpen]);
 
-  const list = filterVenues(venues, search, facets);
+  // With the verband flag on, a query also matches the venue's Verband and Teilverband by name, and
+  // the Teilverband by its abbreviation, in the current language.
+  const associationText = (v: Venue): string => {
+    if (!v.association_id) return '';
+    const regional = associations.regionalOf(v.association_id);
+    return [
+      associations.nameOf(v.association_id),
+      regional ? associations.nameOf(regional.id) : '',
+      regional ? (associations.shortOf(regional.id) ?? '') : '',
+    ].join(' ');
+  };
+  const list = filterVenues(venues, search, facets, verband ? associationText : undefined);
   const searching = search.trim() !== '';
   const filtering = searching || facets.indoor || facets.outdoor;
   const hasSearch = search.trim() !== '';
   const noResults = filtering && list.length === 0;
   const totalText = `${list.length} ${t.unitTotal}`;
-  const flat = sortMode !== 'canton';
+  const flat = sortMode !== 'canton' && sortMode !== 'association';
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
-  const sectionLabel = sortMode === 'name' ? t.byName : sortMode === 'distance' ? t.byDistance : t.byCanton;
+  const sectionLabel =
+    sortMode === 'name'
+      ? t.byName
+      : sortMode === 'distance'
+        ? t.byDistance
+        : sortMode === 'association'
+          ? t.byAssociation
+          : t.byCanton;
+  const groupedMode = verband
+    ? (['association', t.sortAssociation] as const)
+    : (['canton', t.sortCanton] as const);
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
   // Desktop/tablet: fixed-width column.
@@ -521,7 +548,7 @@ export const Sidebar = ({
 
       <div style={{ padding: '0 15px 10px', flex: 'none' }} role="radiogroup" aria-label={t.sortBy}>
         <div style={{ display: 'flex', gap: '2px', background: theme.color.paper, padding: '4px', borderRadius: theme.radius.pill }}>
-          {([['canton', t.sortCanton], ['name', t.sortName], ['distance', t.sortDistance]] as const)
+          {([groupedMode, ['name', t.sortName], ['distance', t.sortDistance]] as const)
             .filter(([mode]) => !(mode === 'distance' && geoStatus === 'unsupported'))
             .map(([mode, label]) => {
               const active = sortMode === mode;
@@ -571,7 +598,18 @@ export const Sidebar = ({
         className="sk-scroll"
         style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
       >
-        {!flat && (
+        {!flat && verband && (
+          <AssociationGroups
+            list={list}
+            filtering={filtering}
+            isAdmin={isAdmin}
+            expanded={expanded}
+            onToggle={onToggleGroup}
+            selectedId={selectedId}
+            onSelect={onSelect}
+          />
+        )}
+        {!flat && !verband && (
           <CantonGroups
             list={list}
             filtering={filtering}
@@ -590,7 +628,12 @@ export const Sidebar = ({
               venue={v}
               selected={v.id === selectedId}
               onSelect={onSelect}
-              leading={<CantonArms code={v.canton} size="row" />}
+              leading={
+                <>
+                  <CantonArms code={v.canton} size="row" />
+                  {verband && <AssociationMark id={v.association_id} />}
+                </>
+              }
               trailing={
                 sortMode === 'distance' && userPosition ? (
                   <span style={distanceBadgeStyle}>{formatDistance(haversineKm(userPosition, v), lang)}</span>
