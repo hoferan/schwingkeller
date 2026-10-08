@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Crosshair } from 'lucide-react';
 import { Topbar } from './components/Topbar';
 import { Modal } from './components/Modal';
@@ -13,7 +13,7 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
-import { parseCantonParam, parseVenueParam } from './lib/permalink';
+import { associationForCanton, parseAssociationParam, parseCantonParam, parseVenueParam } from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
@@ -22,6 +22,7 @@ import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
 import { useAssociations } from './features/associations/useAssociations';
 import { UNASSIGNED_KEY } from './features/sidebar/AssociationGroups';
+import { boundsForAssociation, expandedKeysFor } from './features/associations/focus';
 import { isFeatureOn } from './lib/features';
 
 type Mode = 'd' | 't' | 'm';
@@ -58,22 +59,30 @@ function AppShell() {
   const isTablet = mode === 't';
 
   // Cross-cutting UI state.
-  // Parsed once at startup. ?venue= takes precedence over ?ctn= — see
-  // docs/adr/0007-url-parameters-without-a-router.md.
+  // Parsed once at startup. ?venue= takes precedence over the others. With the verband flag on, a
+  // ?ctn= link lands on its Verband or Teilverband instead of the canton. See src/lib/permalink.ts
+  // and docs/adr/0007-url-parameters-without-a-router.md.
   const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
   const [ctnParam] = useState<string | null>(() =>
-    venueParam ? null : parseCantonParam(window.location.search),
+    venueParam || isFeatureOn('verband') ? null : parseCantonParam(window.location.search),
   );
+  const [vbParam] = useState<string | null>(() => {
+    if (venueParam || !isFeatureOn('verband')) return null;
+    const search = window.location.search;
+    const code = parseCantonParam(search);
+    return parseAssociationParam(search) ?? (code ? associationForCanton(code) : null);
+  });
   const [search, setSearch] = useState('');
   // Keyed by canton code or association id. With the verband flag on, the Teilverbände and the
-  // admin group start open and the Verbände closed. No canton starts open; a ?ctn= permalink opens
-  // its own.
+  // admin group start open and the Verbände closed, and a ?vb= permalink opens its own. No canton
+  // starts open; a ?ctn= permalink opens its own.
   const associations = useAssociations();
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const open = isFeatureOn('verband')
       ? [...associations.childrenOf('esv').map((a) => a.id), UNASSIGNED_KEY]
       : [];
     if (ctnParam) open.push(ctnParam);
+    if (vbParam) open.push(...expandedKeysFor(vbParam, associations));
     return Object.fromEntries(open.map((key) => [key, true]));
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -120,7 +129,13 @@ function AppShell() {
   }, [geo.status]);
 
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
-  const initialFocusBounds = ctnParam ? boundsForCanton(ctnParam) : null;
+  // A canton's box is known at once. A Verband is framed to its venues, so its box waits for them;
+  // MapView flies to the first bounds it gets and ignores later ones.
+  const initialFocusBounds = useMemo(() => {
+    if (ctnParam) return boundsForCanton(ctnParam);
+    if (vbParam && venuesLoaded) return boundsForAssociation(vbParam, venues, associations);
+    return null;
+  }, [ctnParam, vbParam, venuesLoaded, venues, associations]);
 
   // ---- layout styles (prototype renderVals ~624-631) ----
   const mainStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', display: 'flex', minHeight: 0 };
