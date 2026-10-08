@@ -82,6 +82,9 @@ export const STR = {
     sortCanton: 'Kanton',
     sortAssociation: 'Verband',
     unassignedGroup: 'Ohne Verband',
+    legendTitle: 'Teilverbände',
+    legendShow: 'Legende einblenden',
+    legendHide: 'Legende ausblenden',
     associationEmpty:
       'Für diesen Verband sind noch keine Schwingkeller erfasst. Neue Einträge können ausschliesslich von Administratoren hinzugefügt werden.',
     sortName: 'Name',
@@ -205,6 +208,9 @@ export const STR = {
     sortCanton: 'Canton',
     sortAssociation: 'Association',
     unassignedGroup: 'Sans association',
+    legendTitle: 'Associations régionales',
+    legendShow: 'Afficher la légende',
+    legendHide: 'Masquer la légende',
     associationEmpty:
       'Aucun lieu n’est encore répertorié pour cette association. Les nouvelles entrées ne peuvent être ajoutées que par les administrateurs.',
     sortName: 'Nom',
@@ -328,6 +334,9 @@ export const STR = {
     sortCanton: 'Cantone',
     sortAssociation: 'Associazione',
     unassignedGroup: 'Senza associazione',
+    legendTitle: 'Associazioni regionali',
+    legendShow: 'Mostra la legenda',
+    legendHide: 'Nascondi la legenda',
     associationEmpty:
       'Per questa associazione non è ancora stata registrata alcuna sede. Le nuove voci possono essere aggiunte esclusivamente dagli amministratori.',
     sortName: 'Nome',

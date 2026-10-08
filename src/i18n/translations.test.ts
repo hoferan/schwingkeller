@@ -23,6 +23,13 @@ describe('translations', () => {
       }
     }
   });
+  it('defines the map legend keys in every language', () => {
+    for (const lang of LANGS) {
+      for (const key of ['legendTitle', 'legendShow', 'legendHide'] as const) {
+        expect(STR[lang][key]).toBeTruthy();
+      }
+    }
+  });
   it('defines the canton-poster keys in every language', () => {
     for (const lang of LANGS) {
       expect(STR[lang].generatePoster).toBeTruthy();

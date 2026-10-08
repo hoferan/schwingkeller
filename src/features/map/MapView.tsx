@@ -6,11 +6,13 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, popupHtml, clusterIcon, userPinHtml } from './markers';
+import { pinHtml, pinSize, popupHtml, clusterIcon, userPinHtml } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
+import { MapLegend } from './MapLegend';
+import { isFeatureOn } from '../../lib/features';
 
 interface MapViewProps {
   venues: Venue[];
@@ -26,12 +28,16 @@ interface MapViewProps {
   userPosition: LatLng | null;
   geoStatus: GeoStatus;
   onRequestLocation: () => void;
+  isMobile: boolean;
 }
 
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
 const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
+// The base switch, with the legend under it. The zoom and location controls sit on the left and
+// the phone's drawer covers the bottom, so the top right is the one corner that is always free.
 const overlayStyle: CSSProperties = {
   position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
+  display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px',
 };
 // Mirrors Leaflet's own .leaflet-bar control look (leaflet/dist/leaflet.css), not the app's
 // soft-card theme tokens — the goal here is to blend in with the native zoom control.
@@ -75,6 +81,15 @@ const fitAllWrapStyle = (top: number, size: number, border: string, backgroundCl
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
   width: `${size}px`, height: `${size}px`, border, backgroundClip, zIndex: 1000,
 });
+// A selected pin can be larger than the others, so the icon box and its anchor follow its size.
+const venueIcon = (v: Venue, selected: boolean): L.DivIcon => {
+  const size = pinSize(selected);
+  return L.divIcon({
+    className: '', html: pinHtml(selected, v.association_id),
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 6)],
+  });
+};
+
 const fitAllBtnStyle: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
   color: theme.color.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -83,7 +98,7 @@ const fitAllBtnStyle: CSSProperties = {
 export function MapView({
   venues, selectedId, onSelect, onOpenDetail,
   baseKind, onChangeBase, placing, onPickLocation, registerFitAll, initialFocusBounds,
-  userPosition, geoStatus, onRequestLocation,
+  userPosition, geoStatus, onRequestLocation, isMobile,
 }: MapViewProps) {
   const { t } = useTranslation();
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -133,8 +148,11 @@ export function MapView({
     if (sz && (sz.x <= 0 || sz.y <= 0)) { window.setTimeout(refreshMarkers, 120); return; }
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      const icon = L.divIcon({ className: '', html: pinHtml(v.id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] });
-      const m = L.marker([v.lat, v.lng], { icon }).addTo(group);
+      // clusterIcon reads associationId from the options to colour the cluster's ring.
+      const options: L.MarkerOptions & { associationId: string | null } = {
+        icon: venueIcon(v, v.id === selectedIdRef.current), associationId: v.association_id,
+      };
+      const m = L.marker([v.lat, v.lng], options).addTo(group);
       m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('click', () => onSelectRef.current(v.id));
       markersRef.current[v.id] = m;
@@ -142,8 +160,8 @@ export function MapView({
   };
 
   const updatePins = () => {
-    Object.keys(markersRef.current).forEach((id) => {
-      markersRef.current[id].setIcon(L.divIcon({ className: '', html: pinHtml(id === selectedIdRef.current), iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -20] }));
+    venuesRef.current.forEach((v) => {
+      markersRef.current[v.id]?.setIcon(venueIcon(v, v.id === selectedIdRef.current));
     });
   };
 
@@ -339,6 +357,7 @@ export function MapView({
             {t.satView}
           </button>
         </div>
+        {isFeatureOn('verband') && <MapLegend venues={venues} isMobile={isMobile} />}
       </div>
       <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button
