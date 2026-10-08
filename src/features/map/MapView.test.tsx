@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { MapView } from './MapView';
+import type { Venue } from '../venues/types';
 
 const BE_BOUNDS: [[number, number], [number, number]] = [[46.33, 6.86], [47.35, 8.46]];
 
@@ -15,12 +16,15 @@ const setContainerSize = (width: number, height: number) => {
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => height });
 };
 
-const renderMap = (initialFocusBounds: [[number, number], [number, number]] | null) =>
-  render(
+const mapView = (
+  initialFocusBounds: [[number, number], [number, number]] | null,
+  venues: Venue[] = [],
+  selectedId: string | null = null,
+) => (
     <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
       <MapView
-        venues={[]}
-        selectedId={null}
+        venues={venues}
+        selectedId={selectedId}
         onSelect={vi.fn()}
         onOpenDetail={vi.fn()}
         baseKind="map"
@@ -31,9 +35,12 @@ const renderMap = (initialFocusBounds: [[number, number], [number, number]] | nu
         userPosition={null}
         geoStatus="unsupported"
         onRequestLocation={vi.fn()}
+        isMobile={false}
       />
-    </I18nContext.Provider>,
-  );
+    </I18nContext.Provider>
+);
+
+const renderMap = (initialFocusBounds: [[number, number], [number, number]] | null) => render(mapView(initialFocusBounds));
 
 describe('MapView initial canton focus', () => {
   const browser = L.Browser as { any3d: boolean };
@@ -103,5 +110,61 @@ describe('MapView container resize', () => {
     callbacks[0]([], {} as ResizeObserver);
 
     expect(invalidateSize).toHaveBeenCalledTimes(1);
+  });
+});
+
+const venueAt = (id: string, associationId: string | null, lat: number, lng: number): Venue => ({
+  id, name: 'Keller ' + id, canton: 'BE', address: '', lat, lng,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: associationId,
+});
+
+// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
+describe('MapView venue pins', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const icons = (container: HTMLElement) =>
+    [...container.querySelectorAll('.leaflet-marker-icon')].map((el) => el.innerHTML);
+
+  it("draws a pin in its Teilverband's colour", () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    expect(icons(container).some((html) => html.includes('#9B2C1F'))).toBe(true);
+  });
+
+  it('sizes and centres the icon box of the larger selected pin', () => {
+    const venues = [venueAt('1', 'emmental', 46.9, 7.7)];
+    const { container, rerender } = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, venues, '1'));
+    const icon = container.querySelector<HTMLElement>('.leaflet-marker-icon');
+    expect(icon?.style.width).toBe('34px');
+    expect(icon?.style.marginLeft).toBe('-17px');
+  });
+
+  it("hands each venue's association to the cluster icon", () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7), venueAt('2', 'freiburg', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    expect(icons(container).some((html) => html.includes('conic-gradient(#9B2C1F 0% 50%, #8A5A12 50% 100%)'))).toBe(true);
+  });
+});
+
+describe('MapView legend', () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('shows the legend when the verband flag is on', () => {
+    const { getByRole } = render(mapView(null));
+    expect(getByRole('button', { name: STR.de.legendHide })).toBeTruthy();
+  });
+
+  it('has no legend when the verband flag is off', () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    const { queryByRole } = render(mapView(null));
+    expect(queryByRole('button', { name: STR.de.legendHide })).toBeNull();
   });
 });

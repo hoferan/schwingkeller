@@ -296,6 +296,7 @@ function AppShell() {
             userPosition={geo.position}
             geoStatus={geo.status}
             onRequestLocation={geo.request}
+            isMobile={isMobile}
           />
         </div>
       </div>

@@ -1,9 +1,9 @@
 import { ASSOCIATIONS, type RegionalId } from './associations';
 
-// One colour per regional association. The sidebar dot, the Teilverband badge and later the map
-// pins (#95) all take it from here. Darker than theme.color.accent so they don't read as buttons;
+// One colour per regional association. The sidebar dot, the Teilverband badge, and the map pins
+// and clusters all take it from here. Darker than theme.color.accent so they don't read as buttons;
 // against white they reach 7.6, 6.8, 6.4, 7.1 and 5.9 to 1, enough for the badge's white text.
-// #95 may adjust them once they are checked on every tile layer.
+// All five read on the street map and the satellite view, because pins and clusters edge them in white.
 export const REGIONAL_TINTS: Record<RegionalId, string> = {
   bksv: '#9B2C1F',
   isv: '#1F5F8B',
