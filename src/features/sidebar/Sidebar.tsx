@@ -8,6 +8,7 @@ import { wappenUrl } from '../../data/cantons';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
+import { useSidebarWidth } from './useSidebarWidth';
 
 interface SidebarProps {
   venues: Venue[];
@@ -40,6 +41,9 @@ const PEEK_HEIGHT = 116;
 // Matches the desktop sidebar's fixed column width — the tablet/landscape overlay panel uses the
 // same width, just slid off-screen via `left` instead of removed from flow (issue #8).
 const TABLET_PANEL_WIDTH = 344;
+
+// How far one arrow-key press on the width handle moves the column edge.
+const RESIZE_STEP = 16;
 
 const rowStyle = (sel: boolean): CSSProperties => ({
   display: 'flex',
@@ -124,6 +128,42 @@ export const Sidebar = ({
   const startedOnDragZoneRef = useRef(false);
   const [dragX, setDragX] = useState<number | null>(null);
   const [facets, setFacets] = useState<Facets>({ indoor: false, outdoor: false });
+  const sidebarWidth = useSidebarWidth();
+  // Pointer x and column width when the current drag started; null while nothing is dragged.
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
+  const [resizing, setResizing] = useState(false);
+  const [handleLit, setHandleLit] = useState(false);
+
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    // Keeps the drag from selecting sidebar text. Capturing the pointer sends every move to the
+    // handle, so a fast drag that leaves it doesn't pan the map underneath.
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    resizeStartRef.current = { x: e.clientX, width: sidebarWidth.width };
+    setResizing(true);
+  };
+
+  const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = resizeStartRef.current;
+    if (!start) return;
+    sidebarWidth.preview(start.width + e.clientX - start.x);
+  };
+
+  // Stores the width the last move showed: a pointercancel carries no useful position of its own.
+  const handleResizePointerEnd = () => {
+    if (!resizeStartRef.current) return;
+    resizeStartRef.current = null;
+    setResizing(false);
+    sidebarWidth.commit(sidebarWidth.width);
+  };
+
+  const handleResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' ? RESIZE_STEP : e.key === 'ArrowLeft' ? -RESIZE_STEP : 0;
+    if (!step) return;
+    e.preventDefault();
+    sidebarWidth.commit(sidebarWidth.width + step);
+  };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartYRef.current = e.touches[0].clientY;
@@ -345,7 +385,11 @@ export const Sidebar = ({
         boxShadow: theme.shadow,
         transition: dragX !== null ? 'none' : 'left .28s cubic-bezier(.4,0,.2,1)',
       }
-    : { ...sbBase, width: '344px', flex: 'none', minHeight: 0, borderRight: '1px solid ' + theme.color.line };
+    : {
+        ...sbBase, position: 'relative', width: `${sidebarWidth.width}px`, flex: 'none', minHeight: 0,
+        borderRight: '1px solid ' + theme.color.line,
+      };
+  const desktop = !isMobile && !isTablet;
 
   return (
     <div
@@ -356,6 +400,35 @@ export const Sidebar = ({
       onTouchEnd={isMobile ? handleTouchEnd : isTablet ? handleTabletTouchEnd : undefined}
       onTouchCancel={isMobile ? handleTouchCancel : isTablet ? handleTabletTouchCancel : undefined}
     >
+      {desktop && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t.resizeSidebar}
+          aria-valuenow={sidebarWidth.width}
+          aria-valuemin={sidebarWidth.min}
+          aria-valuemax={sidebarWidth.max}
+          tabIndex={0}
+          title={t.resizeSidebar}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerEnd}
+          onPointerCancel={handleResizePointerEnd}
+          onDoubleClick={sidebarWidth.reset}
+          onKeyDown={handleResizeKeyDown}
+          onPointerEnter={() => setHandleLit(true)}
+          onPointerLeave={() => setHandleLit(false)}
+          onFocus={() => setHandleLit(true)}
+          onBlur={() => setHandleLit(false)}
+          // Straddles the column's right border and reaches a few pixels over the map. The z-index
+          // lifts it above Leaflet's panes and controls (up to 1000) and keeps it below the modals.
+          style={{
+            position: 'absolute', top: 0, bottom: 0, right: '-5px', width: '8px', zIndex: 1001,
+            cursor: 'col-resize', touchAction: 'none', outline: 'none',
+            borderLeft: '3px solid ' + (resizing || handleLit ? theme.color.accent : 'transparent'),
+          }}
+        />
+      )}
       {isTablet && (
         <button
           ref={tabRef}

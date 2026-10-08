@@ -123,3 +123,27 @@ When('I switch the language to French', async ({ page }) => {
 Then('the interface is in French', async ({ page }) => {
   await expect(page.getByPlaceholder(STR.fr.search)).toBeVisible();
 });
+
+const sidebarWidth = async (page: import('@playwright/test').Page) =>
+  (await page.getByTestId('sidebar-root').boundingBox())!.width;
+
+// The handle follows the pointer one to one, so moving it by the difference to the wanted width
+// lands exactly on it. The intermediate steps send pointer moves along the way, as a hand does.
+When('I drag the edge of the venue list to {int} pixels', async ({ page }, width: number) => {
+  const box = (await page.getByRole('separator', { name: t.resizeSidebar }).boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + width - (await sidebarWidth(page)), y, { steps: 5 });
+  await page.mouse.up();
+});
+
+Then('the venue list is {int} pixels wide', async ({ page }, width: number) => {
+  await expect.poll(() => sidebarWidth(page)).toBe(width);
+});
+
+When('I come back to the map later', async ({ page }) => {
+  await page.reload();
+  await expect(page.getByTestId('sidebar-header')).toContainText(new RegExp(`[1-9]\\d* ${t.unitTotal}`));
+});
