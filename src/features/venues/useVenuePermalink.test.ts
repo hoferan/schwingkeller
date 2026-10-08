@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createElement, type ReactNode } from 'react';
 import { renderHook } from '@testing-library/react';
 import { useVenuePermalink } from './useVenuePermalink';
+import { I18nContext } from '../../i18n/useTranslation';
+import { STR } from '../../i18n/translations';
 import type { Venue } from './types';
 
 const venue = (over: Partial<Venue> = {}): Venue => ({
@@ -29,14 +32,21 @@ interface Props {
   setExpanded: (updater: (e: Record<string, boolean>) => Record<string, boolean>) => void;
 }
 
+const wrapper = ({ children }: { children: ReactNode }) =>
+  createElement(I18nContext.Provider, { value: { lang: 'de', t: STR.de, setLang: vi.fn() } }, children);
+
 const renderPermalink = (initialProps: Props) =>
-  renderHook((props: Props) => useVenuePermalink(props), { initialProps });
+  renderHook((props: Props) => useVenuePermalink(props), { initialProps, wrapper });
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
 describe('useVenuePermalink — matching', () => {
+  // The canton view, as production shows it until the verband flag goes on there.
+  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
   it('does nothing when venueParam is null', () => {
     const openDetail = vi.fn();
     const setExpanded = vi.fn();
@@ -114,5 +124,28 @@ describe('useVenuePermalink — URL sync', () => {
     });
     rerender({ venueParam: null, venues: [], venuesLoaded: false, detailId: null, openDetail: vi.fn(), setExpanded: vi.fn() });
     expect(window.location.search).toBe('');
+  });
+});
+
+// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
+describe('useVenuePermalink — with the verband flag', () => {
+  const expandedBy = (v: Venue) => {
+    const setExpanded = vi.fn();
+    renderPermalink({ venueParam: v.id, venues: [v], venuesLoaded: true, detailId: null, openDetail: vi.fn(), setExpanded });
+    expect(setExpanded).toHaveBeenCalledTimes(1);
+    const updater = setExpanded.mock.calls[0][0] as (e: Record<string, boolean>) => Record<string, boolean>;
+    return updater({});
+  };
+
+  it("expands the venue's Teilverband and Verband", () => {
+    expect(expandedBy(venue({ association_id: 'emmental' }))).toEqual({ bksv: true, emmental: true });
+  });
+
+  it('falls back to the canton for a venue without an association', () => {
+    expect(expandedBy(venue({ canton: 'FR', association_id: null }))).toEqual({ FR: true });
+  });
+
+  it('falls back to the canton for an id that is not in the tree', () => {
+    expect(expandedBy(venue({ canton: 'FR', association_id: 'gone' }))).toEqual({ FR: true });
   });
 });
