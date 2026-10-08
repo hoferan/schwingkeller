@@ -6,16 +6,19 @@ import { useAssociations } from '../associations/useAssociations';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 
-const cardStyle: CSSProperties = {
-  background: theme.color.bg, borderRadius: theme.radius.sm, boxShadow: theme.shadow,
-  fontFamily: theme.font.body, fontSize: '12px', color: theme.color.ink, overflow: 'hidden',
-};
+// Styled like the map/satellite switch above it (baseToggleWrapStyle and baseToggleBtnStyle in
+// MapView): grey, flat, 4px inset, 13px bold labels. Collapsed it is a pill of the switch's height.
+// Open, its corners are rounded by half that height, so they match the ends of the switch.
+const cardStyle = (open: boolean): CSSProperties => ({
+  background: theme.color.paper, padding: '4px', borderRadius: open ? '17px' : theme.radius.pill,
+  fontSize: '13px', color: theme.color.ink,
+});
 const toggleStyle: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 10px',
-  border: 'none', background: 'transparent', cursor: 'pointer', color: theme.color.ink,
-  fontFamily: theme.font.display, fontSize: '12px', fontWeight: 700,
+  display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '6px 10px',
+  border: 'none', background: 'transparent', cursor: 'pointer', color: theme.color.muted,
+  font: 'inherit', fontWeight: 700, lineHeight: '1',
 };
-const listStyle: CSSProperties = { listStyle: 'none', margin: 0, padding: '0 10px 8px' };
+const listStyle: CSSProperties = { listStyle: 'none', margin: 0, padding: '2px 10px 6px' };
 const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' };
 const dot = (color: string, size = 10): CSSProperties => ({
   display: 'inline-block', width: `${size}px`, height: `${size}px`, borderRadius: '50%', background: color, flex: 'none',
@@ -31,7 +34,7 @@ export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boo
   const hasUnassigned = venues.some((v) => !tintOf(v.association_id));
 
   return (
-    <div style={cardStyle}>
+    <div style={cardStyle(open)}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

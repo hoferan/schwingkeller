@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
+import { theme } from '../../theme';
 import { MapLegend } from './MapLegend';
 
 const venue = (associationId: string | null): Venue => ({
@@ -55,5 +56,15 @@ describe('MapLegend', () => {
     expect(screen.queryByRole('list')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: STR.de.legendShow }));
     expect(screen.getAllByRole('listitem')).toHaveLength(5);
+  });
+
+  it('looks like the map/satellite switch: grey and flat', () => {
+    renderLegend([]);
+    const card = screen.getByRole('button', { name: STR.de.legendHide }).parentElement as HTMLElement;
+    // jsdom reports colours as rgb(), so compare against the paper colour as jsdom writes it.
+    const paper = document.createElement('div');
+    paper.style.background = theme.color.paper;
+    expect(card.style.background).toBe(paper.style.background);
+    expect(card.style.boxShadow).toBe('');
   });
 });

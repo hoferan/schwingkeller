@@ -63,9 +63,9 @@ interface ClusterLike {
   getAllChildMarkers(): { options: { associationId?: string | null } }[];
 }
 
-// With the verband flag off a cluster is a red disc. With it on, the count sits on a dark centre so
-// it reads on both tile layers, and the ring around it shows which Teilverbände the venues belong to.
-// White lines on both sides of the ring keep a dark ring visible over forest on the satellite view.
+// With the verband flag off a cluster is a red disc. With it on it is drawn like a pin with a number:
+// a white edge, a ring showing which Teilverbände its venues belong to, and a white centre with the
+// count. The count takes the ring's colour when there is only one, and the ink colour otherwise.
 export const clusterIcon = <I,>(L: { divIcon(options: DivIconOptions): I }) => (cluster: ClusterLike): I => {
   const n = cluster.getChildCount();
   const size = n < 10 ? 34 : (n < 50 ? 40 : 46);
@@ -73,8 +73,10 @@ export const clusterIcon = <I,>(L: { divIcon(options: DivIconOptions): I }) => (
   if (!isFeatureOn('verband')) {
     return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>' });
   }
-  const ring = clusterRing(cluster.getAllChildMarkers().map((m) => m.options.associationId ?? null));
-  return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="box-sizing:border-box;width:' + size + 'px;height:' + size + 'px;border-radius:50%;padding:4px;background:' + ring + ';border:2px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';">'
-    + '<div style="box-sizing:border-box;width:100%;height:100%;border-radius:50%;background:' + theme.color.ink + ';border:2px solid ' + theme.color.bg + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>'
+  const ids = cluster.getAllChildMarkers().map((m) => m.options.associationId ?? null);
+  const tints = new Set(ids.map((id) => tintOf(id) ?? theme.color.accent));
+  const countColor = tints.size === 1 ? [...tints][0] : theme.color.ink;
+  return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="box-sizing:border-box;width:' + size + 'px;height:' + size + 'px;border-radius:50%;padding:5px;background:' + clusterRing(ids) + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';">'
+    + '<div style="width:100%;height:100%;border-radius:50%;background:' + theme.color.bg + ';display:flex;align-items:center;justify-content:center;color:' + countColor + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';line-height:1;">' + n + '</div>'
     + '</div>' });
 };

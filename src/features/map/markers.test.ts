@@ -91,15 +91,34 @@ describe('cluster icon', () => {
     expect(icon.iconSize).toEqual([34, 34]);
   });
 
-  it('puts the count on a dark centre inside the Teilverband ring when the flag is on', () => {
+  // The outer element carries the white edge and the ring, the inner one the white centre and count.
+  const parts = (html: string) => {
+    const [outer, inner] = [...html.matchAll(/<div style="([^"]*)"/g)].map((m) => m[1]);
+    return { outer, inner };
+  };
+
+  it('draws a cluster like a pin with a number when the flag is on', () => {
     const icon = clusterHtml(['emmental', 'freiburg']);
-    expect(icon.html).toContain(clusterRing(['emmental', 'freiburg']));
-    // A white line outside the ring, as on a pin, so a dark ring still shows on the satellite view.
-    const outer = /^<div style="([^"]*)"/.exec(icon.html)?.[1];
-    expect(outer).toContain('border:2px solid ' + theme.color.bg);
-    expect(icon.html).toContain('background:' + theme.color.ink);
+    const { outer, inner } = parts(icon.html);
+    expect(outer).toContain('background:' + clusterRing(['emmental', 'freiburg']));
+    expect(outer).toContain('border:2.5px solid ' + theme.color.bg);
+    expect(outer).toContain('box-shadow:' + theme.shadow);
+    expect(inner).toContain('background:' + theme.color.bg);
+    expect(inner).toContain('line-height:1');
     expect(icon.html).toContain('>2<');
     expect(icon.iconSize).toEqual([34, 34]);
+  });
+
+  it('writes the count in the Teilverband colour when all venues share one', () => {
+    expect(parts(clusterHtml(['emmental', 'oberland']).html).inner).toContain('color:#9B2C1F');
+  });
+
+  it('writes the count in dark grey when the venues belong to several Teilverbände', () => {
+    expect(parts(clusterHtml(['emmental', 'freiburg']).html).inner).toContain('color:' + theme.color.ink);
+  });
+
+  it('writes the count in red when no venue has an association', () => {
+    expect(parts(clusterHtml([null, null]).html).inner).toContain('color:' + theme.color.accent);
   });
 });
 
