@@ -712,6 +712,95 @@ describe('Sidebar', () => {
   });
 });
 
+describe('Sidebar width handle', () => {
+  // The handle doesn't depend on the verband flag; production's value keeps the canton list, whose
+  // names the tests wait for.
+  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    localStorage.clear();
+  });
+
+  // jsdom's window is 1024px wide, so the widest the column may get is 40% of that: 410px.
+  const handle = () => screen.getByRole('separator', { name: STR.de.resizeSidebar });
+  const columnWidth = () => screen.getByTestId('sidebar-root').style.width;
+
+  it('shows a handle on the desktop column, at the default width', async () => {
+    renderSidebar();
+    await screen.findByText('Bern');
+    expect(handle()).toHaveAttribute('aria-orientation', 'vertical');
+    expect(handle()).toHaveAttribute('aria-valuenow', '344');
+    expect(handle()).toHaveAttribute('aria-valuemin', '280');
+    expect(handle()).toHaveAttribute('aria-valuemax', '410');
+    expect(columnWidth()).toBe('344px');
+  });
+
+  it('shows no handle on the tablet panel or the mobile drawer', async () => {
+    const { unmount } = renderSidebar({ isTablet: true });
+    await screen.findByText('Bern');
+    expect(screen.queryByRole('separator')).toBeNull();
+    unmount();
+    renderSidebar({ isMobile: true });
+    await screen.findByText('Bern');
+    expect(screen.queryByRole('separator')).toBeNull();
+  });
+
+  it('starts at the width stored by an earlier visit', async () => {
+    localStorage.setItem('sk-sidebar-width', '400');
+    renderSidebar();
+    await screen.findByText('Bern');
+    expect(columnWidth()).toBe('400px');
+  });
+
+  it('follows a pointer drag and stores the width when the drag ends', async () => {
+    renderSidebar();
+    await screen.findByText('Bern');
+    fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 344 });
+    fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 390 });
+    expect(columnWidth()).toBe('390px');
+    expect(localStorage.getItem('sk-sidebar-width')).toBeNull();
+    fireEvent.pointerUp(handle(), { pointerId: 1, clientX: 390 });
+    expect(localStorage.getItem('sk-sidebar-width')).toBe('390');
+  });
+
+  it('ignores pointer moves when no drag is going on', async () => {
+    renderSidebar();
+    await screen.findByText('Bern');
+    fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 390 });
+    expect(columnWidth()).toBe('344px');
+  });
+
+  it('keeps a dragged width within the range', async () => {
+    renderSidebar();
+    await screen.findByText('Bern');
+    fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 344 });
+    fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 900 });
+    expect(columnWidth()).toBe('410px');
+    fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 50 });
+    expect(columnWidth()).toBe('280px');
+  });
+
+  it('widens and narrows with the arrow keys', async () => {
+    renderSidebar();
+    await screen.findByText('Bern');
+    fireEvent.keyDown(handle(), { key: 'ArrowRight' });
+    expect(columnWidth()).toBe('360px');
+    expect(localStorage.getItem('sk-sidebar-width')).toBe('360');
+    fireEvent.keyDown(handle(), { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle(), { key: 'ArrowLeft' });
+    expect(columnWidth()).toBe('328px');
+  });
+
+  it('goes back to the default width on a double-click', async () => {
+    localStorage.setItem('sk-sidebar-width', '400');
+    renderSidebar();
+    await screen.findByText('Bern');
+    fireEvent.doubleClick(handle());
+    expect(columnWidth()).toBe('344px');
+    expect(localStorage.getItem('sk-sidebar-width')).toBe('344');
+  });
+});
+
 // VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
 describe('Sidebar with the verband flag', () => {
   const REGIONAL_OPEN = { bksv: true, isv: true, nosv: true, nwsv: true, swsv: true };

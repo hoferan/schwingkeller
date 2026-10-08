@@ -79,3 +79,29 @@ describe('MapView initial canton focus', () => {
     expect(flyToBounds).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MapView container resize', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('tells Leaflet when its container changes size, as when the sidebar is dragged wider', () => {
+    // jsdom has no ResizeObserver; this one hands the test the callback the map registers.
+    const callbacks: ResizeObserverCallback[] = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: ResizeObserverCallback) { callbacks.push(cb); }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    const invalidateSize = vi.spyOn(L.Map.prototype, 'invalidateSize');
+    renderMap(null);
+    expect(callbacks).toHaveLength(1);
+    invalidateSize.mockClear();
+
+    callbacks[0]([], {} as ResizeObserver);
+
+    expect(invalidateSize).toHaveBeenCalledTimes(1);
+  });
+});

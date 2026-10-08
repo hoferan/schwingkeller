@@ -241,6 +241,18 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Leaflet only notices window resizes. When the container changes size on its own, as when the
+  // sidebar is dragged wider, the map has to be told, or its tiles and click positions drift.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (mapRef.current === map) map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, []);
+
   // Base layer change.
   useEffect(() => {
     if (!mapRef.current) return;
