@@ -156,6 +156,15 @@ describe('AssociationGroups', () => {
     expect(screen.queryByTestId('venue-row')).toBeNull();
   });
 
+  it('starts every Teilverband name and Ohne Verband at the same place', () => {
+    renderGroups({ isAdmin: true });
+    const leads = [...REGIONAL, 'unassigned'].map(
+      (id) => (screen.getByTestId(`group-${id}`).firstElementChild as HTMLElement).style.width,
+    );
+    expect(leads[0]).not.toBe('');
+    expect(new Set(leads).size).toBe(1);
+  });
+
   it('renders no poster button', () => {
     renderGroups({ isAdmin: true });
     expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();

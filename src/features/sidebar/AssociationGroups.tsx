@@ -12,6 +12,9 @@ import { CantonArms, RowChevron, VenueRow } from './VenueRow';
 // are upper case, so it can't collide with either.
 export const UNASSIGNED_KEY = 'unassigned';
 
+// Wider than the widest abbreviation, so every Teilverband name starts at the same place.
+const BADGE_WIDTH = '46px';
+
 interface AssociationGroupsProps {
   list: Venue[];
   filtering: boolean;
@@ -135,7 +138,7 @@ export const AssociationGroups = ({
             level={1}
             open={isOpen(regional.id)}
             onToggle={onToggle}
-            mark={<RegionalBadge id={regional.id} />}
+            mark={<RegionalBadge id={regional.id} width={BADGE_WIDTH} />}
             name={associations.nameOf(regional.id)}
             count={regional.count}
           />
@@ -167,7 +170,7 @@ export const AssociationGroups = ({
             level={1}
             open={isOpen(UNASSIGNED_KEY)}
             onToggle={onToggle}
-            mark={null}
+            mark={<span aria-hidden="true" style={{ flex: 'none', width: BADGE_WIDTH }} />}
             name={t.unassignedGroup}
             count={unassigned.length}
           />

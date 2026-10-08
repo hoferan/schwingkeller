@@ -21,8 +21,9 @@ export const AssociationMark = ({ id, size = 10 }: { id: string | null | undefin
 };
 
 // A Teilverband heading's badge: its abbreviation in the current language, on its colour. Styled
-// like the distance badge in the sidebar.
-export const RegionalBadge = ({ id }: { id: RegionalId }) => {
+// like the distance badge in the sidebar. A fixed `width` centres the abbreviation, so badges in a
+// column line up whatever their text.
+export const RegionalBadge = ({ id, width }: { id: RegionalId; width?: string }) => {
   const { shortOf } = useAssociations();
   const style: CSSProperties = {
     flex: 'none',
@@ -34,6 +35,7 @@ export const RegionalBadge = ({ id }: { id: RegionalId }) => {
     padding: '2px 9px',
     borderRadius: theme.radius.pill,
     whiteSpace: 'nowrap',
+    ...(width ? { width, boxSizing: 'border-box', textAlign: 'center' } : {}),
   };
   return <span style={style}>{shortOf(id)}</span>;
 };
