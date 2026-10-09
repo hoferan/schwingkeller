@@ -130,9 +130,9 @@ export const generateCantonPosterBlob = async (
     }
 
     drawPosterOverlay(ctx, {
-      cantonName: canton.name,
+      name: canton.name,
       title,
-      wappenImg,
+      mark: { kind: 'arms', img: wappenImg },
       count: cantonVenues.length,
       unitLabel,
       attribution: TILE_ATTRIBUTION[baseKind],

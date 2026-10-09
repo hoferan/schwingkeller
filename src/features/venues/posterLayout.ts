@@ -29,6 +29,9 @@ export const POSTER_LAYOUT = {
   wappenW: 64,
   wappenH: 80,
   wappenGap: 24, // gap between the wappen and the title/pill column
+  markDot: 64, // a Verband's dot in the arms slot, as wide as the arms
+  markRing: 6, // white ring around the dot, so black BKSV shows on the dark band
+  badgeEdge: 3, // white edge around the Teilverband badge, for the same reason
   titleGap: 10, // vertical gap between title and count pill
   titleFont: 56,
   titleBaselineY: 110, // canvas text baseline (canvas-only)
@@ -63,6 +66,7 @@ export type QrCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export interface ChromeLayoutConstants {
   headerH: number; footerH: number; minAttribStripH: number; padX: number;
   wappenX: number; wappenY: number; wappenW: number; wappenH: number; wappenGap: number;
+  markDot: number; markRing: number; badgeEdge: number;
   titleGap: number; titleFont: number; titleBaselineY: number;
   pillFont: number; pillPadX: number; pillH: number; pillY: number;
   appNameFont: number; appNameX: number; attribFont: number; attribMarginX: number;
@@ -71,7 +75,8 @@ export interface ChromeLayoutConstants {
 
 const CHROME_KEYS: (keyof ChromeLayoutConstants)[] = [
   'headerH', 'footerH', 'minAttribStripH', 'padX', 'wappenX', 'wappenY', 'wappenW', 'wappenH',
-  'wappenGap', 'titleGap', 'titleFont', 'titleBaselineY', 'pillFont', 'pillPadX', 'pillH', 'pillY',
+  'wappenGap', 'markDot', 'markRing', 'badgeEdge', 'titleGap', 'titleFont', 'titleBaselineY',
+  'pillFont', 'pillPadX', 'pillH', 'pillY',
   'appNameFont', 'appNameX', 'attribFont', 'attribMarginX', 'qrSize', 'qrMargin', 'qrPad',
 ];
 

@@ -51,6 +51,15 @@ describe('chromeLayoutFor', () => {
     expect(compact.attribFont).toBe(POSTER_LAYOUT.attribFont);
   });
 
+  it('sizes the Verband dot like the arms and keeps it the same in both sizes', () => {
+    for (const size of ['normal', 'compact'] as const) {
+      const layout = chromeLayoutFor(size);
+      expect(layout.markDot).toBe(64);
+      expect(layout.markRing).toBe(6);
+      expect(layout.badgeEdge).toBe(3);
+    }
+  });
+
   it('does not expose venue-pin geometry — that stays outside the chrome-size axis entirely', () => {
     expect('pinRadius' in chromeLayoutFor('compact')).toBe(false);
     expect('pinRing' in chromeLayoutFor('normal')).toBe(false);

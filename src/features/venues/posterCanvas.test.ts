@@ -267,7 +267,7 @@ describe('drawPosterOverlay', () => {
   it('draws the canton name (uppercased), the count pill, and the attribution by default', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
     });
     expect(ctx.fillText).toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
@@ -280,7 +280,7 @@ describe('drawPosterOverlay', () => {
   it('uses the title override instead of the canton name when provided', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', title: 'Emmental 2026', wappenImg: null, count: 1,
+      name: 'Bern', title: 'Emmental 2026', mark: { kind: 'arms', img: null }, count: 1,
       unitLabel: 'Schwingkeller', attribution: '© OpenStreetMap contributors',
       posterHeight: POSTER_SIZE,
     });
@@ -291,7 +291,7 @@ describe('drawPosterOverlay', () => {
   it('skips the header (name + count pill) when showHeader is false', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, showHeader: false,
     });
     expect(ctx.fillText).not.toHaveBeenCalledWith('BERN', expect.any(Number), expect.any(Number));
@@ -301,7 +301,7 @@ describe('drawPosterOverlay', () => {
   it('still draws attribution when the footer is hidden', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, showFooter: false,
     });
     expect(ctx.fillText).toHaveBeenCalledWith(
@@ -314,7 +314,7 @@ describe('drawPosterOverlay', () => {
     const wappenImg = {} as HTMLImageElement;
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Zug', wappenImg, count: 0, unitLabel: 'Schwingkeller',
+      name: 'Zug', mark: { kind: 'arms', img: wappenImg }, count: 0, unitLabel: 'Schwingkeller',
       attribution: '© Esri, Maxar, Earthstar Geographics', posterHeight: POSTER_SIZE, qrImg,
     });
     expect(ctx.drawImage).toHaveBeenCalledWith(
@@ -329,7 +329,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, qrImg,
     });
     // footer band: fillRect(0, posterHeight - footerH, POSTER_SIZE, footerH) = fillRect(0, 1080-46, 1080, 46)
@@ -342,7 +342,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: 1620, qrImg,
     });
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 1620 - 46, POSTER_SIZE, 46);
@@ -352,7 +352,7 @@ describe('drawPosterOverlay', () => {
   it('positions the minimal attribution strip relative to posterHeight when the footer is hidden', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: 1620, showFooter: false,
     });
     // minAttribStripH = 26; fillRect(0, posterHeight - minAttribStripH, POSTER_SIZE, minAttribStripH)
@@ -363,7 +363,7 @@ describe('drawPosterOverlay', () => {
     // Transparent: no backing strip is drawn at all — just the dark attribution text.
     const transparentCtx = makeCtx();
     drawPosterOverlay(transparentCtx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       showFooter: false, chromeStyle: 'transparent',
     });
@@ -375,7 +375,7 @@ describe('drawPosterOverlay', () => {
     // Light: the strip backing is drawn (with the light fill), like the bands.
     const lightCtx = makeCtx();
     drawPosterOverlay(lightCtx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       showFooter: false, chromeStyle: 'light',
     });
@@ -385,7 +385,7 @@ describe('drawPosterOverlay', () => {
   it('draws the header at its position-derived offset instead of always y=0', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       headerPosition: 'bottom', showFooter: false,
     });
@@ -398,7 +398,7 @@ describe('drawPosterOverlay', () => {
   it('stacks header and footer without overlapping when both share the top edge', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       headerPosition: 'top', footerPosition: 'top',
     });
@@ -411,7 +411,7 @@ describe('drawPosterOverlay', () => {
   it('draws no fill and applies a shadow for the transparent style', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       chromeStyle: 'transparent',
     });
@@ -434,7 +434,7 @@ describe('drawPosterOverlay', () => {
   it('uses light-style colors (light fill, dark text) for the header/footer bands', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       chromeStyle: 'light',
     });
@@ -445,7 +445,7 @@ describe('drawPosterOverlay', () => {
   it('shrinks the header/footer bands for chromeSize "compact" without scaling content', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       chromeSize: 'compact',
     });
@@ -459,7 +459,7 @@ describe('drawPosterOverlay', () => {
   it('places the count pill inline next to the title for chromeSize "compact"', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       chromeSize: 'compact',
     });
@@ -472,7 +472,7 @@ describe('drawPosterOverlay', () => {
   it('keeps the count pill below the title for chromeSize "normal"', () => {
     const ctx = makeCtx();
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
     });
     // Unchanged default layout: pill at textX(40), pillY(130).
@@ -483,7 +483,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       qrImg, qrCorner: 'top-left', showFooter: false,
     });
@@ -496,7 +496,7 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE,
       qrImg, qrCorner: 'bottom-right', showFooter: false,
     });
@@ -510,10 +510,115 @@ describe('drawPosterOverlay', () => {
     const ctx = makeCtx();
     const qrImg = {} as HTMLImageElement;
     drawPosterOverlay(ctx, {
-      cantonName: 'Bern', wappenImg: null, count: 5, unitLabel: 'Schwingkeller',
+      name: 'Bern', mark: { kind: 'arms', img: null }, count: 5, unitLabel: 'Schwingkeller',
       attribution: '© OpenStreetMap contributors', posterHeight: POSTER_SIZE, qrImg,
     });
     expect(ctx.drawImage).toHaveBeenCalledWith(qrImg, 1080 - 150 - 28, 856, 150, 150);
+  });
+});
+
+describe('drawPosterOverlay marks', () => {
+  // Records every drawing call with the fill style in force when a shape is filled, so the tests
+  // can check what was painted in which colour and in which order.
+  type Op = { op: string; args: unknown[]; style?: string };
+  const recordingCtx = () => {
+    const ops: Op[] = [];
+    const ctx = {
+      fillStyle: '', font: '', textBaseline: '', textAlign: '',
+      measureText: vi.fn().mockReturnValue({ width: 80 }),
+    } as unknown as CanvasRenderingContext2D & { ops: Op[] };
+    const record = (op: string, styled = false) => (...args: unknown[]) => {
+      ops.push({ op, args, ...(styled ? { style: String(ctx.fillStyle) } : {}) });
+    };
+    Object.assign(ctx, {
+      ops,
+      beginPath: record('beginPath'),
+      arc: record('arc'),
+      roundRect: record('roundRect'),
+      fill: record('fill', true),
+      fillRect: record('fillRect', true),
+      fillText: record('fillText', true),
+      drawImage: record('drawImage'),
+    });
+    return ctx;
+  };
+  // The fill that follows a shape, i.e. the colour that shape was painted in.
+  const fillAfter = (ops: Op[], op: string, args: unknown[]) => {
+    const i = ops.findIndex((o) => o.op === op && JSON.stringify(o.args) === JSON.stringify(args));
+    expect(i, `${op}(${args.join(', ')}) was drawn`).toBeGreaterThanOrEqual(0);
+    return ops.slice(i).find((o) => o.op === 'fill')?.style;
+  };
+
+  const freiburg = { kind: 'association', tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } } as const;
+  const base = {
+    name: 'Freiburg', unitLabel: 'Schwingkeller', attribution: '© OpenStreetMap contributors',
+    posterHeight: POSTER_SIZE,
+  };
+  const N = chromeLayoutFor('normal');
+  const C = chromeLayoutFor('compact');
+  const titleX = N.padX + N.wappenW + N.wappenGap;
+
+  it('draws a white-ringed dot in the arms slot for an association mark', () => {
+    const ctx = recordingCtx();
+    drawPosterOverlay(ctx, { ...base, mark: freiburg, count: null });
+    const cx = N.wappenX + N.wappenW / 2;
+    const cy = N.wappenY + N.wappenH / 2;
+    const ring = fillAfter(ctx.ops, 'arc', [cx, cy, N.markDot / 2 + N.markRing, 0, Math.PI * 2]);
+    const dot = fillAfter(ctx.ops, 'arc', [cx, cy, N.markDot / 2, 0, Math.PI * 2]);
+    expect(ring).toBe(theme.color.bg);
+    expect(dot).toBe('#5D6B80');
+    const arcs = ctx.ops.filter((o) => o.op === 'arc');
+    expect(arcs[0].args[2]).toBe(N.markDot / 2 + N.markRing); // ring underneath, dot on top
+  });
+
+  it('draws the badge where the count pill goes and no count when count is null', () => {
+    const ctx = recordingCtx();
+    drawPosterOverlay(ctx, { ...base, mark: freiburg, count: null });
+    const badge = [titleX, N.pillY, 80 + 2 * N.pillPadX, N.pillH, N.pillH / 2];
+    expect(fillAfter(ctx.ops, 'roundRect', badge)).toBe('#5D6B80');
+    const texts = ctx.ops.filter((o) => o.op === 'fillText').map((o) => o.args[0]);
+    expect(texts).toContain('SWSV');
+    expect(texts.some((t) => String(t).endsWith('Schwingkeller'))).toBe(false);
+  });
+
+  it('edges the badge in white so a black BKSV badge shows on the solid band', () => {
+    const ctx = recordingCtx();
+    const emmental = { kind: 'association', tint: '#1A1A1A', badge: { text: 'BKSV', colour: '#1A1A1A' } } as const;
+    drawPosterOverlay(ctx, { ...base, name: 'Emmental', mark: emmental, count: null });
+    const w = 80 + 2 * N.pillPadX;
+    const e = N.badgeEdge;
+    const edge = [titleX - e, N.pillY - e, w + 2 * e, N.pillH + 2 * e, N.pillH / 2 + e];
+    const badge = [titleX, N.pillY, w, N.pillH, N.pillH / 2];
+    expect(fillAfter(ctx.ops, 'roundRect', edge)).toBe(theme.color.bg);
+    expect(fillAfter(ctx.ops, 'roundRect', badge)).toBe('#1A1A1A');
+    const order = ctx.ops.filter((o) => o.op === 'roundRect').map((o) => JSON.stringify(o.args));
+    expect(order.indexOf(JSON.stringify(edge))).toBeLessThan(order.indexOf(JSON.stringify(badge)));
+  });
+
+  it('puts the badge inline after the title in compact chrome', () => {
+    const ctx = recordingCtx();
+    drawPosterOverlay(ctx, { ...base, mark: freiburg, count: null, chromeSize: 'compact' });
+    const x = titleX + 80 + C.pillPadX;
+    expect(fillAfter(ctx.ops, 'roundRect', [x, C.pillY, 80 + 2 * C.pillPadX, C.pillH, C.pillH / 2])).toBe('#5D6B80');
+  });
+
+  it('starts the title at the same x for both marks', () => {
+    const withArms = recordingCtx();
+    drawPosterOverlay(withArms, { ...base, name: 'Freiburg', mark: { kind: 'arms', img: {} as HTMLImageElement }, count: 2 });
+    const withDot = recordingCtx();
+    drawPosterOverlay(withDot, { ...base, mark: freiburg, count: null });
+    const titleOf = (ctx: ReturnType<typeof recordingCtx>) =>
+      ctx.ops.find((o) => o.op === 'fillText' && o.args[0] === 'FREIBURG')?.args[1];
+    expect(titleOf(withArms)).toBe(titleX);
+    expect(titleOf(withDot)).toBe(titleX);
+  });
+
+  it('still draws the red count pill for an arms mark with a count', () => {
+    const ctx = recordingCtx();
+    drawPosterOverlay(ctx, { ...base, name: 'Bern', mark: { kind: 'arms', img: null }, count: 5 });
+    expect(fillAfter(ctx.ops, 'roundRect', [N.padX, N.pillY, 116, N.pillH, N.pillH / 2])).toBe(theme.color.accent);
+    expect(ctx.ops.filter((o) => o.op === 'fillText').map((o) => o.args[0])).toContain('5 Schwingkeller');
+    expect(ctx.ops.some((o) => o.op === 'arc')).toBe(false);
   });
 });
 
