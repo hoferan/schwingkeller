@@ -136,6 +136,10 @@ Then('{string} is selected', async ({ page }, name: string) => {
   await expect(rows(page).filter({ hasText: name })).toHaveAttribute('aria-current', 'true');
 });
 
+When('I open the details from the popup', async ({ page }) => {
+  await page.locator('.leaflet-popup').getByRole('button', { name: t.details }).click();
+});
+
 When('I close the popup', async ({ page }) => {
   await page.locator('.leaflet-popup').getByRole('button', { name: t.close }).click();
 });

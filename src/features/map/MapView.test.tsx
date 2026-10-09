@@ -254,23 +254,25 @@ describe('MapView legend', () => {
 
 // Holds the selection the way App does, so a pin click or a closed popup round-trips through the
 // props. The button stands in for a row in the venue list.
-const SelectionHarness = ({ venues, lang = 'de', onSelect, onDeselect }: {
+const SelectionHarness = ({ venues, lang = 'de', onSelect, onDeselect, onOpenDetail = vi.fn() }: {
   venues: Venue[];
   lang?: Lang;
   onSelect: (id: string) => void;
   onDeselect: () => void;
+  onOpenDetail?: (id: string) => void;
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   return (
     <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <button onClick={() => setSelectedId(venues[0].id)}>pick from list</button>
+      <button onClick={() => setSelectedId(venues[1].id)}>pick second from list</button>
       <output data-testid="selected">{selectedId ?? ''}</output>
       <MapView
         venues={venues}
         selectedId={selectedId}
         onSelect={(id) => { onSelect(id); setSelectedId(id); }}
         onDeselect={() => { onDeselect(); setSelectedId(null); }}
-        onOpenDetail={vi.fn()}
+        onOpenDetail={onOpenDetail}
         baseKind="map"
         onChangeBase={vi.fn()}
         placing={false}
@@ -300,6 +302,22 @@ describe('MapView selection from the map', () => {
   const teardrops = (container: HTMLElement) => container.querySelectorAll('.leaflet-marker-icon path');
   const closePopup = (container: HTMLElement) =>
     fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
+  const zoomIn = (container: HTMLElement) => fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+  const zoomOut = (container: HTMLElement) => fireEvent.click(container.querySelector('.leaflet-control-zoom-out')!);
+  // jsdom lays nothing out, so the boxes measured in the browser for the Säntis popup are handed in:
+  // every popup sits under the base switch and legend in the top right.
+  const layOutSaentis = () => {
+    const boxes: Record<string, [number, number, number, number]> = {
+      popup: [787, 65, 1011, 248], overlay: [880, 72, 1012, 250], map: [344, 60, 1024, 768],
+    };
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.classList.contains('leaflet-popup') ? 'popup'
+        : this.dataset.testid === 'map-overlay' ? 'overlay'
+          : this.classList.contains('leaflet-container') ? 'map' : null;
+      const [left, top, right, bottom] = key ? boxes[key] : [0, 0, 0, 0];
+      return { left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top, toJSON: () => ({}) } as DOMRect;
+    });
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -419,22 +437,83 @@ describe('MapView selection from the map', () => {
   });
 
   it('moves a popup out from under the controls in the top right', () => {
-    // jsdom lays nothing out, so the boxes measured in the browser for the Säntis popup are handed in.
-    const boxes: Record<string, [number, number, number, number]> = {
-      popup: [787, 65, 1011, 248], overlay: [880, 72, 1012, 250], map: [344, 60, 1024, 768],
-    };
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const key = this.classList.contains('leaflet-popup') ? 'popup'
-        : this.dataset.testid === 'map-overlay' ? 'overlay'
-          : this.classList.contains('leaflet-container') ? 'map' : null;
-      const [left, top, right, bottom] = key ? boxes[key] : [0, 0, 0, 0];
-      return { left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top, toJSON: () => ({}) } as DOMRect;
-    });
+    layOutSaentis();
     const panBy = vi.spyOn(L.Map.prototype, 'panBy');
     const { container } = renderHarness();
     fireEvent.click(pin(container, 'Keller 1'));
     // The popup moves 139px left, so the map pans 139px right.
     expect(panBy).toHaveBeenCalledWith([139, 0]);
+  });
+
+  it("opens the details from a clicked pin's popup", () => {
+    const onOpenDetail = vi.fn<(id: string) => void>();
+    const { container } = render(
+      <SelectionHarness venues={venues} onSelect={onSelect} onDeselect={onDeselect} onOpenDetail={onOpenDetail} />,
+    );
+    vi.advanceTimersByTime(200);
+    fireEvent.click(pin(container, 'Keller 1'));
+    fireEvent.click(container.querySelector('.leaflet-popup [data-detail]')!);
+    expect(onOpenDetail).toHaveBeenCalledWith('1');
+  });
+
+  it('keeps a venue picked in the list selected when a pan is still running as it is picked', () => {
+    let land = () => {};
+    vi.spyOn(L.Map.prototype, 'flyTo').mockImplementation(function (this: L.Map, center, zoom) {
+      // flyTo stops a pan that is still running, and stopping it fires moveend at the old view.
+      this.fire('moveend');
+      land = () => { this.setView(center, zoom); };
+      return this;
+    });
+    const { container } = renderHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'pick from list' }));
+    land();
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+    expect(onDeselect).not.toHaveBeenCalled();
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+  });
+
+  it('keeps the popup open and the venue selected when the map is zoomed in', () => {
+    // markercluster takes every pin off the map and puts it back on each zoom step, which closes
+    // the popup even of a pin that never joins a cluster.
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    zoomIn(container);
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+    expect(onDeselect).not.toHaveBeenCalled();
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+  });
+
+  it('clears the selection once a zoom folds the pin into a cluster', () => {
+    // 0.02° apart: separate pins at zoom 12 and up, one cluster at zoom 11.
+    const neighbours = [venueAt('1', 'freiburg', 46.82, 8.23), venueAt('2', 'luzern', 46.82, 8.25)];
+    const { container } = render(<SelectionHarness venues={neighbours} onSelect={onSelect} onDeselect={onDeselect} />);
+    vi.advanceTimersByTime(200);
+    for (let i = 0; i < 5; i++) zoomIn(container);
+    fireEvent.click(pin(container, 'Keller 1'));
+    zoomOut(container);
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+    zoomOut(container);
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('selected')).toHaveTextContent('');
+  });
+
+  it('pans only for the popup of the selected venue', () => {
+    layOutSaentis();
+    vi.spyOn(L.Map.prototype, 'flyTo').mockImplementation(function (this: L.Map) { return this; });
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    const panBy = vi.spyOn(L.Map.prototype, 'panBy');
+    fireEvent.click(screen.getByRole('button', { name: 'pick second from list' }));
+    expect(panBy).not.toHaveBeenCalled();
+  });
+
+  it('leaves the map where it is when a zoom puts the popup back', () => {
+    layOutSaentis();
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    const panBy = vi.spyOn(L.Map.prototype, 'panBy');
+    zoomIn(container);
+    expect(panBy).not.toHaveBeenCalled();
   });
 
   it('pans a popup that sticks out at the top of the map into view', () => {
