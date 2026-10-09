@@ -71,7 +71,7 @@ const stubbedPage = async ({ page }: { page: import('@playwright/test').Page }, 
 export const setupTest = playwrightTest.extend({ page: stubbedPage });
 
 export const test = bddTest.extend<
-  { venuePrefix: string; posterDownload: { current?: Download } },
+  { venuePrefix: string; posterDownload: { current?: Download }; mapZoom: { before?: number } },
   { adminDb: SupabaseClient }
 >({
   page: stubbedPage,
@@ -92,6 +92,12 @@ export const test = bddTest.extend<
   // The download step hands its file to the steps that check it.
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
   posterDownload: async ({}, use) => {
+    await use({});
+  },
+
+  // The pin step notes the map's zoom for the step that checks it afterwards.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  mapZoom: async ({}, use) => {
     await use({});
   },
 });
