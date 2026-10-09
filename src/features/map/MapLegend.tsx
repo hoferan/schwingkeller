@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
+import { REGIONAL_TINTS, UNASSIGNED_TINT, tintOf } from '../../data/associationTints';
 import { useAssociations } from '../associations/useAssociations';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -62,7 +62,7 @@ export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boo
           ))}
           {hasUnassigned && (
             <li style={rowStyle}>
-              <span aria-hidden="true" style={dot(theme.color.accent)} />
+              <span aria-hidden="true" style={dot(UNASSIGNED_TINT)} />
               {t.unassignedGroup}
             </li>
           )}
