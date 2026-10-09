@@ -75,7 +75,7 @@ interface VenueRowProps {
 }
 
 export const VenueRow = ({ venue, selected, onSelect, leading, trailing }: VenueRowProps) => (
-  <div data-testid="venue-row" onClick={() => onSelect(venue.id)} style={rowStyle(selected)}>
+  <div data-testid="venue-row" aria-current={selected || undefined} onClick={() => onSelect(venue.id)} style={rowStyle(selected)}>
     {leading}
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={lineStyle('14px', theme.color.ink, 600)}>{venue.name}</div>
