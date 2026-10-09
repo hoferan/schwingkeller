@@ -240,7 +240,6 @@ export interface PosterOverlayOptions {
   title?: string;
   mark: OverlayMark;
   count: number | null; // null draws no count pill
-
   unitLabel: string;
   attribution: string;
   posterHeight: number;

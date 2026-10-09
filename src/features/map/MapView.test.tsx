@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
-import { STR } from '../../i18n/translations';
+import { STR, type Lang } from '../../i18n/translations';
 import { MapView } from './MapView';
 import { USER_PIN_SIZE } from './markers';
 import type { Venue } from '../venues/types';
@@ -23,8 +23,9 @@ const mapView = (
   venues: Venue[] = [],
   selectedId: string | null = null,
   userPosition: { lat: number; lng: number } | null = null,
+  lang: Lang = 'de',
 ) => (
-    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+    <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <MapView
         venues={venues}
         selectedId={selectedId}
@@ -140,14 +141,52 @@ describe('MapView venue pins', () => {
     expect(icons(container).some((html) => html.includes('#1A1A1A'))).toBe(true);
   });
 
-  it('sizes and centres the icon box of the larger selected pin', () => {
+  it('sizes the selected pin to its teardrop and anchors it at the tip', () => {
     const venues = [venueAt('1', 'emmental', 46.9, 7.7)];
     const { container, rerender } = render(mapView(null, venues));
     vi.advanceTimersByTime(200);
     rerender(mapView(null, venues, '1'));
     const icon = container.querySelector<HTMLElement>('.leaflet-marker-icon');
-    expect(icon?.style.width).toBe('34px');
-    expect(icon?.style.marginLeft).toBe('-17px');
+    expect(icon?.style.width).toBe('30px');
+    expect(icon?.style.height).toBe('42px');
+    expect(icon?.style.marginLeft).toBe('-15px');
+    expect(icon?.style.marginTop).toBe('-39px');
+  });
+
+  it('draws the selected pin over a neighbour just south of it, but under the location dot', () => {
+    // Leaflet stacks markers by screen y, so a pin further south would paint over the teardrop's tip.
+    const venues = [venueAt('1', 'emmental', 46.9001, 7.7), venueAt('2', 'luzern', 46.9, 7.7)];
+    const { container, rerender } = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, venues, '1'));
+    const pins = [...container.querySelectorAll<HTMLElement>('.leaflet-marker-icon')];
+    const selected = pins.find((el) => el.querySelector('path'))!;
+    const neighbour = pins.find((el) => !el.querySelector('path'))!;
+    expect(Number(selected.style.zIndex)).toBeGreaterThan(Number(neighbour.style.zIndex));
+    // The location dot sits 1000 above its own position; the selected pin must stay below that.
+    expect(Number(selected.style.zIndex) - Number(neighbour.style.zIndex)).toBeLessThan(1000);
+  });
+
+  it("labels the popup's close button in the visitor's language", () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    fireEvent.click(container.querySelector('.leaflet-marker-icon')!);
+    const close = container.querySelector('.leaflet-popup-close-button');
+    expect(close).toHaveAttribute('aria-label', STR.de.close);
+    expect(close).toHaveAttribute('title', STR.de.close);
+  });
+
+  it('rebuilds the popups in the new language when the language changes', () => {
+    const venues = [venueAt('1', 'freiburg', 46.9, 7.7)];
+    const { container, rerender } = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, venues, null, null, 'fr'));
+    vi.advanceTimersByTime(200);
+    fireEvent.click(container.querySelector('.leaflet-marker-icon')!);
+    const popup = container.querySelector('.leaflet-popup')!;
+    expect(popup.querySelector('.leaflet-popup-close-button')).toHaveAttribute('aria-label', STR.fr.close);
+    expect(popup).toHaveTextContent('ARLS');
+    expect(popup).toHaveTextContent('Fribourg');
   });
 
   it("hands each venue's association to the cluster icon", () => {

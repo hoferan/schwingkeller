@@ -6,7 +6,6 @@ import { theme } from '../../theme';
 
 interface PhotoGalleryProps {
   photos: VenuePhoto[];
-  venueName: string;
 }
 
 const fillStyle: CSSProperties = { position: 'absolute', inset: 0 };
@@ -23,7 +22,7 @@ const dotStyle = (active: boolean): CSSProperties => ({
   background: active ? theme.color.bg : 'rgba(255,255,255,.5)',
 });
 
-export function PhotoGallery({ photos, venueName }: PhotoGalleryProps) {
+export function PhotoGallery({ photos }: PhotoGalleryProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
   const [selected, setSelected] = useState(0);
 
@@ -46,26 +45,7 @@ export function PhotoGallery({ photos, venueName }: PhotoGalleryProps) {
     };
   }, [emblaApi, onSelect]);
 
-  if (photos.length === 0) {
-    return (
-      <div
-        style={{
-          ...fillStyle,
-          background: 'repeating-linear-gradient(45deg,#e5e5e5 0 12px,#d4d4d4 12px 24px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'monospace', fontSize: '11px', letterSpacing: '.12em', color: theme.color.ink,
-            background: theme.color.bg, border: '1px solid ' + theme.color.line, padding: '6px 11px',
-          }}
-        >
-          FOTO · {venueName}
-        </span>
-      </div>
-    );
-  }
+  if (photos.length === 0) return null;
 
   return (
     <div style={{ ...fillStyle, overflow: 'hidden' }} ref={emblaRef}>

@@ -12,7 +12,12 @@ input, select, button, textarea { font-family: inherit; }
 .leaflet-popup-content-wrapper { background: #ffffff; border: 1px solid #e2e2e2; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 0; overflow: hidden; }
 .leaflet-popup-content { margin: 0; width: auto !important; }
 .leaflet-popup-tip { background: #ffffff; border: 1px solid #e2e2e2; }
-.leaflet-popup-close-button { color: #111111 !important; font-size: 20px !important; padding: 6px 8px 0 0 !important; }
+/* The popup's close button: a light circle on the white body, a dark one over a photo. The extra
+   .leaflet-popup in each selector outranks leaflet.css on its own, whatever order the two load in. */
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button { top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; background: #f2f2f2; color: #111111; font: 18px/28px 'Work Sans', sans-serif; z-index: 1; }
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button:hover, .leaflet-container .leaflet-popup a.leaflet-popup-close-button:focus { color: #111111; background: #e2e2e2; }
+.leaflet-container .leaflet-popup:has([data-popup-photo]) a.leaflet-popup-close-button { background: rgba(17,17,17,.7); color: #ffffff; }
+.leaflet-container .leaflet-popup:has([data-popup-photo]) a.leaflet-popup-close-button:hover, .leaflet-container .leaflet-popup:has([data-popup-photo]) a.leaflet-popup-close-button:focus { background: rgba(17,17,17,.85); color: #ffffff; }
 .canton-tip { background: #111111; color: #ffffff; border: none; border-radius: 10px; padding: 5px 10px; font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
 .canton-tip.leaflet-tooltip-top:before { border-top-color: #111111; }
 .canton-tip.leaflet-tooltip-bottom:before { border-bottom-color: #111111; }

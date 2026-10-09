@@ -17,4 +17,13 @@ export const theme = {
     pill: '999px',
   },
   shadow: '0 4px 16px rgba(0,0,0,.12)',
+  // A hairline around a coat of arms, so arms with a white field (FR, ZH, LU) keep their edge on white.
+  armsOutline: 'drop-shadow(0 0 0.75px rgba(0,0,0,.55))',
+  // Map pin shadows, drawn as CSS filters on the pin SVG: the disc's soft lift (theme.shadow in
+  // filter form), the selected teardrop's closer shadow, and the spot of shade under its tip.
+  pinShadow: {
+    disc: 'drop-shadow(0 4px 8px rgba(0,0,0,.12))',
+    teardrop: 'drop-shadow(0 2px 2.5px rgba(0,0,0,.35))',
+    ground: 'rgba(0,0,0,.28)',
+  },
 } as const;

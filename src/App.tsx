@@ -235,11 +235,12 @@ function AppShell() {
     }
   };
 
-  // The open editor follows the venues, so a poster asked for before they loaded fills in once they
-  // arrive. The id is checked on click, where an unknown one can still be reported.
+  // The editor frames the map and places its pins when it opens, so a poster asked for before the
+  // venues loaded opens once they have. The id is checked on click, where an unknown one can still
+  // be reported.
   const posterSubject = useMemo(
-    () => (posterTarget ? posterSubjectFor(posterTarget, venues, associations) : null),
-    [posterTarget, venues, associations],
+    () => (posterTarget && venuesLoaded ? posterSubjectFor(posterTarget, venues, associations) : null),
+    [posterTarget, venuesLoaded, venues, associations],
   );
   const openPosterEditor = (target: PosterTarget) => {
     try {

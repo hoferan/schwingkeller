@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { clusterIcon, clusterRing, pinHtml, pinSize, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
+import { clusterIcon, clusterRing, pinIcon, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
+import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
@@ -22,36 +23,71 @@ afterEach(() => { vi.unstubAllEnvs(); });
 
 describe('markers html', () => {
   it('popupHtml includes name and a data-detail hook', () => {
-    const html = popupHtml(venue, STR.de);
+    const html = popupHtml(venue, STR.de, associationsFor('de'));
     expect(html).toContain('Emmental');
     expect(html).toContain('data-detail="1"');
   });
 });
 
+const count = (html: string, needle: string) => html.split(needle).length - 1;
+
 describe('pins with the verband flag off', () => {
-  it('draws every pin in the accent red, selected or not, whatever the association', () => {
+  it('draws every pin in the accent red, whatever the association', () => {
     vi.stubEnv('VITE_APP_ENV', 'production');
-    expect(pinHtml(true, 'emmental')).toBe(pinHtml(false, 'luzern'));
-    expect(pinHtml(false, 'emmental')).toContain(theme.color.accent);
-    expect(pinSize(true)).toBe(28);
+    expect(pinIcon(false, 'emmental').html).toBe(pinIcon(false, 'luzern').html);
+    expect(pinIcon(false, 'emmental').html).toContain(theme.color.accent);
+    expect(pinIcon(true, 'emmental').html).toContain(theme.color.accent);
+  });
+
+  it('still marks the selected pin as a teardrop', () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    expect(pinIcon(true, 'emmental').html).toContain('<path');
+    expect(pinIcon(false, 'emmental').html).not.toContain('<path');
   });
 });
 
 // VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
 describe('pins with the verband flag on', () => {
   it('fills a pin with its Teilverband colour', () => {
-    const html = pinHtml(false, 'emmental');
+    const { html } = pinIcon(false, 'emmental');
     expect(html).toContain('#1A1A1A');
     expect(html).not.toContain(theme.color.accent);
   });
 
-  it('draws the selected pin larger and with a dark ring', () => {
-    const html = pinHtml(true, 'luzern');
-    expect(html).toContain('width:34px');
-    expect(html).toContain('0 0 0 2.5px ' + theme.color.ink);
-    expect(pinSize(true)).toBe(34);
-    expect(pinSize(false)).toBe(28);
-    expect(pinHtml(false, 'luzern')).not.toContain(theme.color.ink);
+  it('draws each pin as a single SVG', () => {
+    expect(pinIcon(false, 'luzern').html.startsWith('<svg')).toBe(true);
+    expect(count(pinIcon(false, 'luzern').html, '<svg')).toBe(1);
+    expect(pinIcon(true, 'luzern').html.startsWith('<svg')).toBe(true);
+    expect(count(pinIcon(true, 'luzern').html, '<svg')).toBe(1);
+  });
+
+  it('draws an unselected pin as a 28px disc with a white edge and a white centre on the same point', () => {
+    const { html, iconSize, iconAnchor, popupAnchor } = pinIcon(false, 'freiburg');
+    expect(iconSize).toEqual([28, 28]);
+    expect(iconAnchor).toEqual([14, 14]);
+    expect(popupAnchor).toEqual([0, -20]);
+    expect(html).toContain('<circle cx="14" cy="14" r="12.5" fill="#5D6B80" stroke="#ffffff" stroke-width="3"');
+    expect(html).toContain('<circle cx="14" cy="14" r="5" fill="#ffffff"');
+  });
+
+  it('draws the selected pin as a teardrop in the Teilverband colour, anchored at its tip', () => {
+    const { html, iconSize, iconAnchor, popupAnchor } = pinIcon(true, 'luzern');
+    expect(iconSize).toEqual([30, 42]);
+    expect(iconAnchor).toEqual([15, 39]);
+    expect(popupAnchor).toEqual([0, -42]);
+    expect(html).toMatch(/<path d="M15 39 [^"]+" fill="#E30613" stroke="#ffffff" stroke-width="2.5"/);
+    expect(html).toContain('<circle cx="15" cy="15.5" r="5" fill="#ffffff"');
+  });
+
+  it('takes its shadows from the theme', () => {
+    expect(pinIcon(false, 'freiburg').html).toContain('filter:' + theme.pinShadow.disc);
+    expect(pinIcon(true, 'freiburg').html).toContain('filter:' + theme.pinShadow.teardrop);
+    expect(pinIcon(true, 'freiburg').html).toContain('fill="' + theme.pinShadow.ground + '"');
+  });
+
+  it('marks the selected pin by its shape, without a dark ring', () => {
+    expect(pinIcon(true, 'freiburg').html).not.toContain(theme.color.ink);
+    expect(pinIcon(false, 'freiburg').html).not.toContain(theme.color.ink);
   });
 });
 
@@ -142,7 +178,7 @@ describe('userPinHtml', () => {
   });
 
   it('is wider than a venue pin, so its shape tells it apart from a blue NWSV pin', () => {
-    expect(USER_PIN_SIZE).toBeGreaterThan(pinSize(true));
-    expect(userPinHtml()).not.toBe(pinHtml(false, 'aargau'));
+    expect(USER_PIN_SIZE).toBeGreaterThan(pinIcon(true, 'aargau').iconSize[0]);
+    expect(userPinHtml()).not.toBe(pinIcon(false, 'aargau').html);
   });
 });

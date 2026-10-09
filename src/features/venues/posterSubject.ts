@@ -3,7 +3,6 @@ import { boundsForCanton, type CantonBounds } from '../../data/cantonBounds';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
-import type { CantonalId, RegionalId } from '../../data/associations';
 import type { Associations } from '../associations/useAssociations';
 import { withAssociationParam, withCantonParam } from '../../lib/permalink';
 
@@ -59,8 +58,8 @@ export const associationPosterSubject = (
   if (node?.level !== 'cantonal' || !regional) {
     throw new PosterGenerationError(`[UNKNOWN_ASSOCIATION] No Verband ${id}.`);
   }
-  const cantonal = node.id as CantonalId;
-  const regionalId = regional.id as RegionalId;
+  const cantonal = node.id;
+  const regionalId = regional.id;
   return {
     id: cantonal,
     name: associations.nameOf(cantonal),

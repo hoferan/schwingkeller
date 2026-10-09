@@ -57,7 +57,7 @@ export const CantonArms = ({ code, size }: { code: string; size: keyof typeof AR
       ...ARMS_SIZE[size],
       objectFit: 'contain',
       flex: 'none',
-      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))',
+      filter: theme.armsOutline,
     }}
   />
 );

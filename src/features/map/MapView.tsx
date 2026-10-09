@@ -6,7 +6,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, pinSize, popupHtml, clusterIcon, userPinHtml, USER_PIN_SIZE } from './markers';
+import { useAssociations } from '../associations/useAssociations';
+import { pinIcon, popupHtml, clusterIcon, userPinHtml, USER_PIN_SIZE } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { CantonalId } from '../../data/associations';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -82,14 +83,14 @@ const fitAllWrapStyle = (top: number, size: number, border: string, backgroundCl
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
   width: `${size}px`, height: `${size}px`, border, backgroundClip, zIndex: 1000,
 });
-// A selected pin can be larger than the others, so the icon box and its anchor follow its size.
-const venueIcon = (v: Venue, selected: boolean): L.DivIcon => {
-  const size = pinSize(selected);
-  return L.divIcon({
-    className: '', html: pinHtml(selected, v.association_id),
-    iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 6)],
-  });
-};
+// Leaflet stacks markers by their screen y, so a pin just south of the selected one would cover the
+// teardrop's tip. The selected pin is lifted above its neighbours, and stays under the location dot
+// (zIndexOffset 1000).
+const pinZIndexOffset = (selected: boolean): number => (selected ? 500 : 0);
+
+// The selected pin is a teardrop anchored at its tip, so the icon box and anchors come with the pin.
+const venueIcon = (v: Venue, selected: boolean): L.DivIcon =>
+  L.divIcon({ className: '', ...pinIcon(selected, v.association_id) });
 
 const fitAllBtnStyle: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -102,6 +103,7 @@ export function MapView({
   userPosition, geoStatus, onRequestLocation, isMobile,
 }: MapViewProps) {
   const { t } = useTranslation();
+  const associations = useAssociations();
   const mapElRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +125,7 @@ export function MapView({
   const onOpenDetailRef = useRef(onOpenDetail);
   const onPickLocationRef = useRef(onPickLocation);
   const tRef = useRef(t);
+  const associationsRef = useRef(associations);
   useEffect(() => {
     venuesRef.current = venues;
     selectedIdRef.current = selectedId;
@@ -131,6 +134,7 @@ export function MapView({
     onOpenDetailRef.current = onOpenDetail;
     onPickLocationRef.current = onPickLocation;
     tRef.current = t;
+    associationsRef.current = associations;
   });
 
   const setTile = (kind: 'map' | 'sat') => {
@@ -150,11 +154,12 @@ export function MapView({
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
       // clusterIcon reads associationId from the options to colour the cluster's ring.
+      const selected = v.id === selectedIdRef.current;
       const options: L.MarkerOptions & { associationId: CantonalId } = {
-        icon: venueIcon(v, v.id === selectedIdRef.current), associationId: v.association_id,
+        icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
-      m.bindPopup(popupHtml(v, tRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
+      m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
       m.on('click', () => onSelectRef.current(v.id));
       markersRef.current[v.id] = m;
     });
@@ -162,7 +167,8 @@ export function MapView({
 
   const updatePins = () => {
     venuesRef.current.forEach((v) => {
-      markersRef.current[v.id]?.setIcon(venueIcon(v, v.id === selectedIdRef.current));
+      const selected = v.id === selectedIdRef.current;
+      markersRef.current[v.id]?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
     });
   };
 
@@ -206,6 +212,10 @@ export function MapView({
     const el = e.popup.getElement(); if (!el) return;
     const b = el.querySelector('[data-detail]') as HTMLElement | null;
     if (b) b.onclick = () => { const id = b.getAttribute('data-detail'); if (id) onOpenDetailRef.current(id); };
+    // Leaflet labels its close button in English.
+    const close = el.querySelector('.leaflet-popup-close-button');
+    close?.setAttribute('aria-label', tRef.current.close);
+    close?.setAttribute('title', tRef.current.close);
   };
 
   // Mount: create the map once.
@@ -283,7 +293,7 @@ export function MapView({
     if (!mapRef.current) return;
     refreshMarkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venues, t]);
+  }, [venues, t, associations]);
 
   // Selection change → recolor pins and focus.
   useEffect(() => {

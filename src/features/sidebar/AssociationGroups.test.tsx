@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { wappenUrl } from '../../data/cantons';
+import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
 import type { PosterTarget } from '../venues/posterSubject';
 import { AssociationGroups } from './AssociationGroups';
@@ -117,6 +118,15 @@ describe('AssociationGroups', () => {
     expect(row.querySelector('img')).toHaveAttribute('src', wappenUrl('LU'));
   });
 
+  it('outlines the canton arms, so arms with a white field keep their edge', async () => {
+    const user = userEvent.setup();
+    renderGroups();
+    await user.click(screen.getByTestId('group-freiburg'));
+    screen.getAllByTestId('venue-row').forEach((row) => {
+      expect(row.querySelector('img')).toHaveStyle({ filter: theme.armsOutline });
+    });
+  });
+
   it('forces every matching group open while filtering and hides the rest', () => {
     renderGroups({ list: venues.slice(0, 2), filtering: true, expandedInit: {} });
     expect(screen.getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['group-swsv', 'group-freiburg']);
@@ -139,6 +149,19 @@ describe('AssociationGroups', () => {
     expect(screen.getAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(29);
     expect(screen.getByTestId('generate-poster-freiburg')).toHaveAccessibleName(STR.de.generatePoster);
     expect(screen.queryByTestId('generate-poster-swsv')).toBeNull();
+  });
+
+  it('lines the Teilverband chevrons up with the Verband chevrons for admins', () => {
+    renderGroups({ isAdmin: true });
+    const spacer = screen.getByTestId('group-swsv').nextElementSibling;
+    expect(spacer).toHaveAttribute('aria-hidden', 'true');
+    expect(spacer).toHaveStyle({ width: '26px' });
+    expect(screen.getByTestId('generate-poster-freiburg')).toHaveStyle({ width: '26px' });
+  });
+
+  it('reserves no space beside the Teilverband rows for visitors', () => {
+    renderGroups();
+    expect(screen.getByTestId('group-swsv').nextElementSibling).toBeNull();
   });
 
   it('shows non-admins no poster button', () => {

@@ -22,14 +22,14 @@ vi.mock('embla-carousel-react', () => ({
 }));
 
 describe('PhotoGallery', () => {
-  it('shows the placeholder when there are no photos', () => {
-    render(<PhotoGallery photos={[]} venueName="Bern" />);
-    expect(screen.getByText('FOTO · Bern')).toBeInTheDocument();
+  it('renders nothing when there are no photos', () => {
+    const { container } = render(<PhotoGallery photos={[]} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('renders a single photo with no navigation controls', () => {
     const photos: VenuePhoto[] = [{ id: 'p1', url: 'https://example.com/1.jpg', position: 0 }];
-    render(<PhotoGallery photos={photos} venueName="Bern" />);
+    render(<PhotoGallery photos={photos} />);
     expect(screen.queryByRole('button', { name: /next/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe('PhotoGallery', () => {
       { id: 'p1', url: 'https://example.com/1.jpg', position: 0 },
       { id: 'p2', url: 'https://example.com/2.jpg', position: 1 },
     ];
-    render(<PhotoGallery photos={photos} venueName="Bern" />);
+    render(<PhotoGallery photos={photos} />);
     screen.getByRole('button', { name: /next/i }).click();
     expect(scrollNext).toHaveBeenCalledTimes(1);
     screen.getByRole('button', { name: /previous/i }).click();
