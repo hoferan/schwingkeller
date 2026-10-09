@@ -15,8 +15,8 @@ export type PosterMark =
   | { kind: 'arms'; url: string }
   | { kind: 'association'; tint: string; badge: { text: string; colour: string } };
 
-// Everything a poster shows that depends on what it is a poster of. The generator, the overlay and
-// the editor read only this, so a canton poster and a Verband poster share all their code.
+// Everything on a poster that depends on what the poster is of. The generator, the overlay and the
+// editor read only this, so canton and Verband posters go through the same code.
 export interface PosterSubject {
   id: string; // in the filename
   name: string; // the default title

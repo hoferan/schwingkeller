@@ -50,6 +50,10 @@ Chosen option: store a node of the ESV tree on each venue.
   Teilverband's colour) or from its venues (bounds, counts), never from a canton. Canton arms on
   Verband rows were turned down because a Verband can span cantons and a venue can sit outside its
   Verband's home cantons.
+* A Verband poster shows the Verband's name, its dot and its Teilverband's badge, and no venue
+  count. A poster hangs for months, and a printed count is wrong once a venue is added or closed;
+  the pins already show the venues. Canton posters keep their count until the canton view goes
+  (#72).
 * Identifiers in the schema and the code are English: `associations`, `association_id`, and the
   levels `federation`, `regional` and `cantonal`. Values stay German, because the slugs,
   abbreviations and names are proper names and the slugs appear on posters and in URLs. The levels

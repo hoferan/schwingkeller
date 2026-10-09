@@ -153,7 +153,7 @@ export const AssociationGroups = ({
             <div style={{ paddingBottom: '6px' }}>
               {regional.associations.map((a) => (
                 <div key={a.id}>
-                  {/* The poster button sits beside the toggle, not inside it: a button can't hold
+                  {/* The poster button is the toggle's sibling because a button can't contain
                       another button. */}
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <GroupHeader
