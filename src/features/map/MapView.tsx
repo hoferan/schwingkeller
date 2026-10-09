@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
-import { pinHtml, pinSize, popupHtml, clusterIcon, userPinHtml } from './markers';
+import { pinHtml, pinSize, popupHtml, clusterIcon, userPinHtml, USER_PIN_SIZE } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
@@ -340,8 +340,10 @@ export function MapView({
     if (userMarkerRef.current) { map.removeLayer(userMarkerRef.current); userMarkerRef.current = null; }
     const pos = userPosition;
     if (!pos) return;
-    const icon = L.divIcon({ className: '', html: userPinHtml(), iconSize: [22, 22], iconAnchor: [11, 11] });
-    userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false, keyboard: false, title: tRef.current.youAreHere }).addTo(map);
+    const icon = L.divIcon({ className: '', html: userPinHtml(), iconSize: [USER_PIN_SIZE, USER_PIN_SIZE], iconAnchor: [USER_PIN_SIZE / 2, USER_PIN_SIZE / 2] });
+    // Above the venue pins, so they never hide the dot. It isn't interactive, so its halo lets
+    // clicks through to the pins underneath.
+    userMarkerRef.current = L.marker([pos.lat, pos.lng], { icon, interactive: false, keyboard: false, zIndexOffset: 1000, title: tRef.current.youAreHere }).addTo(map);
     map.flyTo([pos.lat, pos.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
   }, [userPosition]);
 
