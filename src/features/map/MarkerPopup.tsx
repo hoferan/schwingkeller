@@ -6,7 +6,6 @@ import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { coverPhotoUrl } from '../venues/photos';
 import { theme } from '../../theme';
 import { isFeatureOn } from '../../lib/features';
-import type { RegionalId } from '../../data/associations';
 import type { Associations } from '../associations/useAssociations';
 import { regionalBadgeStyle } from '../associations/regionalBadgeStyle';
 
@@ -64,7 +63,7 @@ export function MarkerPopup({ venue, t, associations }: MarkerPopupProps) {
   const photo = coverPhotoUrl(venue);
   // With the verband flag on, the Teilverband's badge, in the pin's colour, says what the colour means.
   const regional = isFeatureOn('verband') ? associations.regionalOf(venue.association_id) : null;
-  const regionalId = regional?.id as RegionalId | undefined;
+  const regionalId = regional?.id;
   return (
     <div style={wrapStyle}>
       {photo && <div data-popup-photo="" style={photoStyle(photo)} />}

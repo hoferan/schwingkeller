@@ -293,7 +293,7 @@ export function MapView({
     if (!mapRef.current) return;
     refreshMarkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venues, t]);
+  }, [venues, t, associations]);
 
   // Selection change → recolor pins and focus.
   useEffect(() => {

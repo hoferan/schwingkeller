@@ -5,7 +5,6 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { wappenUrl } from '../../data/cantons';
 import { isFeatureOn } from '../../lib/features';
 import { RegionalBadge } from '../associations/AssociationMark';
-import type { RegionalId } from '../../data/associations';
 import { useAssociations } from '../associations/useAssociations';
 import type { Venue } from '../venues/types';
 import { theme } from '../../theme';
@@ -55,7 +54,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
   const websiteUrl = 'https://' + venue.website.replace(/^https?:\/\//, '');
   const hasPhotos = venue.photos.length > 0;
   const hasContact = !!(venue.person || venue.phone || venue.website);
-  const regionalId = association ? (associations.regionalOf(association)?.id as RegionalId | undefined) : undefined;
+  const regionalId = association ? associations.regionalOf(association)?.id : undefined;
   const close = (
     <button onClick={onClose} aria-label={t.close} style={closeButton(hasPhotos)}>
       <X size={16} />

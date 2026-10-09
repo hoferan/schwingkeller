@@ -28,7 +28,7 @@ export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon =
   const fill = isFeatureOn('verband') ? tintOf(associationId) : theme.color.accent;
   if (!selected) {
     return {
-      html: '<svg width="28" height="28" viewBox="0 0 28 28" style="display:block;overflow:visible;filter:drop-shadow(0 4px 8px rgba(0,0,0,.12))">'
+      html: '<svg width="28" height="28" viewBox="0 0 28 28" style="display:block;overflow:visible;filter:' + theme.pinShadow.disc + '">'
         + '<circle cx="14" cy="14" r="12.5" fill="' + fill + '" stroke="' + theme.color.bg + '" stroke-width="3"/>'
         + '<circle cx="14" cy="14" r="5" fill="' + theme.color.bg + '"/>'
         + '</svg>',
@@ -40,8 +40,8 @@ export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon =
   // The head is a circle of radius 12.5 around (15, 15.5); the tip at (15, 39) is the venue's spot,
   // with a small ground shadow under it.
   return {
-    html: '<svg width="30" height="42" viewBox="0 0 30 42" style="display:block;overflow:visible;filter:drop-shadow(0 2px 2.5px rgba(0,0,0,.35))">'
-      + '<ellipse cx="15" cy="39" rx="5" ry="1.8" fill="rgba(0,0,0,.28)"/>'
+    html: '<svg width="30" height="42" viewBox="0 0 30 42" style="display:block;overflow:visible;filter:' + theme.pinShadow.teardrop + '">'
+      + '<ellipse cx="15" cy="39" rx="5" ry="1.8" fill="' + theme.pinShadow.ground + '"/>'
       + '<path d="M15 39 C11 33 2.5 25 2.5 15.5 A12.5 12.5 0 1 1 27.5 15.5 C27.5 25 19 33 15 39 Z" fill="' + fill + '" stroke="' + theme.color.bg + '" stroke-width="2.5" stroke-linejoin="round"/>'
       + '<circle cx="15" cy="15.5" r="5" fill="' + theme.color.bg + '"/>'
       + '</svg>',

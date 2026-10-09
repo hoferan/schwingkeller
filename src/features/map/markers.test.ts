@@ -79,6 +79,12 @@ describe('pins with the verband flag on', () => {
     expect(html).toContain('<circle cx="15" cy="15.5" r="5" fill="#ffffff"');
   });
 
+  it('takes its shadows from the theme', () => {
+    expect(pinIcon(false, 'freiburg').html).toContain('filter:' + theme.pinShadow.disc);
+    expect(pinIcon(true, 'freiburg').html).toContain('filter:' + theme.pinShadow.teardrop);
+    expect(pinIcon(true, 'freiburg').html).toContain('fill="' + theme.pinShadow.ground + '"');
+  });
+
   it('marks the selected pin by its shape, without a dark ring', () => {
     expect(pinIcon(true, 'freiburg').html).not.toContain(theme.color.ink);
     expect(pinIcon(false, 'freiburg').html).not.toContain(theme.color.ink);

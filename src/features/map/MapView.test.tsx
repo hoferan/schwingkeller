@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
 import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
-import { STR } from '../../i18n/translations';
+import { STR, type Lang } from '../../i18n/translations';
 import { MapView } from './MapView';
 import { USER_PIN_SIZE } from './markers';
 import type { Venue } from '../venues/types';
@@ -23,8 +23,9 @@ const mapView = (
   venues: Venue[] = [],
   selectedId: string | null = null,
   userPosition: { lat: number; lng: number } | null = null,
+  lang: Lang = 'de',
 ) => (
-    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+    <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <MapView
         venues={venues}
         selectedId={selectedId}
@@ -173,6 +174,19 @@ describe('MapView venue pins', () => {
     const close = container.querySelector('.leaflet-popup-close-button');
     expect(close).toHaveAttribute('aria-label', STR.de.close);
     expect(close).toHaveAttribute('title', STR.de.close);
+  });
+
+  it('rebuilds the popups in the new language when the language changes', () => {
+    const venues = [venueAt('1', 'freiburg', 46.9, 7.7)];
+    const { container, rerender } = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, venues, null, null, 'fr'));
+    vi.advanceTimersByTime(200);
+    fireEvent.click(container.querySelector('.leaflet-marker-icon')!);
+    const popup = container.querySelector('.leaflet-popup')!;
+    expect(popup.querySelector('.leaflet-popup-close-button')).toHaveAttribute('aria-label', STR.fr.close);
+    expect(popup).toHaveTextContent('ARLS');
+    expect(popup).toHaveTextContent('Fribourg');
   });
 
   it("hands each venue's association to the cluster icon", () => {
