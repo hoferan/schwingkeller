@@ -94,7 +94,7 @@ const GroupHeader = ({ id, level, open, onToggle, mark, name, count }: GroupHead
   >
     {mark}
     <span style={nameStyle(level)}>{name}</span>
-    <span style={countStyle}>{count}</span>
+    <span data-testid="group-count" style={countStyle}>{count}</span>
     <span style={{ color: theme.color.ink, width: '12px', display: 'flex', justifyContent: 'center', flex: 'none' }}>
       <ChevronRight
         size={12}
