@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { clusterIcon, clusterRing, pinHtml, pinSize, popupHtml, userPinHtml } from './markers';
+import { clusterIcon, clusterRing, pinHtml, pinSize, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
@@ -116,9 +116,33 @@ describe('cluster icon', () => {
 });
 
 describe('userPinHtml', () => {
-  it('is a blue location dot, visually distinct from venue pins', () => {
-    const html = userPinHtml();
-    expect(html).toContain('#1a73e8');
-    expect(html).not.toBe(pinHtml(false, 'emmental'));
+  const layers = () => {
+    const box = document.createElement('div');
+    box.innerHTML = userPinHtml();
+    const root = box.firstElementChild as HTMLElement;
+    const [halo, dot] = [...root.children] as HTMLElement[];
+    return { root, halo, dot };
+  };
+
+  it('draws a blue dot with a white edge in the middle of its box', () => {
+    const { root, dot } = layers();
+    expect(root.style.width).toBe(USER_PIN_SIZE + 'px');
+    expect(root.style.height).toBe(USER_PIN_SIZE + 'px');
+    expect(dot.style.background).toBe('rgb(26, 115, 232)');
+    expect(dot.style.border).toContain('3px solid');
+    expect(dot.style.left).toBe((USER_PIN_SIZE - 18) / 2 + 'px');
+  });
+
+  it('puts a translucent blue halo with a rim around the dot, filling the box', () => {
+    const { halo } = layers();
+    expect(halo.style.inset).toBe('0px');
+    expect(halo.style.borderRadius).toBe('50%');
+    expect(halo.style.background).toBe('rgba(26, 115, 232, 0.18)');
+    expect(halo.style.border).toContain('rgba(26, 115, 232, 0.6)');
+  });
+
+  it('is wider than a venue pin, so its shape tells it apart from a blue NWSV pin', () => {
+    expect(USER_PIN_SIZE).toBeGreaterThan(pinSize(true));
+    expect(userPinHtml()).not.toBe(pinHtml(false, 'aargau'));
   });
 });

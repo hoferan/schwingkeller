@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { MapView } from './MapView';
+import { USER_PIN_SIZE } from './markers';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
 
@@ -21,6 +22,7 @@ const mapView = (
   initialFocusBounds: [[number, number], [number, number]] | null,
   venues: Venue[] = [],
   selectedId: string | null = null,
+  userPosition: { lat: number; lng: number } | null = null,
 ) => (
     <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
       <MapView
@@ -33,7 +35,7 @@ const mapView = (
         placing={false}
         onPickLocation={vi.fn()}
         initialFocusBounds={initialFocusBounds}
-        userPosition={null}
+        userPosition={userPosition}
         geoStatus="unsupported"
         onRequestLocation={vi.fn()}
         isMobile={false}
@@ -152,6 +154,39 @@ describe('MapView venue pins', () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7), venueAt('2', 'freiburg', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
     expect(icons(container).some((html) => html.includes('conic-gradient(#1A1A1A 0% 50%, #5D6B80 50% 100%)'))).toBe(true);
+  });
+});
+
+describe('MapView location marker', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const markers = (container: HTMLElement) => {
+    const all = [...container.querySelectorAll<HTMLElement>('.leaflet-marker-icon')];
+    return {
+      me: all.find((el) => el.title === STR.de.youAreHere),
+      pin: all.find((el) => el.title !== STR.de.youAreHere),
+    };
+  };
+
+  it('sizes and centres the icon box on the halo', () => {
+    const { container } = render(mapView(null, [], null, { lat: 46.8, lng: 7.15 }));
+    const { me } = markers(container);
+    expect(me?.style.width).toBe(USER_PIN_SIZE + 'px');
+    expect(me?.style.marginLeft).toBe(-USER_PIN_SIZE / 2 + 'px');
+    expect(me?.style.marginTop).toBe(-USER_PIN_SIZE / 2 + 'px');
+  });
+
+  it('sits above a venue pin at the same spot', () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.8, 7.15)], null, { lat: 46.8, lng: 7.15 }));
+    vi.advanceTimersByTime(200);
+    const { me, pin } = markers(container);
+    expect(Number(me?.style.zIndex)).toBeGreaterThan(Number(pin?.style.zIndex));
   });
 });
 

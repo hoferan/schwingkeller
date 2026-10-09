@@ -29,12 +29,20 @@ export const pinHtml = (selected: boolean, associationId: CantonalId): string =>
     + '</div>';
 };
 
-// A distinct blue "you are here" dot. Deliberately NOT theme.color.accent — it must never be
-// mistaken for a red venue pin or cluster. Blue is the conventional device-location color.
-export const userPinHtml = (): string =>
-  '<div style="position:relative;width:22px;height:22px;">'
-  + '<div style="position:absolute;inset:0;border-radius:50%;background:#1a73e8;border:3px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';"></div>'
-  + '</div>';
+// The width of the "you are here" marker, halo included. MapView sizes and anchors the icon with it.
+export const USER_PIN_SIZE = 48;
+
+// "You are here": a blue dot with a white edge inside a translucent blue halo, the usual sign for a
+// device location. NWSV pins are blue too, so it is the halo that sets it apart from a venue
+// pin. The halo's rim keeps its edge visible on the satellite view.
+export const userPinHtml = (): string => {
+  const dot = 18;
+  const offset = (USER_PIN_SIZE - dot) / 2;
+  return '<div style="position:relative;width:' + USER_PIN_SIZE + 'px;height:' + USER_PIN_SIZE + 'px;">'
+    + '<div style="position:absolute;inset:0;box-sizing:border-box;border-radius:50%;background:rgba(26,115,232,0.18);border:1.5px solid rgba(26,115,232,0.6);"></div>'
+    + '<div style="position:absolute;left:' + offset + 'px;top:' + offset + 'px;width:' + dot + 'px;height:' + dot + 'px;box-sizing:border-box;border-radius:50%;background:#1a73e8;border:3px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';"></div>'
+    + '</div>';
+};
 
 const percent = (part: number, whole: number): number => Math.round((part / whole) * 10000) / 100;
 
