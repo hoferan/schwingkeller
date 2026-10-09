@@ -533,3 +533,58 @@ describe('a Verband poster', () => {
     expect(generatePosterBlob.mock.calls[0][0]).toBe(subject);
   });
 });
+
+describe('default framing and the QR code', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeMap.latLngToContainerPoint.mockImplementation(() => ({ x: 100, y: 100 }));
+  });
+
+  const venues2 = [v({ id: '1', lat: 46.9, lng: 7.4 }), v({ id: '2', lat: 46.95, lng: 7.45 })];
+  // jsdom locks the preview to 540, half the poster. The bottom-right QR's backing reaches
+  // qrMargin + qrSize + qrPad = 186 poster px in from the right edge, 93 preview px.
+  const clearOfQr = { paddingTopLeft: [20, 115], paddingBottomRight: [20 + 93, 43] };
+
+  it('fits again with the QR side kept clear when a pin lands under the QR code', () => {
+    // The second venue projects into the QR's corner (preview 447..530 x 424..507).
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 485, y: 453 } : { x: 100, y: 100 });
+    renderEditor({ venues: venues2 });
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual(clearOfQr);
+  });
+
+  it('keeps the first fit when no pin is under the QR code', () => {
+    renderEditor({ venues: venues2 });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores the QR corner once the QR code is switched off', async () => {
+    const user = userEvent.setup();
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 485, y: 453 } : { x: 100, y: 100 });
+    renderEditor({ venues: venues2 });
+    await user.click(screen.getByRole('checkbox', { name: STR.de.posterToggleQr }));
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the left side for a QR code in a left corner', async () => {
+    const user = userEvent.setup();
+    // A pin in the bottom-left QR box (preview 10..93 x 424..507).
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 50, y: 453 } : { x: 300, y: 100 });
+    renderEditor({ venues: venues2 });
+    await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerBottomLeft }));
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({ paddingTopLeft: [20 + 93, 115], paddingBottomRight: [20, 43] });
+  });
+});

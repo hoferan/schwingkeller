@@ -10,7 +10,7 @@ import {
   computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles, LABEL_COLORS,
   type ChromeLayoutResult,
 } from './posterCanvas';
-import { layoutPinLabels, LABEL_FONT, type PlacedLabel } from './posterLabels';
+import { layoutPinLabels, LABEL_FONT, type LabelRect, type PlacedLabel } from './posterLabels';
 import { venueBounds, POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
@@ -46,6 +46,7 @@ const applyDefaultFraming = (
   subject: PosterSubject,
   previewSize: number,
   chrome: ChromeLayoutResult,
+  qrBox: LabelRect | null, // the QR code with its white backing, in poster px; null when it's off
 ): void => {
   const { venues, homeBounds } = subject;
 
@@ -65,13 +66,32 @@ const applyDefaultFraming = (
   const scale = previewSize / POSTER_SIZE;
   const topPad = DEFAULT_FIT_PADDING + chrome.topOccupied * scale;
   const bottomPad = DEFAULT_FIT_PADDING + chrome.bottomOccupied * scale;
-  map.fitBounds(bounds, {
-    paddingTopLeft: [DEFAULT_FIT_PADDING, topPad],
-    paddingBottomRight: [DEFAULT_FIT_PADDING, bottomPad],
+  const fit = (leftPad: number, rightPad: number) => {
+    map.fitBounds(bounds, {
+      paddingTopLeft: [leftPad, topPad],
+      paddingBottomRight: [rightPad, bottomPad],
+    });
+    if (map.getZoom() > POSTER_MAX_DEFAULT_ZOOM) {
+      map.setZoom(POSTER_MAX_DEFAULT_ZOOM);
+    }
+  };
+  fit(DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING);
+
+  // The export draws the QR code over the map, so a pin under it disappears. If the fit put one
+  // there, fit again with the QR code's side of the poster kept clear. Framings with no pin under
+  // the code stay as they are.
+  if (!qrBox) return;
+  const hidden = venues.some((v) => {
+    const p = map.latLngToContainerPoint([v.lat, v.lng]);
+    const x = p.x / scale;
+    const y = p.y / scale;
+    return x >= qrBox.x && x <= qrBox.x + qrBox.w && y >= qrBox.y && y <= qrBox.y + qrBox.h;
   });
-  if (map.getZoom() > POSTER_MAX_DEFAULT_ZOOM) {
-    map.setZoom(POSTER_MAX_DEFAULT_ZOOM);
-  }
+  if (!hidden) return;
+  const onRight = qrBox.x > POSTER_SIZE / 2;
+  const side = DEFAULT_FIT_PADDING + (onRight ? POSTER_SIZE - qrBox.x : qrBox.x + qrBox.w) * scale;
+  if (onRight) fit(DEFAULT_FIT_PADDING, side);
+  else fit(side, DEFAULT_FIT_PADDING);
 };
 
 // One preview label pill, in the same fill and ink drawPinLabels paints on the canvas, and sized
@@ -142,6 +162,13 @@ export const PosterEditorModal = ({
     posterHeight: posterHeightFor(aspectRatio),
   }), [showHeader, showFooter, headerPosition, footerPosition, chromeSize, aspectRatio]);
 
+  // The QR code with its white backing, which the default framing keeps pins out from under.
+  const qrBox = (): LabelRect | null => {
+    if (!showQr) return null;
+    const r = qrRect(qrCorner, chrome, CL, posterHeightFor(aspectRatio));
+    return { x: r.x - CL.qrPad, y: r.y - CL.qrPad, w: r.w + CL.qrPad * 2, h: r.h + CL.qrPad * 2 };
+  };
+
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
@@ -164,7 +191,7 @@ export const PosterEditorModal = ({
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
-    applyDefaultFraming(map, subject, previewSize, chrome);
+    applyDefaultFraming(map, subject, previewSize, chrome, qrBox());
 
     // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
     const p = previewPin(previewSize);
@@ -264,7 +291,7 @@ export const PosterEditorModal = ({
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
-    applyDefaultFraming(map, subject, previewSize, chrome);
+    applyDefaultFraming(map, subject, previewSize, chrome, qrBox());
   };
 
   // Quarter-step zoom for precise framing; Leaflet clamps to the map's own min/max zoom.
