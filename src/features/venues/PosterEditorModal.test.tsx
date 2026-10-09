@@ -569,6 +569,16 @@ describe('default framing and the QR code', () => {
     fakeMap.fitBounds.mock.calls.forEach(([, options]) => expect(options).toMatchObject({ animate: false }));
   });
 
+  it('also fits again when a pin centred just outside the QR code would still be half covered', () => {
+    // Centre at preview (440, 453) is poster (880, 906): 14 poster px left of the backing, closer
+    // than the drawn pin's 18.5 px radius.
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 440, y: 453 } : { x: 100, y: 100 });
+    renderEditor({ venues: venues2 });
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps the first fit when no pin is under the QR code', () => {
     renderEditor({ venues: venues2 });
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);

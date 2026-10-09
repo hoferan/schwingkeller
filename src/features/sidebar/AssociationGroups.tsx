@@ -140,15 +140,20 @@ export const AssociationGroups = ({
     <>
       {groups.map((regional) => (
         <div key={regional.id} style={{ borderBottom: '1px solid ' + theme.color.line }}>
-          <GroupHeader
-            id={regional.id}
-            level={1}
-            open={isOpen(regional.id)}
-            onToggle={onToggle}
-            mark={<RegionalBadge id={regional.id} width={BADGE_WIDTH} />}
-            name={associations.nameOf(regional.id)}
-            count={regional.count}
-          />
+          {/* For admins the Verband rows end in a poster button, so the Teilverband row keeps the
+              same space free and its chevron lines up with theirs. */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <GroupHeader
+              id={regional.id}
+              level={1}
+              open={isOpen(regional.id)}
+              onToggle={onToggle}
+              mark={<RegionalBadge id={regional.id} width={BADGE_WIDTH} />}
+              name={associations.nameOf(regional.id)}
+              count={regional.count}
+            />
+            {isAdmin && <span aria-hidden="true" style={{ width: posterButtonStyle.width, flex: 'none' }} />}
+          </div>
           {isOpen(regional.id) && (
             <div style={{ paddingBottom: '6px' }}>
               {regional.associations.map((a) => (

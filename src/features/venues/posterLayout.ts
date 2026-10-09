@@ -1,4 +1,4 @@
-// Single source of truth for the canton poster's overlay geometry, in POSTER_SIZE (1080-space)
+// Single source of truth for the poster's overlay geometry, in POSTER_SIZE (1080-space)
 // pixels. Consumed by BOTH the canvas exporter (posterCanvas.drawPosterOverlay, which draws in
 // absolute px) and the editor's DOM preview (PosterEditorModal, via `cqw()` = percent of the
 // preview square's width). Sharing one set of numbers makes the on-screen preview an exact scaled

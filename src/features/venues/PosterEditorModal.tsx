@@ -84,11 +84,13 @@ const applyDefaultFraming = (
   // there, fit again with the QR code's side of the poster kept clear. Framings with no pin under
   // the code stay as they are.
   if (!qrBox) return;
+  // A pin counts as covered when any part of its drawn disc reaches under the code.
+  const r = PL.pinRadius + PL.pinRing / 2;
   const hidden = venues.some((v) => {
     const p = map.latLngToContainerPoint([v.lat, v.lng]);
     const x = p.x / scale;
     const y = p.y / scale;
-    return x >= qrBox.x && x <= qrBox.x + qrBox.w && y >= qrBox.y && y <= qrBox.y + qrBox.h;
+    return x >= qrBox.x - r && x <= qrBox.x + qrBox.w + r && y >= qrBox.y - r && y <= qrBox.y + qrBox.h + r;
   });
   if (!hidden) return;
   const onRight = qrBox.x > POSTER_SIZE / 2;

@@ -151,6 +151,19 @@ describe('AssociationGroups', () => {
     expect(screen.queryByTestId('generate-poster-swsv')).toBeNull();
   });
 
+  it('lines the Teilverband chevrons up with the Verband chevrons for admins', () => {
+    renderGroups({ isAdmin: true });
+    const spacer = screen.getByTestId('group-swsv').nextElementSibling;
+    expect(spacer).toHaveAttribute('aria-hidden', 'true');
+    expect(spacer).toHaveStyle({ width: '26px' });
+    expect(screen.getByTestId('generate-poster-freiburg')).toHaveStyle({ width: '26px' });
+  });
+
+  it('reserves no space beside the Teilverband rows for visitors', () => {
+    renderGroups();
+    expect(screen.getByTestId('group-swsv').nextElementSibling).toBeNull();
+  });
+
   it('shows non-admins no poster button', () => {
     renderGroups();
     expect(screen.queryAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(0);
