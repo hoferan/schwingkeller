@@ -8,13 +8,13 @@ import type { Venue } from './types';
 // Mock the heavy capture path — we assert wiring, not real canvas output.
 // NB: vi.mock(...) factories are hoisted above all top-level statements in this file, so a plain
 // `const` referenced inside a factory would be read in its temporal-dead-zone. vi.hoisted() lifts
-// the variable itself alongside the mock registration (same pattern as cantonPoster.test.ts).
-const { generateCantonPosterBlob } = vi.hoisted(() => ({
-  generateCantonPosterBlob: vi.fn().mockResolvedValue({
+// the variable itself alongside the mock registration (same pattern as generatePoster.test.ts).
+const { generatePosterBlob } = vi.hoisted(() => ({
+  generatePosterBlob: vi.fn().mockResolvedValue({
     blob: new Blob(['x'], { type: 'image/png' }), filename: 'schwingkeller-be.png',
   }),
 }));
-vi.mock('./cantonPoster', () => ({ generateCantonPosterBlob }));
+vi.mock('./generatePoster', () => ({ generatePosterBlob }));
 
 // Mock QR hook so no real qrcode/canvas runs.
 vi.mock('./usePosterQr', () => ({
@@ -59,24 +59,33 @@ vi.mock('leaflet', () => ({
 import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
-import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+import { POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
 import { computeChromeLayout } from './posterCanvas';
 import { theme } from '../../theme';
 import { cqw, POSTER_SIZE } from './posterLayout';
+import { associationPosterSubject, cantonPosterSubject, type PosterSubject } from './posterSubject';
+import { associationsFor } from '../associations/useAssociations';
+import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
+import type { Lang } from '../../i18n/translations';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
-const renderEditor = (props: Partial<Parameters<typeof PosterEditorModal>[0]> = {}) =>
+type EditorProps = Parameters<typeof PosterEditorModal>[0];
+
+// Most tests only vary the venues of the Bern canton poster, so `venues` builds that subject; a test
+// about another poster passes its own `subject`.
+const renderEditor = ({
+  venues = [v({ id: '1' })], lang = 'de', ...props
+}: Partial<EditorProps> & { venues?: Venue[]; lang?: Lang } = {}) =>
   render(
-    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+    <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <PosterEditorModal
-        code="BE"
-        venues={[v({ id: '1' })]}
+        subject={cantonPosterSubject('BE', venues)}
         initialBaseKind="map"
         unitLabel="Schwingkeller"
         onClose={vi.fn()}
@@ -87,7 +96,7 @@ const renderEditor = (props: Partial<Parameters<typeof PosterEditorModal>[0]> = 
   );
 
 describe('PosterEditorModal', () => {
-  beforeEach(() => { generateCantonPosterBlob.mockClear(); });
+  beforeEach(() => { generatePosterBlob.mockClear(); });
 
   it('renders the controls and the QR image', () => {
     renderEditor();
@@ -105,7 +114,7 @@ describe('PosterEditorModal', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     // jsdom's window is 1024px wide, so the preview locks to 540; the export zoom is the preview
     // zoom (11) bumped by log2(1080/540) = 1, i.e. an exact integer 12, framing the same area.
-    expect(generateCantonPosterBlob).toHaveBeenCalledWith('BE', expect.any(Array), expect.objectContaining({
+    expect(generatePosterBlob).toHaveBeenCalledWith(expect.objectContaining({ id: 'BE' }), expect.objectContaining({
       baseKind: 'map',
       unitLabel: 'Schwingkeller',
       view: { center: [46.9, 7.4], zoom: 12 },
@@ -122,12 +131,12 @@ describe('PosterEditorModal', () => {
     renderEditor();
     await user.click(screen.getByLabelText(STR.de.posterToggleQr));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2].qrDataUrl).toBeNull();
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1].qrDataUrl).toBeNull();
   });
 
   it('reports capture failures via onError and resets the busy state', async () => {
-    generateCantonPosterBlob.mockRejectedValueOnce(new Error('boom'));
+    generatePosterBlob.mockRejectedValueOnce(new Error('boom'));
     const user = userEvent.setup();
     const onSave = vi.fn();
     const onError = vi.fn();
@@ -143,20 +152,20 @@ describe('PosterEditorModal', () => {
 });
 
 describe('default framing', () => {
-  // clearAllMocks (not just generateCantonPosterBlob.mockClear) — these tests assert on fakeMap
+  // clearAllMocks (not just generatePosterBlob.mockClear) — these tests assert on fakeMap
   // call counts, and fakeMap's vi.fn()s accumulate calls across every render in this file. It
   // clears recorded calls only; the mock implementations (mockReturnValue etc.) stay intact.
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('frames the map with setView (not fitBounds) when the canton has exactly one venue', () => {
     renderEditor(); // default: 1 venue at (46.9, 7.4)
-    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('falls back to the canton bounds fit when there are no venues', () => {
+  it('falls back to the home bounds fit when there are no venues', () => {
     renderEditor({ venues: [] });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20] });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20], animate: false });
     expect(fakeMap.setView).not.toHaveBeenCalled();
   });
 
@@ -175,6 +184,7 @@ describe('default framing', () => {
     expect(options).toEqual({
       paddingTopLeft: [20, 115],
       paddingBottomRight: [20, 43],
+      animate: false,
     });
     expect(fakeMap.setView).not.toHaveBeenCalled();
     expect(fakeMap.setZoom).not.toHaveBeenCalled(); // default mocked getZoom() (11) is under the cap
@@ -188,7 +198,7 @@ describe('default framing', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
 
     expect(fakeMap.setView).toHaveBeenCalledTimes(2);
-    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
   });
 
   it('caps the zoom after fitBounds overshoots for tightly clustered venues', () => {
@@ -200,7 +210,7 @@ describe('default framing', () => {
     renderEditor({ venues: venues2 });
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
-    expect(fakeMap.setZoom).toHaveBeenCalledWith(CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(POSTER_MAX_DEFAULT_ZOOM, { animate: false });
   });
 });
 
@@ -234,13 +244,13 @@ describe('aspect ratio', () => {
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('forwards the current aspectRatio to generateCantonPosterBlob', async () => {
+  it('forwards the current aspectRatio to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
     await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'portrait' });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ aspectRatio: 'portrait' });
   });
 });
 
@@ -257,7 +267,7 @@ describe('header/footer customization controls', () => {
     expect(screen.getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('forwards the current header/footer/style/size/QR-corner selections to generateCantonPosterBlob', async () => {
+  it('forwards the current header/footer/style/size/QR-corner selections to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
 
@@ -266,8 +276,8 @@ describe('header/footer customization controls', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerTopLeft }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({
       chromeStyle: 'transparent', chromeSize: 'compact', qrCorner: 'top-left',
       headerPosition: 'top', footerPosition: 'bottom',
     });
@@ -313,7 +323,7 @@ describe('header/footer customization controls', () => {
     // Header (190) and footer (46) both occupy the top edge at normal size; scale 0.5 →
     // top pad = 20 + 236*0.5 = 138, bottom pad drops to the base 20 (nothing occupies that edge).
     const [, options] = fakeMap.fitBounds.mock.calls[fakeMap.fitBounds.mock.calls.length - 1];
-    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20] });
+    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20], animate: false });
   });
 
   it('renders the QR corner picker as a 4-corner grid with one button per corner', () => {
@@ -359,9 +369,9 @@ describe('soft zoom', () => {
     fakeMap.getZoom.mockReturnValueOnce(11.25);
     renderEditor();
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
     // previewSize 540 → deltaZoom 1; 11.25 + 1 = 12.25, forwarded exactly (no Math.round).
-    expect(generateCantonPosterBlob.mock.calls[0][2].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
+    expect(generatePosterBlob.mock.calls[0][1].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
   });
 
   it('steps the zoom by 0.25 via the precise +/- control', async () => {
@@ -394,15 +404,15 @@ describe('landscape format', () => {
     expect(fakeMap.invalidateSize).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards landscape to generateCantonPosterBlob', async () => {
+  it('forwards landscape to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
 
     await user.click(screen.getByRole('button', { name: STR.de.posterFormatLandscape }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'landscape' });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ aspectRatio: 'landscape' });
   });
 });
 
@@ -438,8 +448,8 @@ describe('venue name labels', () => {
     expect(screen.queryAllByTestId('poster-preview-label')).toHaveLength(0);
 
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ showLabels: false });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ showLabels: false });
   });
 
   it('paints the preview labels in brand red whichever chrome style is chosen', async () => {
@@ -463,5 +473,132 @@ describe('venue name labels', () => {
     const [first, second] = screen.getAllByTestId('poster-preview-label');
     expect(first).toHaveAttribute('data-slot', 'below');
     expect(second).toHaveAttribute('data-slot', 'right');
+  });
+});
+
+describe('a Verband poster', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  const frVenues = Array.from({ length: 11 }, (_, i) =>
+    v({ id: `fr${i}`, name: `Keller ${i}`, canton: 'FR', association_id: 'freiburg', lat: 46.7 + i / 100, lng: 7.1 }));
+  const freiburg = (lang: Lang = 'de'): PosterSubject =>
+    associationPosterSubject('freiburg', frVenues, associationsFor(lang));
+
+  it('heads the editor with the Verband name and defaults the title to it', () => {
+    renderEditor({ subject: freiburg() });
+    expect(screen.getByText(`${STR.de.posterEditorTitle}: Freiburg`)).toBeInTheDocument();
+    expect(screen.getByLabelText(STR.de.posterTitleLabel)).toHaveValue('Freiburg');
+  });
+
+  it('shows the dot and the badge and no count in the preview header', () => {
+    renderEditor({ subject: freiburg() });
+    const header = screen.getByTestId('poster-preview-header');
+    expect(within(header).getByText('SWSV')).toBeInTheDocument();
+    expect(within(header).getByTestId('poster-preview-mark')).toHaveStyle({ backgroundColor: '#5D6B80' });
+    expect(within(header).queryByText(/Schwingkeller/)).toBeNull();
+    expect(header.querySelector('img')).toBeNull();
+  });
+
+  it('still shows the arms and the count for a canton poster', () => {
+    renderEditor();
+    const header = screen.getByTestId('poster-preview-header');
+    expect(header.querySelector('img')).not.toBeNull();
+    expect(within(header).getByText('1 Schwingkeller')).toBeInTheDocument();
+    expect(within(header).queryByTestId('poster-preview-mark')).toBeNull();
+  });
+
+  it('shows the French name and the ARLS badge for a Verband opened in French', () => {
+    renderEditor({ subject: freiburg('fr'), lang: 'fr' });
+    expect(screen.getByText(`${STR.fr.posterEditorTitle}: Fribourg`)).toBeInTheDocument();
+    expect(within(screen.getByTestId('poster-preview-header')).getByText('ARLS')).toBeInTheDocument();
+  });
+
+  it('frames all 11 Freiburg venues', () => {
+    renderEditor({ subject: freiburg() });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(fakeMap.fitBounds.mock.calls[0][0]).toEqual({ points: frVenues.map((x) => [x.lat, x.lng]) });
+  });
+
+  it('frames a Verband without venues to its home area', () => {
+    renderEditor({ subject: associationPosterSubject('berner-jura', [], associationsFor('de')) });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS['berner-jura'], { padding: [20, 20], animate: false });
+    expect(fakeMap.setView).not.toHaveBeenCalled();
+  });
+
+  it('downloads the subject it was given', async () => {
+    const user = userEvent.setup();
+    const subject = freiburg();
+    renderEditor({ subject });
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][0]).toBe(subject);
+  });
+});
+
+describe('default framing and the QR code', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeMap.latLngToContainerPoint.mockImplementation(() => ({ x: 100, y: 100 }));
+  });
+
+  const venues2 = [v({ id: '1', lat: 46.9, lng: 7.4 }), v({ id: '2', lat: 46.95, lng: 7.45 })];
+  // jsdom locks the preview to 540, half the poster. The bottom-right QR's backing reaches
+  // qrMargin + qrSize + qrPad = 186 poster px in from the right edge, 93 preview px.
+  const clearOfQr = { paddingTopLeft: [20, 115], paddingBottomRight: [20 + 93, 43], animate: false };
+
+  it('fits again with the QR side kept clear when a pin lands under the QR code', () => {
+    // The second venue projects into the QR's corner (preview 447..530 x 424..507).
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 485, y: 453 } : { x: 100, y: 100 });
+    renderEditor({ venues: venues2 });
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual(clearOfQr);
+  });
+
+  it('moves the map without animation on reset, so the QR check reads the view it just set', async () => {
+    // Leaflet animates fitBounds on a loaded map and reports the old view until the animation
+    // ends; the QR check right after the fit would then test the wrong pin positions.
+    const user = userEvent.setup();
+    renderEditor({ venues: venues2 });
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalled();
+    fakeMap.fitBounds.mock.calls.forEach(([, options]) => expect(options).toMatchObject({ animate: false }));
+  });
+
+  it('keeps the first fit when no pin is under the QR code', () => {
+    renderEditor({ venues: venues2 });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores the QR corner once the QR code is switched off', async () => {
+    const user = userEvent.setup();
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 485, y: 453 } : { x: 100, y: 100 });
+    renderEditor({ venues: venues2 });
+    await user.click(screen.getByRole('checkbox', { name: STR.de.posterToggleQr }));
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the left side for a QR code in a left corner', async () => {
+    const user = userEvent.setup();
+    // A pin in the bottom-left QR box (preview 10..93 x 424..507).
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 50, y: 453 } : { x: 300, y: 100 });
+    renderEditor({ venues: venues2 });
+    await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerBottomLeft }));
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({ paddingTopLeft: [20 + 93, 115], paddingBottomRight: [20, 43], animate: false });
   });
 });

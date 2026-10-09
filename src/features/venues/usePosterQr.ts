@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { withCantonParam } from '../../lib/permalink';
+import type { PosterSubject } from './posterSubject';
 
 export interface PosterQr {
   url: string;
   dataUrl: string | null;
 }
 
-export const usePosterQr = (code: string): PosterQr => {
-  const url = withCantonParam(
-    typeof window !== 'undefined' ? window.location.href : '',
-    code,
-  );
+export const usePosterQr = (subject: PosterSubject): PosterQr => {
+  const url = subject.permalink(typeof window !== 'undefined' ? window.location.href : '');
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {

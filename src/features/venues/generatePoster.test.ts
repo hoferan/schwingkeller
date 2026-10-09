@@ -51,7 +51,10 @@ vi.mock('./posterCanvas', async () => {
 });
 
 import L from 'leaflet';
-import { generateCantonPosterBlob, waitForTilesLoad } from './cantonPoster';
+import { generatePosterBlob, waitForTilesLoad } from './generatePoster';
+import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
+import { associationsFor } from '../associations/useAssociations';
+import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import { POSTER_SIZE } from './posterLayout';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -88,7 +91,7 @@ describe('waitForTilesLoad', () => {
   });
 });
 
-describe('generateCantonPosterBlob', () => {
+describe('generatePosterBlob', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
@@ -106,7 +109,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it("builds the tile layer for the given base kind and fits the map to the canton's bounds by default", async () => {
-    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
     // 'anonymous' so the tile <img>s are fetched as CORS requests — otherwise drawing them
     // onto the export canvas taints it and canvas.toBlob() throws a SecurityError in the browser.
@@ -116,7 +119,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it("plots a pin for each of the canton's venues and none from other cantons", async () => {
-    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
     // Fixture has 2 BE venues and 1 LU venue — only the 2 BE ones should be projected/drawn.
     expect(fakeMap.latLngToContainerPoint).toHaveBeenCalledTimes(2);
@@ -125,7 +128,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it('returns a PNG blob and the lowercase-canton filename', async () => {
-    const result = await generateCantonPosterBlob('BE', venues, { baseKind: 'sat', unitLabel: 'Schwingkeller' });
+    const result = await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'sat', unitLabel: 'Schwingkeller' });
 
     expect(createTileLayerMock).toHaveBeenCalledWith('sat', 'anonymous');
     expect(result.filename).toBe('schwingkeller-be.png');
@@ -140,7 +143,7 @@ describe('generateCantonPosterBlob', () => {
       configurable: true,
     });
     try {
-      const result = await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+      const result = await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
       expect(awaited).toBe(true); // the fonts.ready promise was awaited before encoding
       expect(result.blob.type).toBe('image/png');
     } finally {
@@ -150,7 +153,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it('tears down the off-screen map and detaches the container on success', async () => {
-    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
     expect(fakeMap.remove).toHaveBeenCalledTimes(1);
     expect(document.body.children.length).toBe(0);
@@ -160,7 +163,7 @@ describe('generateCantonPosterBlob', () => {
     vi.useFakeTimers();
     tileLayerOnceMock.mockImplementation(() => {}); // 'load' never fires
 
-    const promise = generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    const promise = generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
     vi.advanceTimersByTime(8000);
 
     await expect(promise).rejects.toThrow('[TILE_TIMEOUT]');
@@ -169,13 +172,49 @@ describe('generateCantonPosterBlob', () => {
     vi.useRealTimers();
   });
 
-  it('rejects with [UNKNOWN_CANTON] for an unrecognized code', async () => {
-    await expect(generateCantonPosterBlob('XX', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' }))
-      .rejects.toThrow('[UNKNOWN_CANTON]');
+  describe('for a Verband', () => {
+    const opts = { baseKind: 'map', unitLabel: 'Schwingkeller' } as const;
+    const fr = [
+      v({ id: 'f1', canton: 'FR', association_id: 'freiburg' }),
+      v({ id: 'f2', canton: 'FR', association_id: 'freiburg' }),
+      v({ id: 'e1', canton: 'LU', association_id: 'emmental' }),
+    ];
+    const freiburg = (vs: Venue[]) => associationPosterSubject('freiburg', vs, associationsFor('de'));
+
+    it('names the file after the subject id', async () => {
+      expect((await generatePosterBlob(freiburg(fr), opts)).filename).toBe('schwingkeller-freiburg.png');
+      expect((await generatePosterBlob(cantonPosterSubject('FR', fr), opts)).filename).toBe('schwingkeller-fr.png');
+    });
+
+    it('loads no image for an association mark', async () => {
+      await generatePosterBlob(freiburg(fr), { ...opts, qrDataUrl: null });
+      expect(loadImageMock).not.toHaveBeenCalled();
+    });
+
+    it('passes the association mark and a null count to the overlay', async () => {
+      await generatePosterBlob(freiburg(fr), opts);
+      expect(drawPosterOverlayMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+        name: 'Freiburg',
+        count: null,
+        mark: { kind: 'association', tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } },
+      }));
+    });
+
+    it('fits the home bounds and draws no pins when the Verband has no venues', async () => {
+      const empty = associationPosterSubject('berner-jura', [], associationsFor('de'));
+      await generatePosterBlob(empty, opts);
+      expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS['berner-jura'], { padding: [40, 40] });
+      expect(drawPinMock).not.toHaveBeenCalled();
+    });
+
+    it('pins exactly the subject venues, whatever their canton', async () => {
+      await generatePosterBlob(associationPosterSubject('emmental', fr, associationsFor('de')), opts);
+      expect(drawPinMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('uses setView (not fitBounds) when an explicit view is supplied', async () => {
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', view: { center: [46.9, 7.4], zoom: 11 },
     });
     expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 11);
@@ -186,7 +225,7 @@ describe('generateCantonPosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
     expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
     expect(heightSpy).toHaveBeenCalledWith(POSTER_SIZE);
@@ -199,7 +238,7 @@ describe('generateCantonPosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'portrait',
     });
 
@@ -211,7 +250,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it('accepts a fractional view zoom without snapping, for soft-zoom framing', async () => {
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', view: { center: [46.9, 7.4], zoom: 12.25 },
     });
     // zoomSnap: 0 lets the off-screen map hold the editor's exact fractional zoom — otherwise
@@ -224,7 +263,7 @@ describe('generateCantonPosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'landscape',
     });
 
@@ -236,7 +275,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it("labels each of the canton's pins with its venue name by default", async () => {
-    await generateCantonPosterBlob('BE', venues, { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
     expect(drawPinLabelsMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -250,7 +289,7 @@ describe('generateCantonPosterBlob', () => {
     loadImageMock.mockImplementation((src: string) =>
       Promise.resolve(src.startsWith('data:') ? ({} as HTMLImageElement) : null));
 
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', qrDataUrl: 'data:image/png;base64,x',
     });
 
@@ -264,7 +303,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it('draws no labels when showLabels is false', async () => {
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller', showLabels: false,
     });
 
@@ -273,7 +312,7 @@ describe('generateCantonPosterBlob', () => {
   });
 
   it('forwards the chrome position/style/size and QR corner options to drawPosterOverlay', async () => {
-    await generateCantonPosterBlob('BE', venues, {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), {
       baseKind: 'map', unitLabel: 'Schwingkeller',
       headerPosition: 'bottom', footerPosition: 'top', chromeStyle: 'light', chromeSize: 'compact',
       qrCorner: 'top-left',

@@ -25,4 +25,7 @@ const BY_LANG = Object.fromEntries(
   }),
 ) as Record<Lang, Associations>;
 
-export const useAssociations = (): Associations => BY_LANG[useTranslation().lang];
+// The tree with its names in one language, for code that runs outside a component.
+export const associationsFor = (lang: Lang): Associations => BY_LANG[lang];
+
+export const useAssociations = (): Associations => associationsFor(useTranslation().lang);

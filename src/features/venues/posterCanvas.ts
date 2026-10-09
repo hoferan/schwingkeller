@@ -46,7 +46,7 @@ const SCALE_RE = /scale\((-?\d+(?:\.\d+)?)\)/;
 // translate3d + scale(...) transform, which Leaflet uses at fractional zoom levels (the tile
 // pane is CSS-scaled from the nearest integer zoom) — into coordinates directly comparable to
 // map.latLngToContainerPoint()'s pin coordinates. That only holds because the capture map in
-// cantonPoster.ts sets its view exactly once with no prior setView/pan/zoom and
+// generatePoster.ts sets its view exactly once with no prior setView/pan/zoom and
 // fadeAnimation: false — so the tile layer and the pin projection share the same origin. If the
 // capture map's setup ever gains an initial view or an animated transition before the final
 // view, this alignment can silently break.
@@ -229,11 +229,18 @@ export const drawPinLabels = (
   });
 };
 
+// The header's left slot as the overlay draws it: the arms already loaded, or a Verband's dot and
+// its Teilverband's badge.
+export type OverlayMark =
+  | { kind: 'arms'; img: HTMLImageElement | null }
+  | { kind: 'association'; tint: string; badge: { text: string; colour: string } };
+
 export interface PosterOverlayOptions {
-  cantonName: string;
+  name: string;
   title?: string;
-  wappenImg: HTMLImageElement | null;
-  count: number;
+  mark: OverlayMark;
+  count: number | null; // null draws no count pill
+
   unitLabel: string;
   attribution: string;
   posterHeight: number;
@@ -257,9 +264,48 @@ export const CHROME_STYLE_COLORS: Record<ChromeStyle, { fill: string | null; tex
 
 const APP_NAME = 'Schwingkeller Schweiz';
 
+// A Verband's dot, centred on (cx, cy), on a white ring that keeps a black dot visible on the dark
+// band.
+const drawMarkDot = (
+  ctx: CanvasRenderingContext2D, tint: string, cx: number, cy: number, CL: ChromeLayoutConstants,
+): void => {
+  ctx.beginPath();
+  ctx.arc(cx, cy, CL.markDot / 2 + CL.markRing, 0, Math.PI * 2);
+  ctx.fillStyle = theme.color.bg;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, CL.markDot / 2, 0, Math.PI * 2);
+  ctx.fillStyle = tint;
+  ctx.fill();
+};
+
+// A header pill (the count or a Teilverband badge) with its left edge at x. A non-zero `edge`
+// draws a white border that wide around it. Returns the pill's width without the border.
+const drawPill = (
+  ctx: CanvasRenderingContext2D, x: number, top: number, text: string, fill: string,
+  CL: ChromeLayoutConstants, edge: number,
+): number => {
+  ctx.font = `700 ${CL.pillFont}px Oswald, sans-serif`;
+  const width = ctx.measureText(text).width + CL.pillPadX * 2;
+  if (edge > 0) {
+    ctx.fillStyle = theme.color.bg;
+    ctx.beginPath();
+    ctx.roundRect(x - edge, top - edge, width + edge * 2, CL.pillH + edge * 2, CL.pillH / 2 + edge);
+    ctx.fill();
+  }
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.roundRect(x, top, width, CL.pillH, CL.pillH / 2);
+  ctx.fill();
+  ctx.fillStyle = theme.color.accentInk;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + CL.pillPadX, top + CL.pillH / 2 + 1);
+  return width;
+};
+
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {
-    cantonName, title, wappenImg, count, unitLabel, attribution, posterHeight, qrImg,
+    name, title, mark, count, unitLabel, attribution, posterHeight, qrImg,
     showHeader = true, showFooter = true,
     headerPosition = 'top', footerPosition = 'bottom',
     chromeStyle = 'solid', chromeSize = 'normal', qrCorner = 'bottom-right',
@@ -279,30 +325,31 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
     }
 
     let textX = CL.padX;
-    if (wappenImg) {
-      ctx.drawImage(wappenImg, CL.wappenX, y + CL.wappenY, CL.wappenW, CL.wappenH);
+    if (mark.kind === 'arms' && mark.img) {
+      ctx.drawImage(mark.img, CL.wappenX, y + CL.wappenY, CL.wappenW, CL.wappenH);
+      textX = CL.padX + CL.wappenW + CL.wappenGap;
+    }
+    if (mark.kind === 'association') {
+      drawMarkDot(ctx, mark.tint, CL.wappenX + CL.wappenW / 2, y + CL.wappenY + CL.wappenH / 2, CL);
       textX = CL.padX + CL.wappenW + CL.wappenGap;
     }
 
-    const titleText = (title || cantonName).toUpperCase();
+    const titleText = (title || name).toUpperCase();
     ctx.fillStyle = LABEL_COLORS.text;
     ctx.font = `700 ${CL.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(titleText, textX, y + CL.titleBaselineY);
-    // Compact: the pill sits inline after the title (the band is too short to stack them).
+    // Compact: the pills sit inline after the title (the band is too short to stack them).
     const titleWidth = chromeSize === 'compact' ? ctx.measureText(titleText).width : 0;
-    const pillX = chromeSize === 'compact' ? textX + titleWidth + CL.pillPadX : textX;
+    let pillX = chromeSize === 'compact' ? textX + titleWidth + CL.pillPadX : textX;
 
-    const pillText = `${count} ${unitLabel}`;
-    ctx.font = `700 ${CL.pillFont}px Oswald, sans-serif`;
-    const pillWidth = ctx.measureText(pillText).width + CL.pillPadX * 2;
-    ctx.fillStyle = theme.color.accent;
-    ctx.beginPath();
-    ctx.roundRect(pillX, y + CL.pillY, pillWidth, CL.pillH, CL.pillH / 2);
-    ctx.fill();
-    ctx.fillStyle = theme.color.accentInk;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(pillText, pillX + CL.pillPadX, y + CL.pillY + CL.pillH / 2 + 1);
+    if (mark.kind === 'association') {
+      const { text, colour } = mark.badge;
+      pillX += drawPill(ctx, pillX, y + CL.pillY, text, colour, CL, CL.badgeEdge) + CL.pillPadX;
+    }
+    if (count !== null) {
+      drawPill(ctx, pillX, y + CL.pillY, `${count} ${unitLabel}`, theme.color.accent, CL, 0);
+    }
   }
 
   if (qrImg) {

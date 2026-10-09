@@ -17,6 +17,7 @@ import { associationForCanton, parseAssociationParam, parseCantonParam, parseVen
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
+import { posterSubjectFor, type PosterTarget } from './features/venues/posterSubject';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
@@ -108,7 +109,7 @@ function AppShell() {
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [posterEditorCode, setPosterEditorCode] = useState<string | null>(null);
+  const [posterTarget, setPosterTarget] = useState<PosterTarget | null>(null);
   const flashTimer = useRef<number | null>(null);
   const showFlash = (kind: 'ok' | 'err', text: string) => {
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
@@ -234,8 +235,21 @@ function AppShell() {
     }
   };
 
-  const openPosterEditor = (code: string) => setPosterEditorCode(code);
-  const closePosterEditor = () => setPosterEditorCode(null);
+  // The open editor follows the venues, so a poster asked for before they loaded fills in once they
+  // arrive. The id is checked on click, where an unknown one can still be reported.
+  const posterSubject = useMemo(
+    () => (posterTarget ? posterSubjectFor(posterTarget, venues, associations) : null),
+    [posterTarget, venues, associations],
+  );
+  const openPosterEditor = (target: PosterTarget) => {
+    try {
+      posterSubjectFor(target, venues, associations);
+      setPosterTarget(target);
+    } catch (err) {
+      showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
+    }
+  };
+  const closePosterEditor = () => setPosterTarget(null);
   const savePoster = (blob: Blob, filename: string) => {
     downloadBlob(filename, blob);
     closePosterEditor();
@@ -327,10 +341,9 @@ function AppShell() {
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
-      {posterEditorCode && (
+      {posterSubject && (
         <PosterEditorModal
-          code={posterEditorCode}
-          venues={venues}
+          subject={posterSubject}
           initialBaseKind={baseKind}
           unitLabel={t.unitTotal}
           onClose={closePosterEditor}

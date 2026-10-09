@@ -1,19 +1,17 @@
 import L from 'leaflet';
-import type { Venue } from './types';
-import { boundsForCanton } from '../../data/cantonBounds';
-import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLayers';
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage,
   extractTileDraws, drawTiles, drawPin, drawPinLabels, drawPosterOverlay,
-  computeChromeLayout, qrRect, labelObstacles,
+  computeChromeLayout, qrRect, labelObstacles, type OverlayMark,
 } from './posterCanvas';
 import {
   posterHeightFor, chromeLayoutFor,
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
+import { PosterGenerationError, type PosterSubject } from './posterSubject';
 
-export class PosterGenerationError extends Error {}
+export { PosterGenerationError };
 
 const TILE_LOAD_TIMEOUT_MS = 8000;
 
@@ -39,7 +37,7 @@ export interface GeneratePosterOptions {
   baseKind: BaseKind;
   // Exact framing from the editor: `center` is the preview map's center and `zoom` is already
   // scaled up by log2(POSTER_SIZE / previewWidthPx), so this larger canvas covers the identical
-  // ground area the preview showed. Falls back to the canton's default bounds when absent.
+  // ground area the preview showed. Falls back to the subject's home bounds when absent.
   view?: PosterView;
   unitLabel: string;
   title?: string;
@@ -55,9 +53,8 @@ export interface GeneratePosterOptions {
   showLabels?: boolean; // venue names beside the pins; defaults to on
 }
 
-export const generateCantonPosterBlob = async (
-  code: string,
-  venues: Venue[],
+export const generatePosterBlob = async (
+  subject: PosterSubject,
   options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
   const {
@@ -69,11 +66,6 @@ export const generateCantonPosterBlob = async (
     showHeader = true, showFooter = true, headerPosition = 'top', footerPosition = 'bottom',
     chromeSize = 'normal', qrCorner = 'bottom-right', showLabels = true,
   } = options;
-  const canton = cantonByCode(code);
-  const bounds = boundsForCanton(code);
-  if (!canton || !bounds) {
-    throw new PosterGenerationError(`[UNKNOWN_CANTON] No data for canton ${code}.`);
-  }
   const posterHeight = posterHeightFor(aspectRatio);
 
   const container = createOffscreenContainer(POSTER_SIZE, posterHeight);
@@ -89,11 +81,14 @@ export const generateCantonPosterBlob = async (
     if (view) {
       map.setView(view.center, view.zoom);
     } else {
-      map.fitBounds(bounds, { padding: [40, 40] });
+      map.fitBounds(subject.homeBounds, { padding: [40, 40] });
     }
     await waitForTilesLoad(tileLayer, TILE_LOAD_TIMEOUT_MS);
 
-    const wappenImg = await loadImage(wappenUrl(code), 'anonymous');
+    const mark: OverlayMark =
+      subject.mark.kind === 'arms'
+        ? { kind: 'arms', img: await loadImage(subject.mark.url, 'anonymous') }
+        : subject.mark;
     const qrImg = qrDataUrl ? await loadImage(qrDataUrl) : null;
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready.catch(() => undefined);
@@ -108,8 +103,7 @@ export const generateCantonPosterBlob = async (
     const tilePane = map.getPane('tilePane');
     if (tilePane) drawTiles(ctx, extractTileDraws(tilePane));
 
-    const cantonVenues = venues.filter((v) => v.canton === code);
-    const pins = cantonVenues.map((v) => {
+    const pins = subject.venues.map((v) => {
       const point = map.latLngToContainerPoint([v.lat, v.lng]);
       return { x: point.x, y: point.y, text: v.name };
     });
@@ -129,10 +123,10 @@ export const generateCantonPosterBlob = async (
     }
 
     drawPosterOverlay(ctx, {
-      cantonName: canton.name,
+      name: subject.name,
       title,
-      wappenImg,
-      count: cantonVenues.length,
+      mark,
+      count: subject.count,
       unitLabel,
       attribution: TILE_ATTRIBUTION[baseKind],
       posterHeight,
@@ -149,7 +143,7 @@ export const generateCantonPosterBlob = async (
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new PosterGenerationError('[NO_BLOB] Could not encode the poster image.');
 
-    return { blob, filename: posterFilename(code) };
+    return { blob, filename: posterFilename(subject.id) };
   } finally {
     map.remove();
     container.remove();

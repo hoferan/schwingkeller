@@ -44,21 +44,26 @@ vi.mock('./features/map/MapView', () => ({
 }));
 vi.mock('./features/sidebar/Sidebar', () => ({
   Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
-    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>; sortMode: string;
+    onGeneratePoster: (target: { kind: 'canton'; code: string } | { kind: 'association'; id: string }) => void;
+    expanded: Record<string, boolean>; sortMode: string;
   }) => (
     <div>
-      <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
+      <button onClick={() => onGeneratePoster({ kind: 'canton', code: 'BE' })}>gen-poster</button>
+      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'freiburg' })}>gen-poster-vb</button>
+      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'nope' })}>gen-poster-bad</button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
       <span data-testid="sort-mode">{sortMode}</span>
     </div>
   ),
 }));
 vi.mock('./features/venues/PosterEditorModal', () => ({
-  PosterEditorModal: ({ code, onSave, onError, onClose }: {
-    code: string; onSave: (b: Blob, f: string) => void; onError: (e: unknown) => void; onClose: () => void;
+  PosterEditorModal: ({ subject, onSave, onError, onClose }: {
+    subject: { id: string; venues: unknown[] };
+    onSave: (b: Blob, f: string) => void; onError: (e: unknown) => void; onClose: () => void;
   }) => (
     <div data-testid="poster-editor">
-      <span>editor:{code}</span>
+      <span>editor:{subject.id}</span>
+      <span data-testid="poster-editor-venues">{subject.venues.length}</span>
       <button onClick={() => onSave(new Blob(['x'], { type: 'image/png' }), 'schwingkeller-be.png')}>ed-save</button>
       <button onClick={() => onError(new Error('boom'))}>ed-error</button>
       <button onClick={onClose}>ed-close</button>
@@ -231,6 +236,41 @@ describe('App — poster editor wiring', () => {
 
     expect(await screen.findByTestId('poster-editor')).toBeInTheDocument();
     expect(screen.getByText('editor:BE')).toBeInTheDocument();
+  });
+
+  it('fills the open editor with venues that load after the poster was requested', async () => {
+    // An admin can click a poster button before the venues have loaded; the editor must pick them
+    // up when they arrive instead of keeping the empty list from the click.
+    const user = userEvent.setup();
+    mocked.venues = [];
+    const { rerender } = render(<App />);
+    await user.click(screen.getByText('gen-poster'));
+    expect(await screen.findByTestId('poster-editor-venues')).toHaveTextContent('0');
+
+    mocked.venues = [venue];
+    rerender(<App />);
+
+    expect(screen.getByTestId('poster-editor-venues')).toHaveTextContent('1');
+    mocked.venues = null;
+  });
+
+  it('opens the poster editor for the Verband the sidebar requests', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByText('gen-poster-vb'));
+
+    expect(await screen.findByText('editor:freiburg')).toBeInTheDocument();
+  });
+
+  it('flashes the poster error and opens no editor for an unknown Verband', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByText('gen-poster-bad'));
+
+    expect(await screen.findByText(STR.de.posterGenerateFailed)).toBeInTheDocument();
+    expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument();
   });
 
   it('downloads the blob and closes the editor on save', async () => {
