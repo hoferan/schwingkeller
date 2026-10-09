@@ -19,7 +19,7 @@ const venue = (over: Partial<Venue> = {}): Venue => ({
   phone: '',
   website: '',
   photos: [],
-  association_id: null,
+  association_id: 'emmental',
   ...over,
 });
 
@@ -139,13 +139,5 @@ describe('useVenuePermalink — with the verband flag', () => {
 
   it("expands the venue's Teilverband and Verband", () => {
     expect(expandedBy(venue({ association_id: 'emmental' }))).toEqual({ bksv: true, emmental: true });
-  });
-
-  it('falls back to the canton for a venue without an association', () => {
-    expect(expandedBy(venue({ canton: 'FR', association_id: null }))).toEqual({ FR: true });
-  });
-
-  it('falls back to the canton for an id that is not in the tree', () => {
-    expect(expandedBy(venue({ canton: 'FR', association_id: 'gone' }))).toEqual({ FR: true });
   });
 });

@@ -8,17 +8,12 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 import { CantonArms, RowChevron, VenueRow } from './VenueRow';
 
-// Key of the admin-only group of venues without an association. Tree ids are slugs and canton codes
-// are upper case, so it can't collide with either.
-export const UNASSIGNED_KEY = 'unassigned';
-
 // Wider than the widest abbreviation, so every Teilverband name starts at the same place.
 const BADGE_WIDTH = '46px';
 
 interface AssociationGroupsProps {
   list: Venue[];
   filtering: boolean;
-  isAdmin: boolean;
   expanded: Record<string, boolean>;
   onToggle: (key: string) => void;
   selectedId: string | null;
@@ -103,7 +98,6 @@ const GroupHeader = ({ id, level, open, onToggle, mark, name, count }: GroupHead
 export const AssociationGroups = ({
   list,
   filtering,
-  isAdmin,
   expanded,
   onToggle,
   selectedId,
@@ -111,7 +105,7 @@ export const AssociationGroups = ({
 }: AssociationGroupsProps) => {
   const { t } = useTranslation();
   const associations = useAssociations();
-  const { groups, unassigned } = groupByAssociation(list, associations, !filtering);
+  const groups = groupByAssociation(list, associations, !filtering);
   const isOpen = (id: string) => filtering || !!expanded[id];
 
   const rows = (venues: Venue[]) => (
@@ -163,20 +157,6 @@ export const AssociationGroups = ({
           )}
         </div>
       ))}
-      {isAdmin && unassigned.length > 0 && (
-        <div style={{ borderBottom: '1px solid ' + theme.color.line }}>
-          <GroupHeader
-            id={UNASSIGNED_KEY}
-            level={1}
-            open={isOpen(UNASSIGNED_KEY)}
-            onToggle={onToggle}
-            mark={<span aria-hidden="true" style={{ flex: 'none', width: BADGE_WIDTH }} />}
-            name={t.unassignedGroup}
-            count={unassigned.length}
-          />
-          {isOpen(UNASSIGNED_KEY) && rows(unassigned)}
-        </div>
-      )}
     </>
   );
 };

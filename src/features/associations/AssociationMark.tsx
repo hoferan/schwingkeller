@@ -1,20 +1,18 @@
 import type { CSSProperties } from 'react';
-import type { RegionalId } from '../../data/associations';
+import type { CantonalId, RegionalId } from '../../data/associations';
 import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
 import { theme } from '../../theme';
 import { useAssociations } from './useAssociations';
 
 // The mark of a cantonal association: a dot in its Teilverband's colour. The name always sits next
 // to it, so the dot is decoration for screen readers.
-export const AssociationMark = ({ id, size = 10 }: { id: string | null | undefined; size?: number }) => {
-  const tint = tintOf(id);
-  if (!tint) return null;
+export const AssociationMark = ({ id, size = 10 }: { id: CantonalId; size?: number }) => {
   const style: CSSProperties = {
     display: 'inline-block',
     width: `${size}px`,
     height: `${size}px`,
     borderRadius: '50%',
-    background: tint,
+    background: tintOf(id),
     flex: 'none',
   };
   return <span aria-hidden="true" style={style} />;

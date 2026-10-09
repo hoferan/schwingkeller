@@ -1,3 +1,5 @@
+import type { CantonalId } from '../../data/associations';
+
 export interface VenuePhoto {
   id: string;
   url: string;
@@ -17,8 +19,9 @@ export interface Venue {
   phone: string;
   website: string;
   photos: VenuePhoto[];
-  // One of the 29 cantonal associations, or null until it has one.
-  association_id: string | null;
+  // One of the 29 cantonal associations. The database requires it (0010), and its foreign key and
+  // level trigger, checked against this tree by the parity test, keep any other id out.
+  association_id: CantonalId;
 }
 
 export type VenueInput = Omit<Venue, 'id' | 'photos'>;

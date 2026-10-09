@@ -21,14 +21,6 @@ describe('AssociationMark', () => {
     const { container } = render(<AssociationMark id="freiburg" size={14} />);
     expect(container.firstElementChild).toHaveStyle({ width: '14px', height: '14px', backgroundColor: 'rgb(93, 107, 128)' });
   });
-
-  it('draws nothing without a tint', () => {
-    ['esv', null, 'nowhere'].forEach((id) => {
-      const { container, unmount } = render(<AssociationMark id={id} />);
-      expect(container).toBeEmptyDOMElement();
-      unmount();
-    });
-  });
 });
 
 describe('RegionalBadge', () => {

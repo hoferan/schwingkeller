@@ -49,7 +49,8 @@ Chosen option: one node of the tree per profile.
 
 * Good, because a new level in the tree, such as clubs, works without touching the policies.
 * Good, because checking for a super-admin is a comparison with `esv`.
-* A venue without a Verband is writable only by a super-admin.
+* The database requires a Verband on every venue (migration 0010), so each venue is in the scope
+  of its Verband's editors.
 * No function replaces every venue at once any more
   ([ADR 0018](0018-remove-the-import-and-replace-venues.md)), so the scoped policies need no
   exception for one.

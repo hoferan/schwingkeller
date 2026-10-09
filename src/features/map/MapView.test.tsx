@@ -5,6 +5,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { MapView } from './MapView';
 import type { Venue } from '../venues/types';
+import type { CantonalId } from '../../data/associations';
 
 const BE_BOUNDS: [[number, number], [number, number]] = [[46.33, 6.86], [47.35, 8.46]];
 
@@ -113,7 +114,7 @@ describe('MapView container resize', () => {
   });
 });
 
-const venueAt = (id: string, associationId: string | null, lat: number, lng: number): Venue => ({
+const venueAt = (id: string, associationId: CantonalId, lat: number, lng: number): Venue => ({
   id, name: 'Keller ' + id, canton: 'BE', address: '', lat, lng,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: associationId,
 });
