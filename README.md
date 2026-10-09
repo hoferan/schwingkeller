@@ -206,9 +206,11 @@ broader rights, and the parity test says so. Reset it once with `docker compose 
 deletes the local data; the next `docker compose up` rebuilds it from the migrations and the seed.
 
 `npm run test:e2e` runs the browser suite: `bddgen` generates the Playwright tests from the feature
-files in `e2e/features`, then Playwright runs them against the Compose stack. The app under test is
-a production build on <http://localhost:4173> with production's feature flag values, built and
-served by Playwright on each run, locally as in CI.
+files in `e2e/features`, then Playwright runs them against the Compose stack. Playwright builds and
+serves two production bundles on each run, locally as in CI: one on <http://localhost:4173> with
+production's feature flag values, and one on <http://localhost:4174> built with
+`VITE_APP_ENV=stage`, which has the Verband view on. Every scenario runs against both, except those
+tagged `@canton-view` (only with the `verband` flag off) or `@verband-view` (only with it on).
 
 The dev server, from `docker compose up` or `npm run dev`, leaves `VITE_APP_ENV` unset, which reads
 as `development`, so it shows the flags that are on in development, such as the Verband view.

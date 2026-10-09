@@ -30,6 +30,7 @@ Feature: Venue details
     When I close the popup
     Then no venue is selected
 
+  @canton-view
   Scenario: A shared canton link shows that canton
     When I follow a shared link to canton "FR"
     Then the venues of canton "FR" are shown

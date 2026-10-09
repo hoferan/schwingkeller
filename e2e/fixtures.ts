@@ -66,9 +66,16 @@ const stubbedPage = async ({ page }: { page: import('@playwright/test').Page }, 
   await use(page);
 };
 
+// Where auth.setup.ts saves the session. Each bundle signs in on its own, because the Supabase
+// session lives in localStorage and 4173 and 4174 are different origins.
+export interface SetupOptions { storageStatePath: string }
+
 // auth.setup.ts is a plain Playwright test, not a generated scenario, so it extends Playwright's
-// own test and only takes the stubbed page.
-export const setupTest = playwrightTest.extend({ page: stubbedPage });
+// own test and only takes the stubbed page and the path to save the session to.
+export const setupTest = playwrightTest.extend<SetupOptions>({
+  storageStatePath: [STORAGE_STATE, { option: true }],
+  page: stubbedPage,
+});
 
 export const test = bddTest.extend<
   { venuePrefix: string; posterDownload: { current?: Download }; mapZoom: { before?: number } },

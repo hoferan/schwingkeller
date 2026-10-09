@@ -6,6 +6,10 @@
 
 export const POSTER_SIZE = 1080;
 
+// How usePosterQr renders the QR code image. The e2e suite renders its expected QR code with the
+// same options and compares the pixels.
+export const POSTER_QR_OPTIONS = { margin: 1, width: 240 } as const;
+
 export type PosterAspectRatio = 'square' | 'portrait' | 'landscape';
 
 // Width is always POSTER_SIZE; only the height moves, so every consumer that measures across the
