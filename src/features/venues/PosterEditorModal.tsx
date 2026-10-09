@@ -3,27 +3,23 @@ import L from 'leaflet';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
-import { cantonByCode, wappenUrl } from '../../data/cantons';
-import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
 import { generatePosterBlob } from './generatePoster';
-import { cantonPosterSubject } from './posterSubject';
+import type { PosterSubject } from './posterSubject';
 import {
   computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles, LABEL_COLORS,
   type ChromeLayoutResult,
 } from './posterCanvas';
 import { layoutPinLabels, LABEL_FONT, type PlacedLabel } from './posterLabels';
-import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+import { venueBounds, POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { usePosterQr } from './usePosterQr';
-import type { Venue } from './types';
 
 interface PosterEditorModalProps {
-  code: string;
-  venues: Venue[];
+  subject: PosterSubject;
   initialBaseKind: BaseKind;
   unitLabel: string;
   onClose: () => void;
@@ -38,45 +34,43 @@ interface PosterEditorModalProps {
 // which the capture can't reproduce (misframed export + missing-tile black bars).
 const previewSizeFor = (w: number): number => (w >= 700 ? 540 : 270);
 
-const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the canton-bounds fallback has always used
+const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the home-bounds fallback has always used
 
-// Default framing for the live editor map: fit tightly to the canton's own venues (not the whole
-// canton outline) so exported labels aren't shrunk by empty terrain, while keeping a sensible view
-// for cantons with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
+// Default framing for the live editor map: fit tightly to the subject's venues (not its whole home
+// area) so exported labels aren't shrunk by empty terrain, while keeping a sensible view for a
+// subject with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
 // framing" button so both apply identical logic. Padding derives from computeChromeLayout's
 // per-edge occupancy so it stays correct wherever the bands are positioned and at either size.
 const applyDefaultFraming = (
   map: L.Map,
-  code: string,
-  venues: Venue[],
+  subject: PosterSubject,
   previewSize: number,
   chrome: ChromeLayoutResult,
 ): void => {
-  const cantonVenues = venues.filter((v) => v.canton === code);
+  const { venues, homeBounds } = subject;
 
-  if (cantonVenues.length === 0) {
-    const bounds = boundsForCanton(code);
-    if (bounds) map.fitBounds(bounds, { padding: [DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING] });
+  if (venues.length === 0) {
+    map.fitBounds(homeBounds, { padding: [DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING] });
     return;
   }
 
-  if (cantonVenues.length === 1) {
-    const [only] = cantonVenues;
-    map.setView([only.lat, only.lng], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+  if (venues.length === 1) {
+    const [only] = venues;
+    map.setView([only.lat, only.lng], POSTER_MAX_DEFAULT_ZOOM);
     return;
   }
 
-  const venueBounds = venueBoundsForCanton(code, venues);
-  if (!venueBounds) return;
+  const bounds = venueBounds(venues);
+  if (!bounds) return;
   const scale = previewSize / POSTER_SIZE;
   const topPad = DEFAULT_FIT_PADDING + chrome.topOccupied * scale;
   const bottomPad = DEFAULT_FIT_PADDING + chrome.bottomOccupied * scale;
-  map.fitBounds(venueBounds, {
+  map.fitBounds(bounds, {
     paddingTopLeft: [DEFAULT_FIT_PADDING, topPad],
     paddingBottomRight: [DEFAULT_FIT_PADDING, bottomPad],
   });
-  if (map.getZoom() > CANTON_POSTER_MAX_DEFAULT_ZOOM) {
-    map.setZoom(CANTON_POSTER_MAX_DEFAULT_ZOOM);
+  if (map.getZoom() > POSTER_MAX_DEFAULT_ZOOM) {
+    map.setZoom(POSTER_MAX_DEFAULT_ZOOM);
   }
 };
 
@@ -109,12 +103,10 @@ const labelElement = (label: PlacedLabel): HTMLDivElement => {
 };
 
 export const PosterEditorModal = ({
-  code, venues, initialBaseKind, unitLabel, onClose, onSave, onError,
+  subject, initialBaseKind, unitLabel, onClose, onSave, onError,
 }: PosterEditorModalProps) => {
   const { t } = useTranslation();
-  const canton = cantonByCode(code);
-  // Memoized so the label-placement effect below doesn't see a new array on every render.
-  const cantonVenues = useMemo(() => venues.filter((v) => v.canton === code), [venues, code]);
+  const { venues, mark } = subject;
   // Frozen at mount (lazy initial state) — the map is created once at this size.
   const [previewSize] = useState(() => previewSizeFor(typeof window !== 'undefined' ? window.innerWidth : 1024));
   // Integer zoom gap between the preview and the 1080² export (1 for 540, 2 for 270).
@@ -124,7 +116,7 @@ export const PosterEditorModal = ({
   const maxPreviewZoom = (kind: BaseKind): number => TILE_MAX_ZOOM[kind] - deltaZoom;
 
   const [baseKind, setBaseKind] = useState<BaseKind>(initialBaseKind);
-  const [title, setTitle] = useState<string>(canton?.name ?? code);
+  const [title, setTitle] = useState<string>(subject.name);
   const [showHeader, setShowHeader] = useState(true);
   const [showFooter, setShowFooter] = useState(true);
   const [showQr, setShowQr] = useState(true);
@@ -137,7 +129,7 @@ export const PosterEditorModal = ({
   const [showLabels, setShowLabels] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const { dataUrl: qrDataUrl } = usePosterQr(code);
+  const { dataUrl: qrDataUrl } = usePosterQr(subject);
 
   // Chrome geometry for the current selections — the same pure functions the canvas exporter
   // uses, so the preview stays an exact scaled replica and the venue-fit framing pads for the
@@ -172,7 +164,7 @@ export const PosterEditorModal = ({
     mapRef.current = map;
     tileRef.current = createTileLayer(baseKind, 'anonymous');
     tileRef.current.addTo(map);
-    applyDefaultFraming(map, code, venues, previewSize, chrome);
+    applyDefaultFraming(map, subject, previewSize, chrome);
 
     // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
     const p = previewPin(previewSize);
@@ -182,7 +174,7 @@ export const PosterEditorModal = ({
       html: `<div style="width:${p.d}px;height:${p.d}px;border-radius:50%;background:${theme.color.accent};border:${p.ring}px solid ${theme.color.bg};box-sizing:border-box;display:flex;align-items:center;justify-content:center;"><span style="width:${p.dot}px;height:${p.dot}px;border-radius:50%;background:${theme.color.bg};display:block;"></span></div>`,
     });
     const pins = L.layerGroup().addTo(map);
-    cantonVenues.forEach((v) => {
+    venues.forEach((v) => {
       L.marker([v.lat, v.lng], { icon: pinIcon }).addTo(pins);
     });
 
@@ -253,7 +245,7 @@ export const PosterEditorModal = ({
     const k = POSTER_SIZE / previewSize;
 
     const render = () => {
-      const pins = cantonVenues.map((venue) => {
+      const pins = venues.map((venue) => {
         const point = map.latLngToContainerPoint([venue.lat, venue.lng]);
         return { x: point.x * k, y: point.y * k, text: venue.name };
       });
@@ -267,12 +259,12 @@ export const PosterEditorModal = ({
       map.off('move zoom', render);
       host.replaceChildren();
     };
-  }, [cantonVenues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize]);
+  }, [venues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize]);
 
   const resetFraming = () => {
     const map = mapRef.current;
     if (!map) return;
-    applyDefaultFraming(map, code, venues, previewSize, chrome);
+    applyDefaultFraming(map, subject, previewSize, chrome);
   };
 
   // Quarter-step zoom for precise framing; Leaflet clamps to the map's own min/max zoom.
@@ -298,7 +290,7 @@ export const PosterEditorModal = ({
     };
     setBusy(true);
     try {
-      const { blob, filename } = await generatePosterBlob(cantonPosterSubject(code, venues), {
+      const { blob, filename } = await generatePosterBlob(subject, {
         baseKind,
         view,
         unitLabel,
@@ -332,6 +324,12 @@ export const PosterEditorModal = ({
   const band: React.CSSProperties = {
     position: 'absolute', left: 0, right: 0,
     zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
+  };
+  // A header pill, the count or a Teilverband badge; each sets its own background.
+  const pillStyle: React.CSSProperties = {
+    flex: 'none', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk,
+    fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH),
+    padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap',
   };
   const fieldLabel: React.CSSProperties = {
     fontSize: '11.5px', letterSpacing: '.07em', textTransform: 'uppercase',
@@ -419,7 +417,7 @@ export const PosterEditorModal = ({
     <Modal onClose={onClose} width={previewSize + 340}>
       <div style={{ padding: '18px 22px' }}>
         <div style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700, fontSize: '18px', color: theme.color.ink }}>
-          {t.posterEditorTitle}: {canton?.name ?? code}
+          {t.posterEditorTitle}: {subject.name}
         </div>
 
         <div style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
@@ -435,15 +433,32 @@ export const PosterEditorModal = ({
             <div ref={labelsElRef} style={{ position: 'absolute', inset: 0, zIndex: 700, pointerEvents: 'none' }} />
             {showHeader && chrome.headerY !== null && (
               <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
-                <img src={wappenUrl(code)} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
-                {/* Compact: pill inline next to the title (band too short to stack); normal: stacked. */}
+                {mark.kind === 'arms' ? (
+                  <img src={mark.url} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
+                ) : (
+                  // The dot sits centred in the arms' slot, so the title starts where it does on a
+                  // canton poster. Its ring is a box shadow, the same white as on the canvas.
+                  <div style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span data-testid="poster-preview-mark" aria-hidden="true" style={{ width: cqw(CL.markDot), height: cqw(CL.markDot), borderRadius: '50%', background: mark.tint, boxShadow: `0 0 0 ${cqw(CL.markRing)} ${theme.color.bg}`, flex: 'none' }} />
+                  </div>
+                )}
+                {/* Compact: pills inline next to the title (band too short to stack); normal: stacked. */}
                 <div style={{ display: 'flex', flexDirection: chromeSize === 'compact' ? 'row' : 'column', alignItems: chromeSize === 'compact' ? 'center' : undefined, gap: cqw(chromeSize === 'compact' ? CL.pillPadX : CL.titleGap), minWidth: 0 }}>
                   <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(CL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {title || canton?.name}
+                    {title || subject.name}
                   </div>
-                  <span style={{ alignSelf: chromeSize === 'compact' ? 'center' : 'flex-start', flex: 'none', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk, background: theme.color.accent, fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH), padding: `0 ${cqw(CL.pillPadX)}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>
-                    {cantonVenues.length} {unitLabel}
-                  </span>
+                  <div style={{ alignSelf: chromeSize === 'compact' ? 'center' : 'flex-start', flex: 'none', display: 'flex', gap: cqw(CL.pillPadX) }}>
+                    {mark.kind === 'association' && (
+                      <span style={{ ...pillStyle, background: mark.badge.colour, boxShadow: `0 0 0 ${cqw(CL.badgeEdge)} ${theme.color.bg}` }}>
+                        {mark.badge.text}
+                      </span>
+                    )}
+                    {subject.count !== null && (
+                      <span style={{ ...pillStyle, background: theme.color.accent }}>
+                        {subject.count} {unitLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -59,24 +59,33 @@ vi.mock('leaflet', () => ({
 import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
-import { CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+import { POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
 import { computeChromeLayout } from './posterCanvas';
 import { theme } from '../../theme';
 import { cqw, POSTER_SIZE } from './posterLayout';
+import { associationPosterSubject, cantonPosterSubject, type PosterSubject } from './posterSubject';
+import { associationsFor } from '../associations/useAssociations';
+import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
+import type { Lang } from '../../i18n/translations';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
-const renderEditor = (props: Partial<Parameters<typeof PosterEditorModal>[0]> = {}) =>
+type EditorProps = Parameters<typeof PosterEditorModal>[0];
+
+// Most tests only vary the venues of the Bern canton poster, so `venues` builds that subject; a test
+// about another poster passes its own `subject`.
+const renderEditor = ({
+  venues = [v({ id: '1' })], lang = 'de', ...props
+}: Partial<EditorProps> & { venues?: Venue[]; lang?: Lang } = {}) =>
   render(
-    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+    <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <PosterEditorModal
-        code="BE"
-        venues={[v({ id: '1' })]}
+        subject={cantonPosterSubject('BE', venues)}
         initialBaseKind="map"
         unitLabel="Schwingkeller"
         onClose={vi.fn()}
@@ -150,11 +159,11 @@ describe('default framing', () => {
 
   it('frames the map with setView (not fitBounds) when the canton has exactly one venue', () => {
     renderEditor(); // default: 1 venue at (46.9, 7.4)
-    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM);
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('falls back to the canton bounds fit when there are no venues', () => {
+  it('falls back to the home bounds fit when there are no venues', () => {
     renderEditor({ venues: [] });
     expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20] });
     expect(fakeMap.setView).not.toHaveBeenCalled();
@@ -188,7 +197,7 @@ describe('default framing', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
 
     expect(fakeMap.setView).toHaveBeenCalledTimes(2);
-    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM);
   });
 
   it('caps the zoom after fitBounds overshoots for tightly clustered venues', () => {
@@ -200,7 +209,7 @@ describe('default framing', () => {
     renderEditor({ venues: venues2 });
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
-    expect(fakeMap.setZoom).toHaveBeenCalledWith(CANTON_POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(POSTER_MAX_DEFAULT_ZOOM);
   });
 });
 
@@ -463,5 +472,64 @@ describe('venue name labels', () => {
     const [first, second] = screen.getAllByTestId('poster-preview-label');
     expect(first).toHaveAttribute('data-slot', 'below');
     expect(second).toHaveAttribute('data-slot', 'right');
+  });
+});
+
+describe('a Verband poster', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  const frVenues = Array.from({ length: 11 }, (_, i) =>
+    v({ id: `fr${i}`, name: `Keller ${i}`, canton: 'FR', association_id: 'freiburg', lat: 46.7 + i / 100, lng: 7.1 }));
+  const freiburg = (lang: Lang = 'de'): PosterSubject =>
+    associationPosterSubject('freiburg', frVenues, associationsFor(lang));
+
+  it('heads the editor with the Verband name and defaults the title to it', () => {
+    renderEditor({ subject: freiburg() });
+    expect(screen.getByText(`${STR.de.posterEditorTitle}: Freiburg`)).toBeInTheDocument();
+    expect(screen.getByLabelText(STR.de.posterTitleLabel)).toHaveValue('Freiburg');
+  });
+
+  it('shows the dot and the badge and no count in the preview header', () => {
+    renderEditor({ subject: freiburg() });
+    const header = screen.getByTestId('poster-preview-header');
+    expect(within(header).getByText('SWSV')).toBeInTheDocument();
+    expect(within(header).getByTestId('poster-preview-mark')).toHaveStyle({ backgroundColor: '#5D6B80' });
+    expect(within(header).queryByText(/Schwingkeller/)).toBeNull();
+    expect(header.querySelector('img')).toBeNull();
+  });
+
+  it('still shows the arms and the count for a canton poster', () => {
+    renderEditor();
+    const header = screen.getByTestId('poster-preview-header');
+    expect(header.querySelector('img')).not.toBeNull();
+    expect(within(header).getByText('1 Schwingkeller')).toBeInTheDocument();
+    expect(within(header).queryByTestId('poster-preview-mark')).toBeNull();
+  });
+
+  it('shows the French name and the ARLS badge for a Verband opened in French', () => {
+    renderEditor({ subject: freiburg('fr'), lang: 'fr' });
+    expect(screen.getByText(`${STR.fr.posterEditorTitle}: Fribourg`)).toBeInTheDocument();
+    expect(within(screen.getByTestId('poster-preview-header')).getByText('ARLS')).toBeInTheDocument();
+  });
+
+  it('frames all 11 Freiburg venues', () => {
+    renderEditor({ subject: freiburg() });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(fakeMap.fitBounds.mock.calls[0][0]).toEqual({ points: frVenues.map((x) => [x.lat, x.lng]) });
+  });
+
+  it('frames a Verband without venues to its home area', () => {
+    renderEditor({ subject: associationPosterSubject('berner-jura', [], associationsFor('de')) });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS['berner-jura'], { padding: [20, 20] });
+    expect(fakeMap.setView).not.toHaveBeenCalled();
+  });
+
+  it('downloads the subject it was given', async () => {
+    const user = userEvent.setup();
+    const subject = freiburg();
+    renderEditor({ subject });
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][0]).toBe(subject);
   });
 });

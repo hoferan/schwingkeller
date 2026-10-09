@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { venueBoundsForCanton, CANTON_POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+import { venueBounds, POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 import type { Venue } from './types';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -7,27 +7,25 @@ const v = (over: Partial<Venue>): Venue => ({
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
-describe('CANTON_POSTER_MAX_DEFAULT_ZOOM', () => {
+describe('POSTER_MAX_DEFAULT_ZOOM', () => {
   it('is a town/neighborhood-level zoom', () => {
-    expect(CANTON_POSTER_MAX_DEFAULT_ZOOM).toBe(14);
+    expect(POSTER_MAX_DEFAULT_ZOOM).toBe(14);
   });
 });
 
-describe('venueBoundsForCanton', () => {
-  it('returns null when no venues match the canton', () => {
-    const venues = [v({ id: '1', canton: 'LU' })];
-    expect(venueBoundsForCanton('BE', venues)).toBeNull();
+describe('venueBounds', () => {
+  it('returns null when there are no venues', () => {
+    expect(venueBounds([])).toBeNull();
   });
 
-  it("returns bounds covering only the matching canton's venues", () => {
+  it('returns bounds covering every venue it is given, whatever their canton', () => {
     const venues = [
       v({ id: '1', canton: 'BE', lat: 46.9, lng: 7.4 }),
-      v({ id: '2', canton: 'BE', lat: 46.95, lng: 7.45 }),
-      v({ id: '3', canton: 'LU', lat: 47.05, lng: 8.3 }),
+      v({ id: '2', canton: 'LU', lat: 47.05, lng: 8.3 }),
     ];
-    const bounds = venueBoundsForCanton('BE', venues);
+    const bounds = venueBounds(venues);
     expect(bounds).not.toBeNull();
     expect(bounds!.getSouthWest()).toEqual(expect.objectContaining({ lat: 46.9, lng: 7.4 }));
-    expect(bounds!.getNorthEast()).toEqual(expect.objectContaining({ lat: 46.95, lng: 7.45 }));
+    expect(bounds!.getNorthEast()).toEqual(expect.objectContaining({ lat: 47.05, lng: 8.3 }));
   });
 });

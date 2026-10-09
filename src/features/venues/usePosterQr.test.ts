@@ -11,6 +11,8 @@ vi.mock('qrcode', () => ({
 }));
 
 import { usePosterQr } from './usePosterQr';
+import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
+import { associationsFor } from '../associations/useAssociations';
 
 describe('usePosterQr', () => {
   beforeEach(() => {
@@ -19,15 +21,22 @@ describe('usePosterQr', () => {
   });
 
   it('builds the absolute canton permalink and requests a QR for it', async () => {
-    const { result } = renderHook(() => usePosterQr('BE'));
+    const { result } = renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
     expect(result.current.url).toBe('http://localhost:3000/?ctn=BE');
     await waitFor(() => expect(result.current.dataUrl).toBe('data:image/png;base64,QR'));
     expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?ctn=BE', expect.any(Object));
   });
 
+  it('links a Verband poster to its Verband', async () => {
+    const subject = associationPosterSubject('freiburg', [], associationsFor('de'));
+    const { result } = renderHook(() => usePosterQr(subject));
+    expect(result.current.url).toBe('http://localhost:3000/?vb=freiburg');
+    await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?vb=freiburg', expect.any(Object)));
+  });
+
   it('leaves dataUrl null when QR generation rejects', async () => {
     toDataURL.mockRejectedValueOnce(new Error('boom'));
-    const { result } = renderHook(() => usePosterQr('BE'));
+    const { result } = renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
     await waitFor(() => expect(toDataURL).toHaveBeenCalled());
     expect(result.current.dataUrl).toBeNull();
   });

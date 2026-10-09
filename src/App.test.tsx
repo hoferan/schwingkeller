@@ -54,11 +54,12 @@ vi.mock('./features/sidebar/Sidebar', () => ({
   ),
 }));
 vi.mock('./features/venues/PosterEditorModal', () => ({
-  PosterEditorModal: ({ code, onSave, onError, onClose }: {
-    code: string; onSave: (b: Blob, f: string) => void; onError: (e: unknown) => void; onClose: () => void;
+  PosterEditorModal: ({ subject, onSave, onError, onClose }: {
+    subject: { id: string; venues: unknown[] };
+    onSave: (b: Blob, f: string) => void; onError: (e: unknown) => void; onClose: () => void;
   }) => (
     <div data-testid="poster-editor">
-      <span>editor:{code}</span>
+      <span>editor:{subject.id}</span>
       <button onClick={() => onSave(new Blob(['x'], { type: 'image/png' }), 'schwingkeller-be.png')}>ed-save</button>
       <button onClick={() => onError(new Error('boom'))}>ed-error</button>
       <button onClick={onClose}>ed-close</button>
