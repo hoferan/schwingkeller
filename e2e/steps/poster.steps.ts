@@ -1,7 +1,10 @@
 import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import QRCode from 'qrcode';
 import { STR } from '../../src/i18n/translations';
+import { POSTER_QR_OPTIONS } from '../../src/features/venues/posterLayout';
 import { Given, When, Then, expect } from '../fixtures';
+import { verbandId } from '../associations';
 
 const t = STR.de;
 
@@ -46,11 +49,20 @@ const readRects = (page: Page, selector: string, frameSelector?: string) =>
 // the seam no jsdom test can reach. Pixel-level correctness stays in the unit tests, because the
 // poster is drawn over map tiles (stubbed here).
 
-Given('I open the poster editor for canton {string}', async ({ page }, canton: string) => {
-  // Venues arrive from PostgREST, and the canton rows only render once they do.
-  await expect(page.getByTestId(`generate-poster-${canton}`)).toBeVisible();
-  await page.getByTestId(`generate-poster-${canton}`).click();
+const openPosterEditor = async (page: Page, id: string) => {
+  // Venues arrive from PostgREST, and the canton rows only render once they do. The Verband rows
+  // render at once, inside their Teilverband, which starts open.
+  await expect(page.getByTestId(`generate-poster-${id}`)).toBeVisible();
+  await page.getByTestId(`generate-poster-${id}`).click();
   await expect(page.getByText(t.posterEditorTitle, { exact: false })).toBeVisible();
+};
+
+Given('I open the poster editor for canton {string}', async ({ page }, canton: string) => {
+  await openPosterEditor(page, canton);
+});
+
+Given('I open the poster editor for Verband {string}', async ({ page }, name: string) => {
+  await openPosterEditor(page, verbandId(name));
 });
 
 Then('the formats square, portrait and landscape are offered', async ({ page }) => {
@@ -139,6 +151,37 @@ When('I switch the venue names off', async ({ page }) => {
 Then('no venue names are shown', async ({ page }) => {
   await expect(page.getByRole('checkbox', { name: t.posterToggleLabels })).not.toBeChecked();
   await expect(page.locator(LABEL)).toHaveCount(0);
+});
+
+// The step renders the QR code it expects with the app's own options and compares it with the one
+// in the preview. Node's qrcode writes its PNG with pngjs and the browser's with a canvas, so the
+// bytes differ even for the same link, but the pixels don't: both images are decoded in the page and
+// compared pixel by pixel.
+Then('the QR code links to {string}', async ({ page, baseURL }, path: string) => {
+  expect(baseURL, 'the project sets no baseURL').toBeDefined();
+  const qr = page.getByRole('img', { name: 'QR', exact: true });
+  await expect(qr).toBeVisible();
+  const shown = (await qr.getAttribute('src'))!;
+  const expected = await QRCode.toDataURL(new URL(path, baseURL).href, POSTER_QR_OPTIONS);
+  const { sizes, differing } = await page.evaluate(async ([a, b]) => {
+    const decode = async (src: string) => {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      return { size: `${canvas.width}x${canvas.height}`, data: ctx.getImageData(0, 0, canvas.width, canvas.height).data };
+    };
+    const [x, y] = await Promise.all([decode(a), decode(b)]);
+    let count = 0;
+    if (x.data.length === y.data.length) x.data.forEach((v, i) => { if (v !== y.data[i]) count += 1; });
+    return { sizes: [x.size, y.size], differing: count };
+  }, [shown, expected] as const);
+  expect(sizes[0], 'size of the QR code').toBe(sizes[1]);
+  expect(differing, 'pixel values that differ from the expected QR code').toBe(0);
 });
 
 When('I download the poster', async ({ page, posterDownload }) => {

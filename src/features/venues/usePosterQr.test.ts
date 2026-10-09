@@ -10,7 +10,8 @@ vi.mock('qrcode', () => ({
   default: { toDataURL },
 }));
 
-import { POSTER_QR_OPTIONS, usePosterQr } from './usePosterQr';
+import { usePosterQr } from './usePosterQr';
+import { POSTER_QR_OPTIONS } from './posterLayout';
 import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
 import { associationsFor } from '../associations/useAssociations';
 

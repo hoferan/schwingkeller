@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import type { PosterSubject } from './posterSubject';
-
-// The e2e suite renders its expected QR code with the same options and compares the pixels.
-export const POSTER_QR_OPTIONS = { margin: 1, width: 240 } as const;
+import { POSTER_QR_OPTIONS } from './posterLayout';
 
 export interface PosterQr {
   url: string;
