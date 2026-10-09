@@ -21,7 +21,6 @@ import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
 import { useAssociations } from './features/associations/useAssociations';
-import { UNASSIGNED_KEY } from './features/sidebar/AssociationGroups';
 import { boundsForAssociation, expandedKeysFor } from './features/associations/focus';
 import { isFeatureOn } from './lib/features';
 
@@ -73,13 +72,13 @@ function AppShell() {
     return parseAssociationParam(search) ?? (code ? associationForCanton(code) : null);
   });
   const [search, setSearch] = useState('');
-  // Keyed by canton code or association id. With the verband flag on, the Teilverbände and the
-  // admin group start open and the Verbände closed, and a ?vb= permalink opens its own. No canton
-  // starts open; a ?ctn= permalink opens its own.
+  // Keyed by canton code or association id. With the verband flag on, the Teilverbände start open
+  // and the Verbände closed, and a ?vb= permalink opens its own. No canton starts open; a ?ctn=
+  // permalink opens its own.
   const associations = useAssociations();
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-    const open = isFeatureOn('verband')
-      ? [...associations.childrenOf('esv').map((a) => a.id), UNASSIGNED_KEY]
+    const open: string[] = isFeatureOn('verband')
+      ? associations.childrenOf('esv').map((a) => a.id)
       : [];
     if (ctnParam) open.push(ctnParam);
     if (vbParam) open.push(...expandedKeysFor(vbParam, associations));

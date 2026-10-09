@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import type { Venue } from '../venues/types';
+import type { CantonalId } from '../../data/associations';
 import { buildTree } from './tree';
 import { boundsForAssociation, expandedKeysFor } from './focus';
 
 const tree = buildTree();
 
-const venue = (id: string, association_id: string | null, lat: number, lng: number): Venue => ({
+const venue = (id: string, association_id: CantonalId, lat: number, lng: number): Venue => ({
   id, name: id, canton: 'BE', address: '', lat, lng, indoor: true, outdoor: false,
   person: '', phone: '', website: '', photos: [], association_id,
 });

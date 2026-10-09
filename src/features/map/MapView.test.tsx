@@ -6,6 +6,7 @@ import { STR } from '../../i18n/translations';
 import { MapView } from './MapView';
 import { USER_PIN_SIZE } from './markers';
 import type { Venue } from '../venues/types';
+import type { CantonalId } from '../../data/associations';
 
 const BE_BOUNDS: [[number, number], [number, number]] = [[46.33, 6.86], [47.35, 8.46]];
 
@@ -115,7 +116,7 @@ describe('MapView container resize', () => {
   });
 });
 
-const venueAt = (id: string, associationId: string | null, lat: number, lng: number): Venue => ({
+const venueAt = (id: string, associationId: CantonalId, lat: number, lng: number): Venue => ({
   id, name: 'Keller ' + id, canton: 'BE', address: '', lat, lng,
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: associationId,
 });
@@ -136,7 +137,7 @@ describe('MapView venue pins', () => {
   it("draws a pin in its Teilverband's colour", () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
-    expect(icons(container).some((html) => html.includes('#9B2C1F'))).toBe(true);
+    expect(icons(container).some((html) => html.includes('#1A1A1A'))).toBe(true);
   });
 
   it('sizes and centres the icon box of the larger selected pin', () => {
@@ -152,7 +153,7 @@ describe('MapView venue pins', () => {
   it("hands each venue's association to the cluster icon", () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7), venueAt('2', 'freiburg', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
-    expect(icons(container).some((html) => html.includes('conic-gradient(#9B2C1F 0% 50%, #8A5A12 50% 100%)'))).toBe(true);
+    expect(icons(container).some((html) => html.includes('conic-gradient(#1A1A1A 0% 50%, #5D6B80 50% 100%)'))).toBe(true);
   });
 });
 

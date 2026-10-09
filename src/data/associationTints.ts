@@ -1,25 +1,22 @@
-import { ASSOCIATIONS, type RegionalId } from './associations';
+import { ASSOCIATIONS, type CantonalId, type RegionalId } from './associations';
 
-// One colour per regional association. The sidebar dot, the Teilverband badge, and the map pins
-// and clusters all take it from here. Darker than theme.color.accent so they don't read as buttons;
-// against white they reach 7.6, 6.8, 6.4, 7.1 and 5.9 to 1, enough for the badge's white text.
-// All five read on the street map and the satellite view, because pins and clusters edge them in white.
+// One colour per regional association, taken from its team clothing: BKSV wears black, ISV red with
+// a black band, NOSV green, NWSV royal blue and SWSV a blue-grey. The sidebar dot, the Teilverband
+// badge, and the map pins and clusters all take it from here. NOSV's green and SWSV's blue-grey are
+// darker than the clothing, so the badge's white text reaches 4.5 to 1 on every colour. NOSV's
+// green also sits darker than ISV's red, which keeps the two apart for red-green colour blindness.
+// White edges on pins and clusters keep black BKSV readable on the satellite view.
 export const REGIONAL_TINTS: Record<RegionalId, string> = {
-  bksv: '#9B2C1F',
-  isv: '#1F5F8B',
-  nosv: '#2E6B3F',
-  nwsv: '#6A4A8C',
-  swsv: '#8A5A12',
+  bksv: '#1A1A1A',
+  isv: '#E30613',
+  nosv: '#0B7A26',
+  nwsv: '#1854B4',
+  swsv: '#5D6B80',
 };
 
-const byId = new Map<string, (typeof ASSOCIATIONS)[number]>(ASSOCIATIONS.map((a) => [a.id, a]));
+const PARENT = Object.fromEntries(
+  ASSOCIATIONS.flatMap((a) => (a.level === 'cantonal' ? [[a.id, a.parentId]] : [])),
+) as Record<CantonalId, RegionalId>;
 
-// Venues carry a plain string, so this takes any id: a cantonal association gets its regional
-// association's tint, the federation and unknown ids get none.
-export const tintOf = (id: string | null | undefined): string | null => {
-  const node = id ? byId.get(id) : undefined;
-  if (!node) return null;
-  if (node.level === 'regional') return REGIONAL_TINTS[node.id];
-  if (node.level === 'cantonal') return REGIONAL_TINTS[node.parentId];
-  return null;
-};
+// A cantonal association takes the tint of its regional association.
+export const tintOf = (id: CantonalId): string => REGIONAL_TINTS[PARENT[id]];

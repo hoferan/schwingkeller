@@ -7,11 +7,11 @@ const tree = buildTree();
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '', lat: 0, lng: 0, indoor: true, outdoor: false,
-  person: '', phone: '', website: '', photos: [], association_id: null, ...over,
+  person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
 const shape = (venues: Venue[], includeEmpty = false) =>
-  groupByAssociation(venues, tree, includeEmpty).groups.map((g) => ({
+  groupByAssociation(venues, tree, includeEmpty).map((g) => ({
     id: g.id,
     count: g.count,
     associations: g.associations.map((a) => [a.id, a.count]),
@@ -33,23 +33,9 @@ describe('groupByAssociation', () => {
 
   it('groups by association, not by canton', () => {
     const escholzmatt = v({ id: '9', name: 'Schwingkeller Escholzmatt', canton: 'LU', association_id: 'emmental' });
-    const { groups } = groupByAssociation([escholzmatt], tree, false);
+    const groups = groupByAssociation([escholzmatt], tree, false);
     expect(groups[0].id).toBe('bksv');
     expect(groups[0].associations[0].venues).toEqual([escholzmatt]);
-  });
-
-  it('puts null, unknown and non-cantonal ids in unassigned, sorted by name', () => {
-    const { groups, unassigned } = groupByAssociation(
-      [
-        v({ id: '1', name: 'Zug Halle', association_id: null }),
-        v({ id: '2', name: 'Bern Halle', association_id: 'nowhere' }),
-        v({ id: '3', name: 'Mittel Halle', association_id: 'bksv' }),
-      ],
-      tree,
-      false,
-    );
-    expect(groups).toEqual([]);
-    expect(unassigned.map((x) => x.id)).toEqual(['2', '3', '1']);
   });
 
   it('lists every group when includeEmpty is true', () => {
@@ -72,7 +58,7 @@ describe('groupByAssociation', () => {
       v({ id: '3', name: 'Tavannes', association_id: 'berner-jura' }),
       v({ id: '4', name: 'Luzern', association_id: 'luzern' }),
     ];
-    const { groups } = groupByAssociation(venues, tree, false);
+    const groups = groupByAssociation(venues, tree, false);
     expect(groups.map((g) => g.id)).toEqual(['bksv', 'isv']);
     expect(groups[0].associations.map((a) => a.id)).toEqual(['berner-jura', 'emmental']);
     expect(groups[0].associations[1].venues.map((x) => x.name)).toEqual(['Ämmital', 'Burgdorf']);

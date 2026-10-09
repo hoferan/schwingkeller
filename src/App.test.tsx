@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { STR } from './i18n/translations';
 import type { Venue } from './features/venues/types';
+import type { CantonalId } from './data/associations';
 import { ASSOCIATION_HOME_BOUNDS } from './data/associationBounds';
 import { boundsForCanton } from './data/cantonBounds';
 
@@ -10,7 +11,7 @@ import { boundsForCanton } from './data/cantonBounds';
 // (Sidebar's onGeneratePoster → open editor → onSave downloads + closes → onError flashes).
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '', lat: 46.9, lng: 7.4,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental',
 };
 
 // supabase.ts calls createClient at import time and throws without env vars — stub it (App's
@@ -83,10 +84,10 @@ describe('App — sidebar default state', () => {
   });
 
   // VITE_APP_ENV unset reads as development, where the verband flag is on.
-  it('opens the Teilverbände and the admin group by default with the flag on', () => {
+  it('opens the Teilverbände by default with the flag on', () => {
     render(<App />);
     expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toEqual({
-      bksv: true, isv: true, nosv: true, nwsv: true, swsv: true, unassigned: true,
+      bksv: true, isv: true, nosv: true, nwsv: true, swsv: true,
     });
   });
 
@@ -97,7 +98,7 @@ describe('App — sidebar default state', () => {
 });
 
 describe('App — permalinks', () => {
-  const at = (lat: number, lng: number, association_id: string, canton: string, id: string): Venue => ({
+  const at = (lat: number, lng: number, association_id: CantonalId, canton: string, id: string): Venue => ({
     ...venue, id, lat, lng, association_id, canton,
   });
   const expandedState = () => JSON.parse(screen.getByTestId('expanded-state').textContent!) as Record<string, boolean>;

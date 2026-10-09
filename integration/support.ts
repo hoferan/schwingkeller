@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Everything the integration tests create carries these, so a sweep can find what a crashed run
-// left behind. Grisons, because the seed has no venue there.
+// left behind. Grisons, because the seed has no venue there, and Graubünden, its association.
 export const INT_PREFIX = '[int]';
 export const INT_STORAGE_DIR = 'int-test';
 export const PHOTO_BUCKET = 'venue-photos';
@@ -11,6 +11,7 @@ export type VenueRow = {
   canton: string;
   lat: number;
   lng: number;
+  association_id: string;
 };
 
 export const newVenueRow = (label: string): VenueRow => ({
@@ -18,6 +19,7 @@ export const newVenueRow = (label: string): VenueRow => ({
   canton: 'GR',
   lat: 46.85,
   lng: 9.53,
+  association_id: 'graubuenden',
 });
 
 export const insertVenue = async (

@@ -26,7 +26,7 @@ import type { GeoStatus } from '../geo/useGeolocation';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null, ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
 // Distances: venue '1' Emmental in BE, '2'/'3' in LU. Given coords so distance is meaningful.
@@ -891,27 +891,6 @@ describe('Sidebar with the verband flag', () => {
       expect(row.querySelector('img')).not.toBeNull();
       expect(row.querySelector('span[aria-hidden="true"]')).not.toBeNull();
     });
-  });
-
-  it('tells a visitor there are no results when only venues without a Verband match', async () => {
-    const user = userEvent.setup();
-    renderFlagged({ venuesData: [...flagVenues, v({ id: 'n1', name: 'Keller Ohnezuordnung', association_id: null })] });
-    await user.type(screen.getByPlaceholderText(STR.de.search), 'Ohnezuordnung');
-    expect(rowNames()).toEqual([]);
-    expect(screen.getByText(STR.de.noResults)).toBeInTheDocument();
-  });
-
-  it('shows an admin the match without a Verband and no no-results banner', async () => {
-    const user = userEvent.setup();
-    renderAdminSidebar({
-      venuesData: [...flagVenues, v({ id: 'n1', name: 'Keller Ohnezuordnung', association_id: null })],
-      sortModeInit: 'association',
-      expandedInit: REGIONAL_OPEN,
-    });
-    await screen.findByTestId('admin-section');
-    await user.type(screen.getByPlaceholderText(STR.de.search), 'Ohnezuordnung');
-    expect(rowNames()).toEqual([expect.stringContaining('Keller Ohnezuordnung')]);
-    expect(screen.queryByText(STR.de.noResults)).toBeNull();
   });
 
   it('shows no poster button to admins with the flag on', async () => {

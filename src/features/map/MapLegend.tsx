@@ -1,7 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { Venue } from '../venues/types';
-import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
+import { REGIONAL_TINTS } from '../../data/associationTints';
 import { useAssociations } from '../associations/useAssociations';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -26,13 +25,12 @@ const dot = (color: string, size = 10): CSSProperties => ({
 
 // Names the pin colours, since colour alone doesn't say which Teilverband a pin belongs to. Open on
 // larger screens; on a phone it starts as a row of dots so it doesn't hide the map.
-export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boolean }) => {
+export const MapLegend = ({ isMobile }: { isMobile: boolean }) => {
   const { t } = useTranslation();
   const { shortOf, nameOf } = useAssociations();
   const [open, setOpen] = useState(!isMobile);
   // REGIONAL_TINTS lists the Teilverbände in their tree order, the same order the cluster ring uses.
   const regionals = Object.entries(REGIONAL_TINTS);
-  const hasUnassigned = venues.some((v) => !tintOf(v.association_id));
 
   return (
     <div style={cardStyle(open)}>
@@ -60,12 +58,6 @@ export const MapLegend = ({ venues, isMobile }: { venues: Venue[]; isMobile: boo
               {shortOf(id)}
             </li>
           ))}
-          {hasUnassigned && (
-            <li style={rowStyle}>
-              <span aria-hidden="true" style={dot(theme.color.accent)} />
-              {t.unassignedGroup}
-            </li>
-          )}
         </ul>
       )}
     </div>

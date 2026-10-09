@@ -17,7 +17,7 @@ const venue: Venue = {
   phone: '',
   website: '',
   photos: [],
-  association_id: null,
+  association_id: 'emmental',
 };
 
 describe('MarkerPopup', () => {

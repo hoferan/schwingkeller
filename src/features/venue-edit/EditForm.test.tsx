@@ -266,8 +266,8 @@ describe('EditForm association and address', () => {
   });
 
   it('requires an association', async () => {
-    renderWith({ ...base, canton: 'BE', association_id: null });
-    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neuer Name' } });
+    renderWith(null);
+    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });
     save();
     await flush();
     expect(screen.getByText(STR.de.associationRequired)).toBeInTheDocument();
@@ -322,7 +322,8 @@ describe('EditForm association and address', () => {
   });
 
   it('moves focus to the association when a save is blocked, and names the reason', async () => {
-    renderWith({ ...base, association_id: null });
+    renderWith(null);
+    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });
     save();
     await flush();
     expect(document.activeElement).toBe(association());
@@ -331,7 +332,8 @@ describe('EditForm association and address', () => {
   });
 
   it('gives the association field its normal border back once the error clears', async () => {
-    renderWith({ ...base, association_id: null });
+    renderWith(null);
+    fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });
     save();
     await flush();
     fireEvent.change(association(), { target: { value: 'freiburg' } });

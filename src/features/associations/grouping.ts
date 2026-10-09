@@ -8,21 +8,11 @@ export interface RegionalGroup { id: RegionalId; count: number; associations: As
 const byName = (a: Venue, b: Venue) => a.name.localeCompare(b.name, 'de');
 
 // Groups by the stored association, never by canton, so a club across a border sits with its own
-// association. A venue whose id isn't a cantonal association of the tree goes to `unassigned`.
-export const groupByAssociation = (
-  venues: Venue[],
-  tree: AssociationTree,
-  includeEmpty: boolean,
-): { groups: RegionalGroup[]; unassigned: Venue[] } => {
+// association.
+export const groupByAssociation = (venues: Venue[], tree: AssociationTree, includeEmpty: boolean): RegionalGroup[] => {
   const buckets = new Map<string, Venue[]>();
-  const unassigned: Venue[] = [];
   venues.forEach((v) => {
-    const node = v.association_id ? tree.byId.get(v.association_id) : undefined;
-    if (node?.level !== 'cantonal') {
-      unassigned.push(v);
-      return;
-    }
-    buckets.set(node.id, [...(buckets.get(node.id) ?? []), v]);
+    buckets.set(v.association_id, [...(buckets.get(v.association_id) ?? []), v]);
   });
 
   const root = [...tree.byId.values()].find((a) => a.level === 'federation');
@@ -39,5 +29,5 @@ export const groupByAssociation = (
     if (count > 0 || includeEmpty) groups.push({ id: regional.id, count, associations });
   });
 
-  return { groups, unassigned: unassigned.sort(byName) };
+  return groups;
 };

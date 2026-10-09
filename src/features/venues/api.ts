@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError } from './imageCompression';
+import type { CantonalId } from '../../data/associations';
 import type { Venue, VenueInput, VenuePhoto } from './types';
 
 export { PhotoTooLargeError };
@@ -22,7 +23,7 @@ interface VenueRow {
   person: string;
   phone: string;
   website: string;
-  association_id: string | null;
+  association_id: CantonalId;
   venue_photos: VenuePhoto[];
 }
 
