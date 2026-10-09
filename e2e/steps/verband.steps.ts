@@ -1,8 +1,11 @@
 import type { Page } from '@playwright/test';
 import type { DataTable } from 'playwright-bdd';
+import { STR } from '../../src/i18n/translations';
 import { anonClient } from '../../test-support/local-stack';
 import { When, Then, expect } from '../fixtures';
 import { TEILVERBAND_IDS, teilverbandId, verbandId, verbandIdsOf } from '../associations';
+
+const t = STR.de;
 
 const rows = (page: Page) => page.getByTestId('venue-row');
 
@@ -52,4 +55,17 @@ Then('the list shows exactly the venues of Verband {string}', async ({ page }, n
 
 Then('the list shows exactly the venues of Teilverband {string}', async ({ page }, short: string) => {
   await expectExactly(page, await venuesIn(verbandIdsOf(teilverbandId(short))));
+});
+
+When('I follow a shared link to Verband {string}', async ({ page }, name: string) => {
+  await page.goto(`/?vb=${verbandId(name)}`);
+});
+
+Then('the list says that Verband {string} has no venues yet', async ({ page }, name: string) => {
+  // The empty note shows before any venue arrives, so wait for the total first: once venues are in,
+  // a Verband that still shows the note really has none.
+  await expect(page.getByTestId('sidebar-header')).toContainText(new RegExp(`[1-9]\\d* ${t.unitTotal}`));
+  await expect(page.getByTestId(`group-${verbandId(name)}`)).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText(t.associationEmpty)).toHaveCount(1);
+  await expect(page.getByText(t.associationEmpty)).toBeVisible();
 });
