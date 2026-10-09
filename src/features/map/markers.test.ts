@@ -40,13 +40,14 @@ describe('pins with the verband flag off', () => {
 describe('pins with the verband flag on', () => {
   it('fills a pin with its Teilverband colour', () => {
     const html = pinHtml(false, 'emmental');
-    expect(html).toContain('#9B2C1F');
+    expect(html).toContain('#1A1A1A');
     expect(html).not.toContain(theme.color.accent);
   });
 
-  it('keeps the accent red for a venue without an association, or with the federation', () => {
-    expect(pinHtml(false, null)).toContain(theme.color.accent);
-    expect(pinHtml(false, 'esv')).toContain(theme.color.accent);
+  it('draws a venue without an association, or with the federation, in grey', () => {
+    expect(pinHtml(false, null)).toContain('#767676');
+    expect(pinHtml(false, 'esv')).toContain('#767676');
+    expect(pinHtml(false, null)).not.toContain(theme.color.accent);
   });
 
   it('draws the selected pin larger and with a dark ring', () => {
@@ -60,7 +61,7 @@ describe('pins with the verband flag on', () => {
 
   it('marks a selected pin without an association the same way', () => {
     const html = pinHtml(true, null);
-    expect(html).toContain(theme.color.accent);
+    expect(html).toContain('#767676');
     expect(html).toContain('0 0 0 2.5px ' + theme.color.ink);
   });
 });
@@ -68,16 +69,16 @@ describe('pins with the verband flag on', () => {
 describe('clusterRing', () => {
   it('splits the ring by Teilverband, with venues without an association last', () => {
     expect(clusterRing(['freiburg', 'emmental', null, 'emmental']))
-      .toBe('conic-gradient(#9B2C1F 0% 50%, #8A5A12 50% 75%, #e30613 75% 100%)');
+      .toBe('conic-gradient(#1A1A1A 0% 50%, #5D6B80 50% 75%, #767676 75% 100%)');
   });
 
-  it('paints the whole ring red when no venue has an association', () => {
-    expect(clusterRing([null, null])).toBe('conic-gradient(#e30613 0% 100%)');
+  it('paints the whole ring grey when no venue has an association', () => {
+    expect(clusterRing([null, null])).toBe('conic-gradient(#767676 0% 100%)');
   });
 
   it('rounds the shares', () => {
     expect(clusterRing(['isv', 'nosv', 'nosv']))
-      .toBe('conic-gradient(#1F5F8B 0% 33.33%, #2E6B3F 33.33% 100%)');
+      .toBe('conic-gradient(#E30613 0% 33.33%, #0B7A26 33.33% 100%)');
   });
 });
 
@@ -110,7 +111,7 @@ describe('cluster icon', () => {
   });
 
   it('writes the count in the Teilverband colour when all venues share one', () => {
-    expect(parts(clusterHtml(['emmental', 'oberland']).html).inner).toContain('color:#9B2C1F');
+    expect(parts(clusterHtml(['emmental', 'oberland']).html).inner).toContain('color:#1A1A1A');
   });
 
   it('writes the count in dark grey when the venues belong to several Teilverbände', () => {
@@ -124,8 +125,8 @@ describe('cluster icon', () => {
     expect(parts(sized(100).html).inner).toContain('font-size:12px');
   });
 
-  it('writes the count in red when no venue has an association', () => {
-    expect(parts(clusterHtml([null, null]).html).inner).toContain('color:' + theme.color.accent);
+  it('writes the count in grey when no venue has an association', () => {
+    expect(parts(clusterHtml([null, null]).html).inner).toContain('color:#767676');
   });
 });
 

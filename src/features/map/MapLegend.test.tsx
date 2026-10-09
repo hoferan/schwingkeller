@@ -36,6 +36,13 @@ describe('MapLegend', () => {
     expect(screen.getByText('Ohne Verband')).toBeTruthy();
   });
 
+  it('draws each row with the colour of its pins', () => {
+    renderLegend([venue('emmental'), venue(null)]);
+    const dotOf = (label: string) => screen.getByText(label).closest('li')?.querySelector('span');
+    expect(dotOf('ISV')).toHaveStyle({ backgroundColor: 'rgb(227, 6, 19)' });
+    expect(dotOf('Ohne Verband')).toHaveStyle({ backgroundColor: 'rgb(118, 118, 118)' });
+  });
+
   it('has no unassigned row for an empty map', () => {
     renderLegend([]);
     expect(screen.queryByText('Ohne Verband')).toBeNull();
