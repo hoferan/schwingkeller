@@ -12,8 +12,9 @@ Given('I am signed in as the admin', async ({ page }) => {
 
 Given('I visit the map', async ({ page }) => {
   await page.goto('/');
-  // The sidebar renders all 26 canton groups from a static list before any venue loads, so waiting
-  // for a canton name would pass too early. The header's total only turns non-zero once venues
+  // The sidebar renders its groups from a static list before any venue loads (the 26 cantons, or
+  // with the verband flag on the Teilverbände and Verbände), so waiting for a group name would pass
+  // too early. The header's total only turns non-zero once venues
   // arrive from PostgREST, which is what later "is not there" checks need to wait for.
   await expect(page.getByTestId('sidebar-header')).toContainText(new RegExp(`[1-9]\\d* ${t.unitTotal}`));
 });

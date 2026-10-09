@@ -70,9 +70,10 @@ describes behavior, never a click.
 
 Map tiles are served from `e2e/fixtures/tile.png` rather than fetched, and Nominatim is stubbed:
 OpenStreetMap's usage policy does not cover a CI suite, and a fixed tile keeps the poster export
-deterministic. `e2e/auth.setup.ts` signs in once as the admin and writes the session to
-`e2e/.auth`, which the admin project reuses, so the login form runs once rather than in front of
-every scenario.
+deterministic. `e2e/auth.setup.ts` signs in as the admin once per bundle (see below) and writes the
+session to `e2e/.auth`, where that bundle's admin project picks it up, so the login form runs once
+per bundle rather than in front of every scenario. Each bundle needs its own sign-in because the
+Supabase session is kept in localStorage, which belongs to one origin.
 
 ```bash
 docker compose up -d      # or let Playwright start it
@@ -80,15 +81,21 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Locally the suite runs against the Compose stack started above, with a production bundle that
-Playwright builds and serves on port 4173 with production's feature flag values, as in CI. A
-scenario therefore sees what visitors see, while the dev server on 5173 keeps the development
-flags. `npm run test:e2e` first runs `bddgen`, which compiles the feature files into Playwright
-tests and fails the run if a step has no definition, then runs Playwright.
+Locally the suite runs against the Compose stack started above, as in CI. Playwright builds and
+serves two production bundles: one on port 4173 with production's feature flag values, which shows
+what visitors see today, and one on 4174 built with `VITE_APP_ENV=stage`, which has the Verband
+view on. Each bundle has an admin and a visitor project (`admin` and `visitor`, `admin-verband` and
+`visitor-verband`). The dev server on 5173 keeps the development flags. `npm run test:e2e` first
+runs `bddgen`, which compiles the feature files into Playwright tests and fails the run if a step
+has no definition, then runs Playwright.
 
 To add a scenario, write it in the feature file for its capability, run `npx bddgen`, and implement
 whatever steps it reports missing in `e2e/steps`. Keep the scenario itself at the level of user
 behavior; edge cases and error paths belong in a unit or an integration test instead.
+
+A scenario runs against both bundles. If it only holds in one view, tag it `@canton-view` (the
+canton grouping, 4173 only) or `@verband-view` (the Verband view, 4174 only).
+`npx playwright test --list` shows which projects pick it up.
 
 ### Scenarios that write
 
@@ -96,8 +103,9 @@ The scenarios share one database and run in parallel, so a scenario that creates
 takes a `venuePrefix` fixture, names everything with it, and lets the fixture delete those rows
 afterwards, including when the scenario fails. The add-venue step accepts only `WRITE_CANTON`
 (`e2e/db.ts`), a canton the seed leaves empty, because other scenarios count the seed's cantons
-exactly, Fribourg above all, and a venue in flight would throw those counts off. Never assert on a
-total: another worker may be mid-write. Search for your own record instead.
+exactly, Fribourg above all, and a venue in flight would throw those counts off. A total that can
+include such a venue changes while another worker is mid-write: the overall count, Graubünden's, and
+with the verband flag on NOSV's. Never assert on those; search for your own record instead.
 
 Cleanup reaches Postgres through PostgREST as the signed-in admin, not with the service-role key,
 so a policy that stopped permitting a write would fail the scenario rather than be bypassed. A run

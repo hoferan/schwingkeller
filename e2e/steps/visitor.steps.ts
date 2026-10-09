@@ -5,9 +5,10 @@ import { E2E_PREFIX } from '../db';
 
 const t = STR.de;
 
-// Canton groups start collapsed; a search, a filter or a ?ctn= link expands them. Positive list
-// checks therefore come first in a scenario, and a "does not show" check only runs once a positive
-// one has proved the list is in the state under test.
+// The groups that hold venue rows start collapsed (cantons with the verband flag off, Verbände with
+// it on); a search, a filter or a ?ctn= link expands them. Positive list checks therefore come first
+// in a scenario, and a "does not show" check only runs once a positive one has proved the list is
+// in the state under test.
 const rows = (page: import('@playwright/test').Page) => page.getByTestId('venue-row');
 
 // Looked up through the anon client, whose module-scope guard refuses anything but the local stack.
