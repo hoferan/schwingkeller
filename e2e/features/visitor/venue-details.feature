@@ -7,6 +7,11 @@ Feature: Venue details
     Then I see the address "Schmiedgasse 5, 6430 Schwyz"
     And I can get directions to it
 
+  Scenario: The close button of a venue's popup
+    Given I visit the map
+    When I select "Mythen Schwingkeller" in the list
+    Then the cross on the popup's close button sits in its middle
+
   Scenario: A shared link opens the venue
     When I follow a shared link to "Mythen Schwingkeller"
     Then the details of "Mythen Schwingkeller" are open

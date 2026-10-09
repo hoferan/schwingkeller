@@ -45,13 +45,86 @@ When('I show only outdoor venues', async ({ page }) => {
   await expect(outdoor).toHaveAttribute('aria-pressed', 'true');
 });
 
-When('I open {string} from the list', async ({ page }, name: string) => {
-  // A visitor finds it by searching, which also expands its canton. Selecting a row flies the map
-  // to its marker and, once that finishes, opens the marker's popup; MapView.tsx wires the detail
-  // view to that popup's own "Details" button, not to the row itself.
+// A visitor finds it by searching, which also expands its canton. Selecting a row flies the map to
+// its marker and, once that finishes, opens the marker's popup.
+const selectFromList = async (page: import('@playwright/test').Page, name: string) => {
   await page.getByPlaceholder(t.search).fill(name);
   await rows(page).filter({ hasText: name }).click();
+};
+
+When('I select {string} in the list', async ({ page }, name: string) => {
+  await selectFromList(page, name);
+  await expect(page.locator('.leaflet-popup')).toBeVisible();
+});
+
+When('I open {string} from the list', async ({ page }, name: string) => {
+  // MapView.tsx wires the detail view to the popup's own "Details" button, not to the row itself.
+  await selectFromList(page, name);
   await page.getByRole('button', { name: t.details }).click();
+});
+
+// Runs in the page, which can decode the PNG without a dependency. Returns how far the centre of
+// the cross lies from the centre of the round button, in pixels.
+//
+// The middle of the image is no reference: the button's box can sit at a fractional position, the
+// browser paints it on whole pixels, and the screenshot takes every pixel the box touches, one row
+// or column more than the circle. So the circle's centre comes from its own antialiased edge, along
+// a row and a column a quarter of the way in, which miss the cross. The cross's centre is the mean
+// position of the pixels inside the circle, each weighted by how far its brightness is from the
+// circle's.
+const crossOffset = async (base64: string) => {
+  const img = new Image();
+  img.src = `data:image/png;base64,${base64}`;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const context = canvas.getContext('2d')!;
+  context.drawImage(img, 0, 0);
+  const { data, width, height } = context.getImageData(0, 0, img.width, img.height);
+  const lum = (x: number, y: number) => {
+    const i = (y * width + x) * 4;
+    return 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+  };
+  // Most of the image is circle, and its corners are not.
+  const all: number[] = [];
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) all.push(lum(x, y));
+  const circle = all.sort((a, b) => a - b)[Math.floor(all.length / 2)];
+  const outside = lum(0, 0);
+  const middleOfChord = (length: number, at: (i: number) => number) => {
+    let covered = 0;
+    let moment = 0;
+    for (let i = 0; i < length; i++) {
+      const coverage = Math.min(1, Math.max(0, (at(i) - outside) / (circle - outside)));
+      covered += coverage;
+      moment += coverage * (i + 0.5);
+    }
+    return moment / covered;
+  };
+  const cx = middleOfChord(width, (x) => lum(x, Math.floor(height / 4)));
+  const cy = middleOfChord(height, (y) => lum(Math.floor(width / 4), y));
+  let ink = 0;
+  let sx = 0;
+  let sy = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) > Math.min(width, height) / 2 - 3) continue;
+      const weight = Math.abs(lum(x, y) - circle);
+      ink += weight;
+      sx += weight * (x + 0.5);
+      sy += weight * (y + 0.5);
+    }
+  }
+  return { x: sx / ink - cx, y: sy / ink - cy };
+};
+
+// Leaflet's own close button holds a text ×, which lands wherever the font puts its ink: in Work
+// Sans up to half a pixel below the middle of the button.
+Then("the cross on the popup's close button sits in its middle", async ({ page }) => {
+  const png = await page.locator('.leaflet-popup-close-button').screenshot();
+  const offset = await page.evaluate(crossOffset, png.toString('base64'));
+  expect(Math.abs(offset.x)).toBeLessThan(0.1);
+  expect(Math.abs(offset.y)).toBeLessThan(0.1);
 });
 
 Then('I see the address {string}', async ({ page }, address: string) => {
