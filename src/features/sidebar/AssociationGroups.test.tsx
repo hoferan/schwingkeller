@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { wappenUrl } from '../../data/cantons';
+import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
 import type { PosterTarget } from '../venues/posterSubject';
 import { AssociationGroups } from './AssociationGroups';
@@ -115,6 +116,15 @@ describe('AssociationGroups', () => {
     const row = screen.getByTestId('venue-row');
     expect(row).toHaveTextContent('Schwingkeller Escholzmatt');
     expect(row.querySelector('img')).toHaveAttribute('src', wappenUrl('LU'));
+  });
+
+  it('outlines the canton arms, so arms with a white field keep their edge', async () => {
+    const user = userEvent.setup();
+    renderGroups();
+    await user.click(screen.getByTestId('group-freiburg'));
+    screen.getAllByTestId('venue-row').forEach((row) => {
+      expect(row.querySelector('img')).toHaveStyle({ filter: theme.armsOutline });
+    });
   });
 
   it('forces every matching group open while filtering and hides the rest', () => {
