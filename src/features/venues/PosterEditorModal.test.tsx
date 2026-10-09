@@ -159,13 +159,13 @@ describe('default framing', () => {
 
   it('frames the map with setView (not fitBounds) when the canton has exactly one venue', () => {
     renderEditor(); // default: 1 venue at (46.9, 7.4)
-    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
   it('falls back to the home bounds fit when there are no venues', () => {
     renderEditor({ venues: [] });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20] });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20], animate: false });
     expect(fakeMap.setView).not.toHaveBeenCalled();
   });
 
@@ -184,6 +184,7 @@ describe('default framing', () => {
     expect(options).toEqual({
       paddingTopLeft: [20, 115],
       paddingBottomRight: [20, 43],
+      animate: false,
     });
     expect(fakeMap.setView).not.toHaveBeenCalled();
     expect(fakeMap.setZoom).not.toHaveBeenCalled(); // default mocked getZoom() (11) is under the cap
@@ -197,7 +198,7 @@ describe('default framing', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
 
     expect(fakeMap.setView).toHaveBeenCalledTimes(2);
-    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
   });
 
   it('caps the zoom after fitBounds overshoots for tightly clustered venues', () => {
@@ -209,7 +210,7 @@ describe('default framing', () => {
     renderEditor({ venues: venues2 });
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
-    expect(fakeMap.setZoom).toHaveBeenCalledWith(POSTER_MAX_DEFAULT_ZOOM);
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(POSTER_MAX_DEFAULT_ZOOM, { animate: false });
   });
 });
 
@@ -322,7 +323,7 @@ describe('header/footer customization controls', () => {
     // Header (190) and footer (46) both occupy the top edge at normal size; scale 0.5 →
     // top pad = 20 + 236*0.5 = 138, bottom pad drops to the base 20 (nothing occupies that edge).
     const [, options] = fakeMap.fitBounds.mock.calls[fakeMap.fitBounds.mock.calls.length - 1];
-    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20] });
+    expect(options).toEqual({ paddingTopLeft: [20, 138], paddingBottomRight: [20, 20], animate: false });
   });
 
   it('renders the QR corner picker as a 4-corner grid with one button per corner', () => {
@@ -520,7 +521,7 @@ describe('a Verband poster', () => {
 
   it('frames a Verband without venues to its home area', () => {
     renderEditor({ subject: associationPosterSubject('berner-jura', [], associationsFor('de')) });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS['berner-jura'], { padding: [20, 20] });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS['berner-jura'], { padding: [20, 20], animate: false });
     expect(fakeMap.setView).not.toHaveBeenCalled();
   });
 
@@ -543,7 +544,7 @@ describe('default framing and the QR code', () => {
   const venues2 = [v({ id: '1', lat: 46.9, lng: 7.4 }), v({ id: '2', lat: 46.95, lng: 7.45 })];
   // jsdom locks the preview to 540, half the poster. The bottom-right QR's backing reaches
   // qrMargin + qrSize + qrPad = 186 poster px in from the right edge, 93 preview px.
-  const clearOfQr = { paddingTopLeft: [20, 115], paddingBottomRight: [20 + 93, 43] };
+  const clearOfQr = { paddingTopLeft: [20, 115], paddingBottomRight: [20 + 93, 43], animate: false };
 
   it('fits again with the QR side kept clear when a pin lands under the QR code', () => {
     // The second venue projects into the QR's corner (preview 447..530 x 424..507).
@@ -553,6 +554,19 @@ describe('default framing and the QR code', () => {
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
     expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual(clearOfQr);
+  });
+
+  it('moves the map without animation on reset, so the QR check reads the view it just set', async () => {
+    // Leaflet animates fitBounds on a loaded map and reports the old view until the animation
+    // ends; the QR check right after the fit would then test the wrong pin positions.
+    const user = userEvent.setup();
+    renderEditor({ venues: venues2 });
+    fakeMap.fitBounds.mockClear();
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+
+    expect(fakeMap.fitBounds).toHaveBeenCalled();
+    fakeMap.fitBounds.mock.calls.forEach(([, options]) => expect(options).toMatchObject({ animate: false }));
   });
 
   it('keeps the first fit when no pin is under the QR code', () => {
@@ -585,6 +599,6 @@ describe('default framing and the QR code', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
-    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({ paddingTopLeft: [20 + 93, 115], paddingBottomRight: [20, 43] });
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({ paddingTopLeft: [20 + 93, 115], paddingBottomRight: [20, 43], animate: false });
   });
 });

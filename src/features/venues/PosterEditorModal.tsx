@@ -41,6 +41,8 @@ const DEFAULT_FIT_PADDING = 20; // px, matches the flat padding the home-bounds 
 // subject with very few or tightly-clustered venues. Shared by the mount effect and the "Reset
 // framing" button so both apply identical logic. Padding derives from computeChromeLayout's
 // per-edge occupancy so it stays correct wherever the bands are positioned and at either size.
+// Every move is unanimated: on a loaded map Leaflet would animate it and report the old zoom and
+// pin positions until the animation ends, which the zoom cap and the QR check below read at once.
 const applyDefaultFraming = (
   map: L.Map,
   subject: PosterSubject,
@@ -51,13 +53,13 @@ const applyDefaultFraming = (
   const { venues, homeBounds } = subject;
 
   if (venues.length === 0) {
-    map.fitBounds(homeBounds, { padding: [DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING] });
+    map.fitBounds(homeBounds, { padding: [DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING], animate: false });
     return;
   }
 
   if (venues.length === 1) {
     const [only] = venues;
-    map.setView([only.lat, only.lng], POSTER_MAX_DEFAULT_ZOOM);
+    map.setView([only.lat, only.lng], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
     return;
   }
 
@@ -70,9 +72,10 @@ const applyDefaultFraming = (
     map.fitBounds(bounds, {
       paddingTopLeft: [leftPad, topPad],
       paddingBottomRight: [rightPad, bottomPad],
+      animate: false,
     });
     if (map.getZoom() > POSTER_MAX_DEFAULT_ZOOM) {
-      map.setZoom(POSTER_MAX_DEFAULT_ZOOM);
+      map.setZoom(POSTER_MAX_DEFAULT_ZOOM, { animate: false });
     }
   };
   fit(DEFAULT_FIT_PADDING, DEFAULT_FIT_PADDING);
