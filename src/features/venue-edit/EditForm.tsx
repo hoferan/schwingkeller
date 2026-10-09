@@ -130,9 +130,9 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     lng: draft.lng,
     indoor: draft.indoor,
     outdoor: draft.outdoor,
-    person: draft.person,
-    phone: draft.phone,
-    website: draft.website,
+    person: draft.person.trim(),
+    phone: draft.phone.trim(),
+    website: draft.website.trim(),
     association_id: associationId,
   });
 

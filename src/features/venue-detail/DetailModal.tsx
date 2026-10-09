@@ -50,10 +50,14 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
   const association = isFeatureOn('verband') ? venue.association_id : null;
 
   const wappen = wappenUrl(venue.canton);
-  const phoneUrl = 'tel:' + venue.phone.replace(/\s/g, '');
-  const websiteUrl = 'https://' + venue.website.replace(/^https?:\/\//, '');
+  // Venues saved before the form trimmed its fields can hold a contact field of spaces.
+  const person = venue.person.trim();
+  const phone = venue.phone.trim();
+  const website = venue.website.trim();
+  const phoneUrl = 'tel:' + phone.replace(/\s/g, '');
+  const websiteUrl = 'https://' + website.replace(/^https?:\/\//, '');
   const hasPhotos = venue.photos.length > 0;
-  const hasContact = !!(venue.person || venue.phone || venue.website);
+  const hasContact = !!(person || phone || website);
   const regionalId = association ? associations.regionalOf(association)?.id : undefined;
   const close = (
     <button onClick={onClose} aria-label={t.close} style={closeButton(hasPhotos)}>
@@ -129,30 +133,30 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
             >
               {t.contact}
             </div>
-            {venue.person && (
+            {person && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '8px 0' }}>
                 <span style={contactIcon}><User size={16} /></span>
                 <div>
                   <div style={contactLabel}>{t.person}</div>
-                  <div style={{ fontSize: '14px', color: theme.color.ink, fontWeight: 600 }}>{venue.person}</div>
+                  <div style={{ fontSize: '14px', color: theme.color.ink, fontWeight: 600 }}>{person}</div>
                 </div>
               </div>
             )}
-            {venue.phone && (
+            {phone && (
               <a href={phoneUrl} style={contactRow}>
                 <span style={contactIcon}><Phone size={16} /></span>
                 <div>
                   <div style={contactLabel}>{t.phone}</div>
-                  <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{venue.phone}</div>
+                  <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{phone}</div>
                 </div>
               </a>
             )}
-            {venue.website && (
+            {website && (
               <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={contactRow}>
                 <span style={contactIcon}><Globe size={15} /></span>
                 <div>
                   <div style={contactLabel}>{t.website}</div>
-                  <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{venue.website}</div>
+                  <div style={{ fontSize: '14px', color: theme.color.accent, fontWeight: 600 }}>{website}</div>
                 </div>
               </a>
             )}

@@ -182,6 +182,12 @@ describe('DetailModal layout', () => {
     expect(screen.queryByText(STR.de.website)).toBeNull();
   });
 
+  it('treats a contact field of spaces as empty', () => {
+    renderModal({ venue: { ...venue, person: '   ', phone: '', website: ' ' } });
+    expect(screen.queryByText(STR.de.contact)).toBeNull();
+    expect(screen.queryByText(STR.de.person)).toBeNull();
+  });
+
   it('leaves out the contact section when there is nothing to show', () => {
     renderModal({ venue: { ...venue, person: '', phone: '', website: '' } });
     expect(screen.queryByText(STR.de.contact)).toBeNull();

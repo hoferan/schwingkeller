@@ -204,6 +204,17 @@ describe('EditForm association and address', () => {
   beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
+  it('trims the contact fields, so a field of spaces is saved empty', async () => {
+    renderWith(base);
+    fireEvent.change(screen.getByPlaceholderText(STR.de.person), { target: { value: '   ' } });
+    fireEvent.change(screen.getByPlaceholderText(STR.de.phone), { target: { value: ' +41 26 300 66 77 ' } });
+    fireEvent.change(screen.getByPlaceholderText(STR.de.website), { target: { value: ' sk-duedingen.example ' } });
+    save();
+    expect(await savedPayload()).toMatchObject({
+      person: '', phone: '+41 26 300 66 77', website: 'sk-duedingen.example',
+    });
+  });
+
   it('leaves canton and pin alone while typing', async () => {
     renderWith(base);
     fireEvent.change(address(), { target: { value: 'Bahnhofstrasse 31, 3186 Düdingen' } });
