@@ -28,9 +28,9 @@ export function useVenuePermalink({
     const match = venues.find((v) => v.id === venueParam);
     if (match) {
       openDetail(match.id);
-      // With the verband flag on, the venue's row sits under its Teilverband and Verband. A venue
-      // without a cantonal association falls back to its canton.
-      const node = isFeatureOn('verband') && match.association_id ? byId.get(match.association_id) : undefined;
+      // With the verband flag on, the venue's row sits under its Teilverband and Verband, and with it
+      // off under its canton.
+      const node = isFeatureOn('verband') ? byId.get(match.association_id) : undefined;
       const keys = node?.level === 'cantonal' ? [node.parentId, node.id] : [match.canton];
       setExpanded((e) => ({ ...e, ...Object.fromEntries(keys.map((key) => [key, true])) }));
     }

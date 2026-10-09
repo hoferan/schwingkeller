@@ -34,7 +34,7 @@ export const boundsForAssociation = (
   if (!node || node.level === 'federation') return null;
   const cantonal = node.level === 'cantonal' ? [node.id] : tree.childrenOf(node.id).map((a) => a.id);
   const inside = new Set<string>(cantonal);
-  const own = venues.filter((v) => v.association_id !== null && inside.has(v.association_id));
+  const own = venues.filter((v) => inside.has(v.association_id));
   return (
     box(own.map((v) => [v.lat, v.lng])) ??
     box(cantonal.flatMap((a) => HOME_BOUNDS[a] ?? []))

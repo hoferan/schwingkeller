@@ -6,6 +6,7 @@ import { CANTONS } from '../../data/cantons';
 import { forwardGeocode } from '../venues/geocoding';
 import { useVenueMutations } from '../venues/useVenues';
 import type { Venue, VenueInput } from '../venues/types';
+import type { CantonalId } from '../../data/associations';
 import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
 import { PhotoGalleryEditor } from './PhotoGalleryEditor';
@@ -20,8 +21,9 @@ interface EditFormProps {
   onError?: (msg: string) => void;
 }
 
-// Editable copy of a Venue plus a transient UI flag mirroring the prototype's `cantonAuto`.
-type Draft = Venue & { cantonAuto: boolean };
+// Editable copy of a Venue plus a transient UI flag mirroring the prototype's `cantonAuto`. A new
+// venue has no association until the editor picks one, and saving waits for that.
+type Draft = Omit<Venue, 'association_id'> & { association_id: CantonalId | null; cantonAuto: boolean };
 
 const blankDraft = (): Draft => ({
   id: '',
@@ -120,7 +122,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     setDraft((d) => ({ ...d, address: val }));
   };
 
-  const buildInput = (): VenueInput => ({
+  const buildInput = (associationId: CantonalId): VenueInput => ({
     name: draft.name,
     canton: draft.canton,
     address: draft.address,
@@ -131,18 +133,19 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     person: draft.person,
     phone: draft.phone,
     website: draft.website,
-    association_id: draft.association_id,
+    association_id: associationId,
   });
 
   const save = async (andNew: boolean) => {
     if (!draft.name.trim()) return;
-    if (!draft.association_id) {
+    const associationId = draft.association_id;
+    if (!associationId) {
       setAssociationMissing(true);
       associationRef.current?.focus();
       return;
     }
     try {
-      const input = buildInput();
+      const input = buildInput(associationId);
       const saved = initial
         ? await update.mutateAsync({ id: initial.id, input })
         : await create.mutateAsync(input);
@@ -262,7 +265,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           onChange={(e) => {
             const value = e.target.value;
             setAssociationMissing(false);
-            setDraft((d) => ({ ...d, association_id: value || null }));
+            // The options are the cantonal associations, so a value is one of them.
+            setDraft((d) => ({ ...d, association_id: (value || null) as CantonalId | null }));
           }}
           ref={associationRef}
           aria-invalid={associationMissing}

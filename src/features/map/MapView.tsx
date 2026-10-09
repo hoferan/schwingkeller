@@ -8,6 +8,7 @@ import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { pinHtml, pinSize, popupHtml, clusterIcon, userPinHtml } from './markers';
 import type { LatLng } from '../venues/distance';
+import type { CantonalId } from '../../data/associations';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
@@ -149,7 +150,7 @@ export function MapView({
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
       // clusterIcon reads associationId from the options to colour the cluster's ring.
-      const options: L.MarkerOptions & { associationId: string | null } = {
+      const options: L.MarkerOptions & { associationId: CantonalId } = {
         icon: venueIcon(v, v.id === selectedIdRef.current), associationId: v.association_id,
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
@@ -357,7 +358,7 @@ export function MapView({
             {t.satView}
           </button>
         </div>
-        {isFeatureOn('verband') && <MapLegend venues={venues} isMobile={isMobile} />}
+        {isFeatureOn('verband') && <MapLegend isMobile={isMobile} />}
       </div>
       <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button

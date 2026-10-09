@@ -157,8 +157,19 @@ describe('a venue association', () => {
     expect(await associationOf(venue.id)).toBe('luzern');
   });
 
+  it('is required when a venue is added', async () => {
+    const { error } = await admin.from('venues').insert({ ...newVenueRow('none'), association_id: null });
+    expect(error?.message ?? '(no error)').toMatch(/null value in column "association_id"/);
+  });
+
+  it('cannot be cleared', async () => {
+    const venue = await insertVenue(admin, 'clear');
+    const { error } = await admin.from('venues').update({ association_id: null }).eq('id', venue.id);
+    expect(error?.message ?? '(no error)').toMatch(/null value in column "association_id"/);
+    expect(await associationOf(venue.id)).toBe('graubuenden');
+  });
+
   it('stays when an edit leaves it out', async () => {
-    // Today's edit form sends no association_id.
     const venue = await insertVenue(admin, 'edit', { association_id: 'emmental' });
     const { error } = await admin.from('venues').update({ address: 'Hauptstrasse 1' }).eq('id', venue.id);
     expect(error).toBeNull();

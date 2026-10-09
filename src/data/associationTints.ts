@@ -1,4 +1,4 @@
-import { ASSOCIATIONS, type RegionalId } from './associations';
+import { ASSOCIATIONS, type CantonalId, type RegionalId } from './associations';
 
 // One colour per regional association, taken from its team clothing: BKSV wears black, ISV red with
 // a black band, NOSV green, NWSV royal blue and SWSV a blue-grey. The sidebar dot, the Teilverband
@@ -14,17 +14,9 @@ export const REGIONAL_TINTS: Record<RegionalId, string> = {
   swsv: '#5D6B80',
 };
 
-// Pins and cluster shares for venues without an association, in grey, since red is ISV's colour.
-export const UNASSIGNED_TINT = '#767676';
+const PARENT = Object.fromEntries(
+  ASSOCIATIONS.flatMap((a) => (a.level === 'cantonal' ? [[a.id, a.parentId]] : [])),
+) as Record<CantonalId, RegionalId>;
 
-const byId = new Map<string, (typeof ASSOCIATIONS)[number]>(ASSOCIATIONS.map((a) => [a.id, a]));
-
-// Venues carry a plain string, so this takes any id: a cantonal association gets its regional
-// association's tint, the federation and unknown ids get none.
-export const tintOf = (id: string | null | undefined): string | null => {
-  const node = id ? byId.get(id) : undefined;
-  if (!node) return null;
-  if (node.level === 'regional') return REGIONAL_TINTS[node.id];
-  if (node.level === 'cantonal') return REGIONAL_TINTS[node.parentId];
-  return null;
-};
+// A cantonal association takes the tint of its regional association.
+export const tintOf = (id: CantonalId): string => REGIONAL_TINTS[PARENT[id]];

@@ -10,7 +10,7 @@ import { AssociationGroups } from './AssociationGroups';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'FR', address: 'Weg 1, 1700 Fribourg', lat: 0, lng: 0,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null, ...over,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'freiburg', ...over,
 });
 
 // Names that are not also association names, so a text query finds the row and not a header.
@@ -19,7 +19,6 @@ const venues = [
   v({ id: 'f2', name: 'Keller Plaffeien', canton: 'FR', association_id: 'freiburg' }),
   v({ id: 'l1', name: 'Keller Willisau', canton: 'LU', association_id: 'luzern' }),
   v({ id: 'e1', name: 'Schwingkeller Escholzmatt', canton: 'LU', association_id: 'emmental' }),
-  v({ id: 'n1', name: 'Keller ohne Zuordnung', canton: 'BE', association_id: null }),
 ];
 
 const ALL_OPEN = { bksv: true, isv: true, nosv: true, nwsv: true, swsv: true };
@@ -27,17 +26,15 @@ const ALL_OPEN = { bksv: true, isv: true, nosv: true, nwsv: true, swsv: true };
 interface HarnessProps {
   list?: Venue[];
   filtering?: boolean;
-  isAdmin?: boolean;
   expandedInit?: Record<string, boolean>;
 }
 
-const Harness = ({ list = venues, filtering = false, isAdmin = false, expandedInit = ALL_OPEN }: HarnessProps) => {
+const Harness = ({ list = venues, filtering = false, expandedInit = ALL_OPEN }: HarnessProps) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(expandedInit);
   return (
     <AssociationGroups
       list={list}
       filtering={filtering}
-      isAdmin={isAdmin}
       expanded={expanded}
       onToggle={(key) => setExpanded((e) => ({ ...e, [key]: !e[key] }))}
       selectedId={null}
@@ -121,44 +118,9 @@ describe('AssociationGroups', () => {
     expect(screen.getAllByTestId('venue-row')).toHaveLength(2);
   });
 
-  it('shows Ohne Verband to admins, after the Teilverbände', () => {
-    renderGroups({ isAdmin: true });
-    const group = screen.getByTestId('group-unassigned');
-    expect(group).toHaveTextContent(STR.de.unassignedGroup);
-    expect(group).toHaveTextContent('1');
-    const ids = screen.getAllByRole('button').map((b) => b.dataset.testid);
-    expect(ids.indexOf('group-unassigned')).toBe(ids.length - 1);
-  });
-
-  it('hides Ohne Verband from visitors', () => {
-    renderGroups({ isAdmin: false });
-    expect(screen.queryByTestId('group-unassigned')).toBeNull();
-    expect(screen.queryByText('Keller ohne Zuordnung')).toBeNull();
-  });
-
-  it('hides Ohne Verband from admins when every venue has a Verband', () => {
-    renderGroups({ isAdmin: true, list: venues.slice(0, 4) });
-    expect(screen.queryByTestId('group-unassigned')).toBeNull();
-  });
-
-  it('treats a non-cantonal or unknown association id as unassigned', async () => {
-    const user = userEvent.setup();
-    const odd = [
-      v({ id: 'x1', name: 'Keller Regional', association_id: 'bksv' }),
-      v({ id: 'x2', name: 'Keller Veraltet', association_id: 'gone' }),
-    ];
-    renderGroups({ isAdmin: true, list: odd, expandedInit: { ...ALL_OPEN, unassigned: true } });
-    expect(screen.getByTestId('group-bksv')).toHaveTextContent('0');
-    const unassigned = screen.getByTestId('group-unassigned');
-    expect(unassigned).toHaveTextContent('2');
-    expect(screen.getAllByTestId('venue-row')).toHaveLength(2);
-    await user.click(unassigned);
-    expect(screen.queryByTestId('venue-row')).toBeNull();
-  });
-
-  it('starts every Teilverband name and Ohne Verband at the same place', () => {
-    renderGroups({ isAdmin: true });
-    const leads = [...REGIONAL, 'unassigned'].map(
+  it('starts every Teilverband name at the same place', () => {
+    renderGroups();
+    const leads = REGIONAL.map(
       (id) => (screen.getByTestId(`group-${id}`).firstElementChild as HTMLElement).style.width,
     );
     expect(leads[0]).not.toBe('');
@@ -166,7 +128,7 @@ describe('AssociationGroups', () => {
   });
 
   it('renders no poster button', () => {
-    renderGroups({ isAdmin: true });
+    renderGroups();
     expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();
   });
 

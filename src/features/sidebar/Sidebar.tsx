@@ -328,7 +328,6 @@ export const Sidebar = ({
   // With the verband flag on, a query also matches the venue's Verband and Teilverband by name, and
   // the Teilverband by its abbreviation, in the current language.
   const associationText = (v: Venue): string => {
-    if (!v.association_id) return '';
     const regional = associations.regionalOf(v.association_id);
     return [
       associations.nameOf(v.association_id),
@@ -342,12 +341,7 @@ export const Sidebar = ({
   const hasSearch = search.trim() !== '';
   const totalText = `${list.length} ${t.unitTotal}`;
   const flat = sortMode !== 'canton' && sortMode !== 'association';
-  // Visitors don't see the grouped view's admin group, so its venues can't count as results there.
-  const shownCount =
-    verband && !flat && !isAdmin
-      ? list.filter((v) => associations.byId.get(v.association_id ?? '')?.level === 'cantonal').length
-      : list.length;
-  const noResults = filtering && shownCount === 0;
+  const noResults = filtering && list.length === 0;
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
   const sectionLabel =
     sortMode === 'name'
@@ -680,7 +674,6 @@ export const Sidebar = ({
           <AssociationGroups
             list={list}
             filtering={filtering}
-            isAdmin={isAdmin}
             expanded={expanded}
             onToggle={onToggleGroup}
             selectedId={selectedId}

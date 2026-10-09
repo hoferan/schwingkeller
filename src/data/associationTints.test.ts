@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { theme } from '../theme';
-import { REGIONAL_TINTS, UNASSIGNED_TINT, tintOf } from './associationTints';
+import { ASSOCIATIONS } from './associations';
+import { REGIONAL_TINTS, tintOf } from './associationTints';
 
 // WCAG 2.x relative luminance and contrast ratio.
 const luminance = (hex: string): number => {
@@ -26,17 +27,10 @@ describe('REGIONAL_TINTS', () => {
     });
   });
 
-  it('carries white text at 4.5 to 1 or more, as does the unassigned grey', () => {
-    for (const tint of [...Object.values(REGIONAL_TINTS), UNASSIGNED_TINT]) {
+  it('carries white text at 4.5 to 1 or more', () => {
+    for (const tint of Object.values(REGIONAL_TINTS)) {
       expect(contrast(tint, theme.color.accentInk), tint).toBeGreaterThanOrEqual(4.5);
     }
-  });
-});
-
-describe('UNASSIGNED_TINT', () => {
-  it('is a grey that no Teilverband uses', () => {
-    expect(UNASSIGNED_TINT).toBe('#767676');
-    expect(Object.values(REGIONAL_TINTS)).not.toContain(UNASSIGNED_TINT);
   });
 });
 
@@ -46,11 +40,9 @@ describe('tintOf', () => {
     expect(tintOf('freiburg')).toBe('#5D6B80');
   });
 
-  it('gives a regional association its own tint', () => {
-    expect(tintOf('isv')).toBe('#E30613');
-  });
-
-  it('has no tint for the federation, a missing or an unknown id', () => {
-    expect([tintOf('esv'), tintOf(null), tintOf(undefined), tintOf('nowhere')]).toEqual([null, null, null, null]);
+  it('has a tint for every cantonal association', () => {
+    for (const a of ASSOCIATIONS) {
+      if (a.level === 'cantonal') expect(tintOf(a.id), a.id).toBe(REGIONAL_TINTS[a.parentId]);
+    }
   });
 });

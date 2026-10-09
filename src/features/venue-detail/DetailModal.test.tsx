@@ -32,7 +32,7 @@ const venue: Venue = {
   phone: '+41 31 123 45 67',
   website: 'schwingkeller-bern.ch',
   photos: [],
-  association_id: null,
+  association_id: 'emmental',
 };
 
 const noop = () => {};
@@ -102,11 +102,6 @@ describe('DetailModal association', () => {
   it('shows the association with the flag on', () => {
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
     expect(screen.getByTestId('venue-association')).toHaveTextContent('Emmental');
-  });
-
-  it('shows nothing for a venue without an association', () => {
-    renderModal({ venue: { ...venue, association_id: null } });
-    expect(screen.queryByTestId('venue-association')).toBeNull();
   });
 
   it('shows nothing with the flag off', () => {

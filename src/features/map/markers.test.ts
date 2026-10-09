@@ -3,19 +3,20 @@ import { clusterIcon, clusterRing, pinHtml, pinSize, popupHtml, userPinHtml } fr
 import { STR } from '../../i18n/translations';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
+import type { CantonalId } from '../../data/associations';
 
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '3550 Langnau', lat: 46.9, lng: 7.7,
-  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: null,
+  indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental',
 };
 
 // Stands in for Leaflet: divIcon hands back its options, and a cluster is its children's ids.
 const fakeL = { divIcon: (o: { html: string; iconSize: [number, number] }) => o };
-const cluster = (ids: (string | null)[]) => ({
+const cluster = (ids: CantonalId[]) => ({
   getChildCount: () => ids.length,
   getAllChildMarkers: () => ids.map((associationId) => ({ options: { associationId } })),
 });
-const clusterHtml = (ids: (string | null)[]) => clusterIcon(fakeL)(cluster(ids));
+const clusterHtml = (ids: CantonalId[]) => clusterIcon(fakeL)(cluster(ids));
 
 afterEach(() => { vi.unstubAllEnvs(); });
 
@@ -30,7 +31,7 @@ describe('markers html', () => {
 describe('pins with the verband flag off', () => {
   it('draws every pin in the accent red, selected or not, whatever the association', () => {
     vi.stubEnv('VITE_APP_ENV', 'production');
-    expect(pinHtml(true, 'emmental')).toBe(pinHtml(false, null));
+    expect(pinHtml(true, 'emmental')).toBe(pinHtml(false, 'luzern'));
     expect(pinHtml(false, 'emmental')).toContain(theme.color.accent);
     expect(pinSize(true)).toBe(28);
   });
@@ -44,40 +45,28 @@ describe('pins with the verband flag on', () => {
     expect(html).not.toContain(theme.color.accent);
   });
 
-  it('draws a venue without an association, or with the federation, in grey', () => {
-    expect(pinHtml(false, null)).toContain('#767676');
-    expect(pinHtml(false, 'esv')).toContain('#767676');
-    expect(pinHtml(false, null)).not.toContain(theme.color.accent);
-  });
-
   it('draws the selected pin larger and with a dark ring', () => {
-    const html = pinHtml(true, 'isv');
+    const html = pinHtml(true, 'luzern');
     expect(html).toContain('width:34px');
     expect(html).toContain('0 0 0 2.5px ' + theme.color.ink);
     expect(pinSize(true)).toBe(34);
     expect(pinSize(false)).toBe(28);
-    expect(pinHtml(false, 'isv')).not.toContain(theme.color.ink);
-  });
-
-  it('marks a selected pin without an association the same way', () => {
-    const html = pinHtml(true, null);
-    expect(html).toContain('#767676');
-    expect(html).toContain('0 0 0 2.5px ' + theme.color.ink);
+    expect(pinHtml(false, 'luzern')).not.toContain(theme.color.ink);
   });
 });
 
 describe('clusterRing', () => {
-  it('splits the ring by Teilverband, with venues without an association last', () => {
-    expect(clusterRing(['freiburg', 'emmental', null, 'emmental']))
-      .toBe('conic-gradient(#1A1A1A 0% 50%, #5D6B80 50% 75%, #767676 75% 100%)');
+  it('splits the ring by Teilverband, in the order of the tints', () => {
+    expect(clusterRing(['freiburg', 'emmental', 'emmental', 'oberland']))
+      .toBe('conic-gradient(#1A1A1A 0% 75%, #5D6B80 75% 100%)');
   });
 
-  it('paints the whole ring grey when no venue has an association', () => {
-    expect(clusterRing([null, null])).toBe('conic-gradient(#767676 0% 100%)');
+  it('paints the whole ring in one colour when all venues share a Teilverband', () => {
+    expect(clusterRing(['freiburg', 'waadt'])).toBe('conic-gradient(#5D6B80 0% 100%)');
   });
 
   it('rounds the shares', () => {
-    expect(clusterRing(['isv', 'nosv', 'nosv']))
+    expect(clusterRing(['luzern', 'thurgau', 'zuerich']))
       .toBe('conic-gradient(#E30613 0% 33.33%, #0B7A26 33.33% 100%)');
   });
 });
@@ -119,14 +108,10 @@ describe('cluster icon', () => {
   });
 
   it('grows with the number of venues and shrinks the count from 100 on', () => {
-    const sized = (n: number) => clusterHtml(Array<string | null>(n).fill('isv'));
+    const sized = (n: number) => clusterHtml(Array<CantonalId>(n).fill('luzern'));
     expect([9, 10, 50].map((n) => sized(n).iconSize)).toEqual([[34, 34], [40, 40], [46, 46]]);
     expect(parts(sized(99).html).inner).toContain('font-size:14px');
     expect(parts(sized(100).html).inner).toContain('font-size:12px');
-  });
-
-  it('writes the count in grey when no venue has an association', () => {
-    expect(parts(clusterHtml([null, null]).html).inner).toContain('color:#767676');
   });
 });
 
@@ -134,6 +119,6 @@ describe('userPinHtml', () => {
   it('is a blue location dot, visually distinct from venue pins', () => {
     const html = userPinHtml();
     expect(html).toContain('#1a73e8');
-    expect(html).not.toBe(pinHtml(false, null));
+    expect(html).not.toBe(pinHtml(false, 'emmental'));
   });
 });

@@ -18,7 +18,7 @@ describe('translations', () => {
   });
   it('defines the Verband sidebar keys in every language', () => {
     for (const lang of LANGS) {
-      for (const key of ['byAssociation', 'sortAssociation', 'unassignedGroup', 'associationEmpty'] as const) {
+      for (const key of ['byAssociation', 'sortAssociation', 'associationEmpty'] as const) {
         expect(STR[lang][key]).toBeTruthy();
       }
     }
