@@ -43,6 +43,24 @@ describe('popupShift', () => {
     expect(popupShift(box(900, 300, 1124, 483), [], DESKTOP)).toEqual({ dx: -105, dy: 0 });
   });
 
+  it('pulls a popup that sticks out on the left back into the map', () => {
+    expect(popupShift(box(300, 300, 524, 483), [], DESKTOP)).toEqual({ dx: 49, dy: 0 });
+  });
+
+  it('pulls a popup that sticks out at the bottom back into the map', () => {
+    expect(popupShift(box(500, 700, 724, 883), [], DESKTOP)).toEqual({ dx: 0, dy: -120 });
+  });
+
+  it('keeps the left edge in view when a popup is wider than the map', () => {
+    expect(popupShift(box(-20, 100, 400, 283), [], PHONE)).toEqual({ dx: 25, dy: 0 });
+  });
+
+  it('moves down when controls cover the popup from both sides', () => {
+    const zoomButtons = box(10, 70, 44, 220);
+    const switchAndLegend = box(255, 72, 363, 150);
+    expect(popupShift(box(20, 70, 360, 253), [zoomButtons, switchAndLegend], PHONE)).toEqual({ dx: 0, dy: 158 });
+  });
+
   it('pulls a popup into the map first and then clear of the controls', () => {
     expect(popupShift(box(787, 39, 1011, 222), [box(880, 72, 1012, 250)], DESKTOP)).toEqual({ dx: -139, dy: 26 });
   });
