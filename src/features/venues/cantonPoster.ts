@@ -12,8 +12,9 @@ import {
   posterHeightFor, chromeLayoutFor,
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
+import { PosterGenerationError } from './posterSubject';
 
-export class PosterGenerationError extends Error {}
+export { PosterGenerationError };
 
 const TILE_LOAD_TIMEOUT_MS = 8000;
 
