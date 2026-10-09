@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render } from '@testing-library/react';
+import { useState } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
@@ -30,6 +31,7 @@ const mapView = (
         venues={venues}
         selectedId={selectedId}
         onSelect={vi.fn()}
+        onDeselect={vi.fn()}
         onOpenDetail={vi.fn()}
         baseKind="map"
         onChangeBase={vi.fn()}
@@ -189,6 +191,12 @@ describe('MapView venue pins', () => {
     expect(popup).toHaveTextContent('Fribourg');
   });
 
+  it('names each pin after its venue', () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    expect(container.querySelector('.leaflet-marker-icon')).toHaveAttribute('title', 'Keller 1');
+  });
+
   it("hands each venue's association to the cluster icon", () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7), venueAt('2', 'freiburg', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
@@ -241,5 +249,180 @@ describe('MapView legend', () => {
     vi.stubEnv('VITE_APP_ENV', 'production');
     const { queryByRole } = render(mapView(null));
     expect(queryByRole('button', { name: STR.de.legendHide })).toBeNull();
+  });
+});
+
+// Holds the selection the way App does, so a pin click or a closed popup round-trips through the
+// props. The button stands in for a row in the venue list.
+const SelectionHarness = ({ venues, lang = 'de', onSelect, onDeselect }: {
+  venues: Venue[];
+  lang?: Lang;
+  onSelect: (id: string) => void;
+  onDeselect: () => void;
+}) => {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  return (
+    <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
+      <button onClick={() => setSelectedId(venues[0].id)}>pick from list</button>
+      <output data-testid="selected">{selectedId ?? ''}</output>
+      <MapView
+        venues={venues}
+        selectedId={selectedId}
+        onSelect={(id) => { onSelect(id); setSelectedId(id); }}
+        onDeselect={() => { onDeselect(); setSelectedId(null); }}
+        onOpenDetail={vi.fn()}
+        baseKind="map"
+        onChangeBase={vi.fn()}
+        placing={false}
+        onPickLocation={vi.fn()}
+        userPosition={null}
+        geoStatus="unsupported"
+        onRequestLocation={vi.fn()}
+        isMobile={false}
+      />
+    </I18nContext.Provider>
+  );
+};
+
+describe('MapView selection from the map', () => {
+  // Geneva and St. Gallen: far enough apart that the two pins never share a cluster.
+  const venues = [venueAt('1', 'freiburg', 46.2, 6.15), venueAt('2', 'luzern', 47.42, 9.37)];
+  let onSelect: ReturnType<typeof vi.fn<(id: string) => void>>;
+  let onDeselect: ReturnType<typeof vi.fn<() => void>>;
+
+  const renderHarness = () => {
+    const result = render(<SelectionHarness venues={venues} onSelect={onSelect} onDeselect={onDeselect} />);
+    vi.advanceTimersByTime(200);
+    return result;
+  };
+  const pin = (container: HTMLElement, name: string) =>
+    container.querySelector<HTMLElement>(`.leaflet-marker-icon[title="${name}"]`)!;
+  const teardrops = (container: HTMLElement) => container.querySelectorAll('.leaflet-marker-icon path');
+  const closePopup = (container: HTMLElement) =>
+    fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setContainerSize(800, 600);
+    onSelect = vi.fn<(id: string) => void>();
+    onDeselect = vi.fn<() => void>();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  it('selects a venue when its pin is clicked', () => {
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    expect(onSelect).toHaveBeenCalledWith('1');
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+  });
+
+  it('clears the selection when the popup is closed', () => {
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    closePopup(container);
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('selected')).toHaveTextContent('');
+    expect(teardrops(container)).toHaveLength(0);
+  });
+
+  it('clears the selection when the open pin is clicked again', () => {
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    fireEvent.click(pin(container, 'Keller 1'));
+    expect(container.querySelector('.leaflet-popup')).toBeNull();
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('selected')).toHaveTextContent('');
+  });
+
+  it('moves the selection straight to a second pin', () => {
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    fireEvent.click(pin(container, 'Keller 2'));
+    expect(onSelect).toHaveBeenLastCalledWith('2');
+    expect(screen.getByTestId('selected')).toHaveTextContent('2');
+    expect(teardrops(container)).toHaveLength(1);
+    expect(pin(container, 'Keller 2').querySelector('path')).not.toBeNull();
+  });
+
+  it('keeps the selection when the pins are rebuilt in another language', () => {
+    const { container, rerender } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    rerender(<SelectionHarness venues={venues} lang="fr" onSelect={onSelect} onDeselect={onDeselect} />);
+    vi.advanceTimersByTime(200);
+    expect(onDeselect).not.toHaveBeenCalled();
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+  });
+
+  it('opens the popup without flying when a pin is clicked', () => {
+    const flyTo = vi.spyOn(L.Map.prototype, 'flyTo');
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    vi.advanceTimersByTime(1000);
+    expect(flyTo).not.toHaveBeenCalled();
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+  });
+
+  it('still flies to a venue picked in the list', () => {
+    const flyTo = vi.spyOn(L.Map.prototype, 'flyTo');
+    renderHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'pick from list' }));
+    expect(flyTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('flies to a venue picked in the list after its pin was clicked and closed', () => {
+    const flyTo = vi.spyOn(L.Map.prototype, 'flyTo');
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    closePopup(container);
+    fireEvent.click(screen.getByRole('button', { name: 'pick from list' }));
+    expect(flyTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a venue picked in the list selected when its flight ends late', () => {
+    // The zoom at the end of a flight makes markercluster take the pin off the map and put it back,
+    // which closes any popup the pin has open at that moment.
+    let land = () => {};
+    vi.spyOn(L.Map.prototype, 'flyTo').mockImplementation(function (this: L.Map, center, zoom) {
+      land = () => { this.setView(center, zoom); };
+      return this;
+    });
+    const { container } = renderHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'pick from list' }));
+    vi.advanceTimersByTime(1000);
+    land();
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+    expect(onDeselect).not.toHaveBeenCalled();
+    expect(screen.getByTestId('selected')).toHaveTextContent('1');
+  });
+
+  it('lifts the open popup onto the teardrop', () => {
+    const popupBottom = (container: HTMLElement) =>
+      parseFloat(container.querySelector<HTMLElement>('.leaflet-popup')!.style.bottom);
+    // mapView's onSelect is a spy that never selects, so its popup stays on the round pin.
+    const plain = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    fireEvent.click(pin(plain.container, 'Keller 1'));
+    const overDisc = popupBottom(plain.container);
+    plain.unmount();
+
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    // The teardrop's popupAnchor sits 42px above the spot, the disc's 20px.
+    expect(popupBottom(container) - overDisc).toBe(22);
+  });
+
+  it('keeps autoPan on for venue popups, so a popup near the edge pans into view', () => {
+    const bindPopup = vi.spyOn(L.Layer.prototype, 'bindPopup');
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    expect(bindPopup).toHaveBeenCalled();
+    for (const [, options] of bindPopup.mock.calls) expect(options?.autoPan).not.toBe(false);
   });
 });

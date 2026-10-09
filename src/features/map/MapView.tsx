@@ -20,6 +20,8 @@ interface MapViewProps {
   venues: Venue[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  // Called when the visitor closes the selected venue's popup.
+  onDeselect: () => void;
   onOpenDetail: (id: string) => void;
   baseKind: 'map' | 'sat';
   onChangeBase: (k: 'map' | 'sat') => void;
@@ -98,7 +100,7 @@ const fitAllBtnStyle: CSSProperties = {
 };
 
 export function MapView({
-  venues, selectedId, onSelect, onOpenDetail,
+  venues, selectedId, onSelect, onDeselect, onOpenDetail,
   baseKind, onChangeBase, placing, onPickLocation, registerFitAll, initialFocusBounds,
   userPosition, geoStatus, onRequestLocation, isMobile,
 }: MapViewProps) {
@@ -116,12 +118,20 @@ export function MapView({
   const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
   const [fitAllBgClip, setFitAllBgClip] = useState(FIT_ALL_DEFAULT_BG_CLIP);
   const appliedInitialFocusRef = useRef(false);
+  // The id a pin click just selected, so the selection effect leaves the map where it is.
+  const selectedFromMapRef = useRef<string | null>(null);
+  // True while MapView removes markers itself. Their popups close then, but the visitor didn't
+  // close them, so the selection stays.
+  const quietCloseRef = useRef(false);
+  // The handler that opens a focused venue's popup once its flight lands.
+  const landingRef = useRef<(() => void) | null>(null);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
   const selectedIdRef = useRef(selectedId);
   const placingRef = useRef(placing);
   const onSelectRef = useRef(onSelect);
+  const onDeselectRef = useRef(onDeselect);
   const onOpenDetailRef = useRef(onOpenDetail);
   const onPickLocationRef = useRef(onPickLocation);
   const tRef = useRef(t);
@@ -131,6 +141,7 @@ export function MapView({
     selectedIdRef.current = selectedId;
     placingRef.current = placing;
     onSelectRef.current = onSelect;
+    onDeselectRef.current = onDeselect;
     onOpenDetailRef.current = onOpenDetail;
     onPickLocationRef.current = onPickLocation;
     tRef.current = t;
@@ -151,34 +162,64 @@ export function MapView({
     if (!group || !map) return;
     const sz = map.getSize ? map.getSize() : null;
     if (sz && (sz.x <= 0 || sz.y <= 0)) { window.setTimeout(refreshMarkers, 120); return; }
-    group.clearLayers(); markersRef.current = {};
+    quietCloseRef.current = true;
+    try { group.clearLayers(); } finally { quietCloseRef.current = false; }
+    markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      // clusterIcon reads associationId from the options to colour the cluster's ring.
+      // clusterIcon reads associationId from the options to colour the cluster's ring. Leaflet makes
+      // each pin a focusable button; the title gives that button the venue's name.
       const selected = v.id === selectedIdRef.current;
       const options: L.MarkerOptions & { associationId: CantonalId } = {
         icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
+        title: v.name,
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
-      m.on('click', () => onSelectRef.current(v.id));
+      // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
+      // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
+      // a second click on the pin, or a zoom that folds the pin into a cluster. Picking a second pin
+      // closes the first popup before opening the next within the same click, so React renders the
+      // two changes as one and the selection moves without a gap. focusVenue opens the popup of a
+      // venue that is already selected, which changes nothing here.
+      m.on('popupopen', () => {
+        if (selectedIdRef.current === v.id) return;
+        selectedFromMapRef.current = v.id;
+        onSelectRef.current(v.id);
+      });
+      m.on('popupclose', () => {
+        if (!quietCloseRef.current && selectedIdRef.current === v.id) onDeselectRef.current();
+      });
       markersRef.current[v.id] = m;
     });
   };
 
+  // setIcon leaves an open popup where it was. A pin clicked into the teardrop has its popup open
+  // already, so the popup is moved up to the teardrop's anchor instead of covering its head.
   const updatePins = () => {
     venuesRef.current.forEach((v) => {
       const selected = v.id === selectedIdRef.current;
-      markersRef.current[v.id]?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
+      const m = markersRef.current[v.id];
+      m?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
+      if (m?.isPopupOpen()) m.getPopup()?.update();
     });
   };
 
+  // Flies to a venue picked in the list or opened by a link, and opens its popup once the flight has
+  // landed. The zoom at the end makes markercluster take the pin off the map and put it back, which
+  // would close a popup opened any earlier, and that close would clear the selection.
   const focusVenue = (id: string) => {
     const map = mapRef.current; const m = markersRef.current[id];
     if (!m || !map) return;
     const mx = map.getMaxZoom ? map.getMaxZoom() : 17;
     const z = Math.min(mx, Math.max(map.getZoom() + 4, 16));
+    if (landingRef.current) map.off('moveend', landingRef.current);
+    const land = () => {
+      landingRef.current = null;
+      if (selectedIdRef.current === id) markersRef.current[id]?.openPopup();
+    };
+    landingRef.current = land;
+    map.once('moveend', land);
     map.flyTo(m.getLatLng(), z, { duration: 0.8 });
-    window.setTimeout(() => { const mm = markersRef.current[id]; if (mm) mm.openPopup(); }, 880);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,7 +301,8 @@ export function MapView({
     });
 
     return () => {
-      map.remove();
+      quietCloseRef.current = true;
+      try { map.remove(); } finally { quietCloseRef.current = false; }
       mapRef.current = null;
       markerGroupRef.current = null;
       markersRef.current = {};
@@ -295,11 +337,14 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venues, t, associations]);
 
-  // Selection change → recolor pins and focus.
+  // Selection change → recolor pins, and fly to a venue picked anywhere but on the map.
   useEffect(() => {
     if (!mapRef.current) return;
     updatePins();
-    if (selectedId) focusVenue(selectedId);
+    if (selectedId === null) return;
+    const fromMap = selectedId === selectedFromMapRef.current;
+    selectedFromMapRef.current = null;
+    if (!fromMap) focusVenue(selectedId);
   }, [selectedId]);
 
   // Crosshair cursor while placing.
