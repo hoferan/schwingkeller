@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import L from 'leaflet';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
@@ -140,14 +140,25 @@ describe('MapView venue pins', () => {
     expect(icons(container).some((html) => html.includes('#1A1A1A'))).toBe(true);
   });
 
-  it('sizes and centres the icon box of the larger selected pin', () => {
+  it('sizes the selected pin to its teardrop and anchors it at the tip', () => {
     const venues = [venueAt('1', 'emmental', 46.9, 7.7)];
     const { container, rerender } = render(mapView(null, venues));
     vi.advanceTimersByTime(200);
     rerender(mapView(null, venues, '1'));
     const icon = container.querySelector<HTMLElement>('.leaflet-marker-icon');
-    expect(icon?.style.width).toBe('34px');
-    expect(icon?.style.marginLeft).toBe('-17px');
+    expect(icon?.style.width).toBe('30px');
+    expect(icon?.style.height).toBe('42px');
+    expect(icon?.style.marginLeft).toBe('-15px');
+    expect(icon?.style.marginTop).toBe('-39px');
+  });
+
+  it("labels the popup's close button in the visitor's language", () => {
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    fireEvent.click(container.querySelector('.leaflet-marker-icon')!);
+    const close = container.querySelector('.leaflet-popup-close-button');
+    expect(close).toHaveAttribute('aria-label', STR.de.close);
+    expect(close).toHaveAttribute('title', STR.de.close);
   });
 
   it("hands each venue's association to the cluster icon", () => {

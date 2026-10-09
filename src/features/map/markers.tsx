@@ -7,26 +7,48 @@ import type { CantonalId } from '../../data/associations';
 import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
 import { isFeatureOn } from '../../lib/features';
 import { MarkerPopup } from './MarkerPopup';
+import type { Associations } from '../associations/useAssociations';
 
 type T = typeof STR.de;
 
-export const popupHtml = (v: Venue, t: T): string => renderToStaticMarkup(<MarkerPopup venue={v} t={t} />);
+export const popupHtml = (v: Venue, t: T, associations: Associations): string =>
+  renderToStaticMarkup(<MarkerPopup venue={v} t={t} associations={associations} />);
 
-// With the verband flag on, a selected pin grows and gets a dark ring, because once pins come in
-// five colours a colour alone can't mark it. With the flag off every pin looks the same.
-export const pinSize = (selected: boolean): number => (selected && isFeatureOn('verband') ? 34 : 28);
+export interface PinIcon {
+  html: string;
+  iconSize: [number, number];
+  iconAnchor: [number, number];
+  popupAnchor: [number, number];
+}
 
-export const pinHtml = (selected: boolean, associationId: CantonalId): string => {
-  const verband = isFeatureOn('verband');
-  const fill = verband ? tintOf(associationId) : theme.color.accent;
-  const marked = selected && verband;
-  const size = pinSize(selected);
-  const dot = marked ? 12 : 10;
-  const shadow = marked ? '0 0 0 2.5px ' + theme.color.ink + ',' + theme.shadow : theme.shadow;
-  return '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">'
-    + '<div style="position:absolute;inset:0;border-radius:50%;background:' + fill + ';border:3px solid ' + theme.color.bg + ';box-shadow:' + shadow + ';"></div>'
-    + '<div style="position:absolute;left:' + (size - dot) / 2 + 'px;top:' + (size - dot) / 2 + 'px;width:' + dot + 'px;height:' + dot + 'px;border-radius:50%;background:' + theme.color.bg + ';"></div>'
-    + '</div>';
+// A venue pin is a disc in its Teilverband's colour, or red with the verband flag off. The selected
+// pin is a teardrop in the same colour: its shape marks it whatever the colour, and no other marker
+// on the map has that shape. Each pin is one SVG, so its circles share one centre at any zoom.
+export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon => {
+  const fill = isFeatureOn('verband') ? tintOf(associationId) : theme.color.accent;
+  if (!selected) {
+    return {
+      html: '<svg width="28" height="28" viewBox="0 0 28 28" style="display:block;overflow:visible;filter:drop-shadow(0 4px 8px rgba(0,0,0,.12))">'
+        + '<circle cx="14" cy="14" r="12.5" fill="' + fill + '" stroke="' + theme.color.bg + '" stroke-width="3"/>'
+        + '<circle cx="14" cy="14" r="5" fill="' + theme.color.bg + '"/>'
+        + '</svg>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -20],
+    };
+  }
+  // The head is a circle of radius 12.5 around (15, 15.5); the tip at (15, 39) is the venue's spot,
+  // with a small ground shadow under it.
+  return {
+    html: '<svg width="30" height="42" viewBox="0 0 30 42" style="display:block;overflow:visible;filter:drop-shadow(0 2px 2.5px rgba(0,0,0,.35))">'
+      + '<ellipse cx="15" cy="39" rx="5" ry="1.8" fill="rgba(0,0,0,.28)"/>'
+      + '<path d="M15 39 C11 33 2.5 25 2.5 15.5 A12.5 12.5 0 1 1 27.5 15.5 C27.5 25 19 33 15 39 Z" fill="' + fill + '" stroke="' + theme.color.bg + '" stroke-width="2.5" stroke-linejoin="round"/>'
+      + '<circle cx="15" cy="15.5" r="5" fill="' + theme.color.bg + '"/>'
+      + '</svg>',
+    iconSize: [30, 42],
+    iconAnchor: [15, 39],
+    popupAnchor: [0, -42],
+  };
 };
 
 // The width of the "you are here" marker, halo included. MapView sizes and anchors the icon with it.

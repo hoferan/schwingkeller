@@ -17,4 +17,6 @@ export const theme = {
     pill: '999px',
   },
   shadow: '0 4px 16px rgba(0,0,0,.12)',
+  // A hairline around a coat of arms, so arms with a white field (FR, ZH, LU) keep their edge on white.
+  armsOutline: 'drop-shadow(0 0 0.75px rgba(0,0,0,.55))',
 } as const;
