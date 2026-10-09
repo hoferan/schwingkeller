@@ -180,6 +180,7 @@ export const PosterEditorModal = ({
   const didMountBaseKindRef = useRef(false);
   const didMountAspectRatioRef = useRef(false);
   const labelsElRef = useRef<HTMLDivElement>(null);
+  const pinsRef = useRef<L.LayerGroup | null>(null);
 
   // Create the live editor map once.
   useEffect(() => {
@@ -198,25 +199,36 @@ export const PosterEditorModal = ({
     tileRef.current.addTo(map);
     applyDefaultFraming(map, subject, previewSize, chrome, qrBox());
 
-    // Pins scaled from the same geometry as the canvas drawPin, so preview pins match the export.
+    const pins = L.layerGroup();
+    pins.addTo(map);
+    pinsRef.current = pins;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      tileRef.current = null;
+      pinsRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The pins follow the venues, so a venue added or loaded while the editor is open gets its pin.
+  // The framing stays where the admin left it. Pins use the same geometry as the canvas drawPin, so
+  // the preview pins match the export.
+  useEffect(() => {
+    const pins = pinsRef.current;
+    if (!pins) return;
+    pins.clearLayers();
     const p = previewPin(previewSize);
     const pinIcon = L.divIcon({
       className: '',
       iconSize: [p.d, p.d],
       html: `<div style="width:${p.d}px;height:${p.d}px;border-radius:50%;background:${theme.color.accent};border:${p.ring}px solid ${theme.color.bg};box-sizing:border-box;display:flex;align-items:center;justify-content:center;"><span style="width:${p.dot}px;height:${p.dot}px;border-radius:50%;background:${theme.color.bg};display:block;"></span></div>`,
     });
-    const pins = L.layerGroup().addTo(map);
     venues.forEach((v) => {
       L.marker([v.lat, v.lng], { icon: pinIcon }).addTo(pins);
     });
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-      tileRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [venues, previewSize]);
 
   // Swap the base layer live when toggled. Skip the initial mount — the create-map effect above
   // already builds the first tile layer, so re-running here on mount would rebuild it redundantly.

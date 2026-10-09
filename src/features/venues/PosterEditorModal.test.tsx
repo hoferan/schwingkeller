@@ -612,3 +612,37 @@ describe('default framing and the QR code', () => {
     expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({ paddingTopLeft: [20 + 93, 115], paddingBottomRight: [20, 43], animate: false });
   });
 });
+
+describe('venues that change while the editor is open', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeMap.latLngToContainerPoint.mockImplementation(() => ({ x: 100, y: 100 }));
+  });
+
+  const editor = (subject: PosterSubject) => (
+    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+      <PosterEditorModal
+        subject={subject}
+        initialBaseKind="map"
+        unitLabel="Schwingkeller"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    </I18nContext.Provider>
+  );
+
+  it('redraws the pins for the new venues and keeps the framing', () => {
+    const first = [v({ id: '1', lat: 46.9, lng: 7.4 })];
+    const both = [...first, v({ id: '2', lat: 46.95, lng: 7.45 })];
+    const { rerender } = render(editor(cantonPosterSubject('BE', first)));
+    vi.mocked(L.marker).mockClear();
+    fakeMap.setView.mockClear();
+    fakeMap.fitBounds.mockClear();
+
+    rerender(editor(cantonPosterSubject('BE', both)));
+
+    expect(vi.mocked(L.marker).mock.calls.map(([ll]) => ll)).toEqual([[46.9, 7.4], [46.95, 7.45]]);
+    expect(fakeMap.setView).not.toHaveBeenCalled();
+    expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+});
