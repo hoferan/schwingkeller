@@ -44,10 +44,13 @@ vi.mock('./features/map/MapView', () => ({
 }));
 vi.mock('./features/sidebar/Sidebar', () => ({
   Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
-    onGeneratePoster: (code: string) => void; expanded: Record<string, boolean>; sortMode: string;
+    onGeneratePoster: (target: { kind: 'canton'; code: string } | { kind: 'association'; id: string }) => void;
+    expanded: Record<string, boolean>; sortMode: string;
   }) => (
     <div>
-      <button onClick={() => onGeneratePoster('BE')}>gen-poster</button>
+      <button onClick={() => onGeneratePoster({ kind: 'canton', code: 'BE' })}>gen-poster</button>
+      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'freiburg' })}>gen-poster-vb</button>
+      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'nope' })}>gen-poster-bad</button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
       <span data-testid="sort-mode">{sortMode}</span>
     </div>
@@ -232,6 +235,25 @@ describe('App — poster editor wiring', () => {
 
     expect(await screen.findByTestId('poster-editor')).toBeInTheDocument();
     expect(screen.getByText('editor:BE')).toBeInTheDocument();
+  });
+
+  it('opens the poster editor for the Verband the sidebar requests', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByText('gen-poster-vb'));
+
+    expect(await screen.findByText('editor:freiburg')).toBeInTheDocument();
+  });
+
+  it('flashes the poster error and opens no editor for an unknown Verband', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByText('gen-poster-bad'));
+
+    expect(await screen.findByText(STR.de.posterGenerateFailed)).toBeInTheDocument();
+    expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument();
   });
 
   it('downloads the blob and closes the editor on save', async () => {

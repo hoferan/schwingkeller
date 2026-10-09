@@ -17,7 +17,7 @@ import { associationForCanton, parseAssociationParam, parseCantonParam, parseVen
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
-import { posterSubjectFor, type PosterSubject } from './features/venues/posterSubject';
+import { posterSubjectFor, type PosterSubject, type PosterTarget } from './features/venues/posterSubject';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
@@ -236,9 +236,9 @@ function AppShell() {
   };
 
   // The subject is taken when the editor opens. Venues and language can't change while it is open.
-  const openPosterEditor = (code: string) => {
+  const openPosterEditor = (target: PosterTarget) => {
     try {
-      setPosterSubject(posterSubjectFor({ kind: 'canton', code }, venues, associations));
+      setPosterSubject(posterSubjectFor(target, venues, associations));
     } catch (err) {
       showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
     }

@@ -20,6 +20,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
 import type { Venue } from '../venues/types';
+import type { PosterTarget } from '../venues/posterSubject';
 import type { SortMode } from '../venues/grouping';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -48,7 +49,7 @@ interface HarnessProps {
   geoStatus?: GeoStatus;
   onRequestLocation?: () => void;
   onAdd?: () => void;
-  onGeneratePoster?: (code: string) => void;
+  onGeneratePoster?: (target: PosterTarget) => void;
   onSelect?: (id: string) => void;
   expandedInit?: Record<string, boolean>;
 }
@@ -707,7 +708,7 @@ describe('Sidebar', () => {
 
     await user.click(button);
 
-    expect(onGeneratePoster).toHaveBeenCalledWith('BE');
+    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'canton', code: 'BE' });
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
   });
 });
@@ -893,9 +894,20 @@ describe('Sidebar with the verband flag', () => {
     });
   });
 
-  it('shows no poster button to admins with the flag on', async () => {
-    renderAdminSidebar({ venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN });
-    expect(await screen.findByTestId('admin-section')).toBeInTheDocument();
+  it('asks admins for a Verband poster from its row with the flag on', async () => {
+    const user = userEvent.setup();
+    const onGeneratePoster = vi.fn();
+    renderAdminSidebar({
+      venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN, onGeneratePoster,
+    });
+    await user.click(await screen.findByTestId('generate-poster-freiburg'));
+    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(screen.queryByTestId('generate-poster-FR')).toBeNull();
+  });
+
+  it('shows non-admins no poster button with the flag on', async () => {
+    renderFlagged();
+    expect(await screen.findByTestId('group-freiburg')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
 import { Search, X, ChevronRight, ChevronLeft, Plus, Home, Mountain } from 'lucide-react';
 import type { Venue } from '../venues/types';
+import type { PosterTarget } from '../venues/posterSubject';
 import { filterVenues, flatSorted, type SortMode, type Facets } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -35,7 +36,7 @@ interface SidebarProps {
   userPosition: LatLng | null;
   geoStatus: GeoStatus;
   onRequestLocation: () => void;
-  onGeneratePoster: (code: string) => void;
+  onGeneratePoster: (target: PosterTarget) => void;
 }
 
 const sbBase: CSSProperties = { display: 'flex', flexDirection: 'column', background: theme.color.bg };
@@ -678,6 +679,8 @@ export const Sidebar = ({
             onToggle={onToggleGroup}
             selectedId={selectedId}
             onSelect={onSelect}
+            isAdmin={isAdmin}
+            onGeneratePoster={onGeneratePoster}
           />
         )}
         {!flat && !verband && (

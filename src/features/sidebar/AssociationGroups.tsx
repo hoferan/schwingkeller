@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { Camera, ChevronRight } from 'lucide-react';
 import type { Venue } from '../venues/types';
+import type { PosterTarget } from '../venues/posterSubject';
 import { groupByAssociation } from '../associations/grouping';
 import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark, RegionalBadge } from '../associations/AssociationMark';
@@ -18,13 +19,23 @@ interface AssociationGroupsProps {
   onToggle: (key: string) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  isAdmin: boolean;
+  onGeneratePoster: (target: PosterTarget) => void;
 }
+
+const posterButtonStyle: CSSProperties = {
+  width: '26px', height: '26px', border: 'none', background: 'transparent',
+  color: theme.color.ink, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+};
 
 const headerStyle = (level: 1 | 2): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: level === 1 ? '12px' : '10px',
   width: '100%',
+  flex: 1, // shares a row with the poster button on Verband rows
+  minWidth: 0,
   padding: level === 1 ? '13px 2px' : '10px 2px 10px 14px',
   border: 'none',
   background: 'transparent',
@@ -102,6 +113,8 @@ export const AssociationGroups = ({
   onToggle,
   selectedId,
   onSelect,
+  isAdmin,
+  onGeneratePoster,
 }: AssociationGroupsProps) => {
   const { t } = useTranslation();
   const associations = useAssociations();
@@ -140,15 +153,31 @@ export const AssociationGroups = ({
             <div style={{ paddingBottom: '6px' }}>
               {regional.associations.map((a) => (
                 <div key={a.id}>
-                  <GroupHeader
-                    id={a.id}
-                    level={2}
-                    open={isOpen(a.id)}
-                    onToggle={onToggle}
-                    mark={<AssociationMark id={a.id} />}
-                    name={associations.nameOf(a.id)}
-                    count={a.count}
-                  />
+                  {/* The poster button sits beside the toggle, not inside it: a button can't hold
+                      another button. */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <GroupHeader
+                      id={a.id}
+                      level={2}
+                      open={isOpen(a.id)}
+                      onToggle={onToggle}
+                      mark={<AssociationMark id={a.id} />}
+                      name={associations.nameOf(a.id)}
+                      count={a.count}
+                    />
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => onGeneratePoster({ kind: 'association', id: a.id })}
+                        aria-label={t.generatePoster}
+                        title={t.generatePoster}
+                        data-testid={`generate-poster-${a.id}`}
+                        style={posterButtonStyle}
+                      >
+                        <Camera size={15} />
+                      </button>
+                    )}
+                  </div>
                   {isOpen(a.id) &&
                     (a.venues.length === 0 ? <div style={emptyStyle}>{t.associationEmpty}</div> : rows(a.venues))}
                 </div>

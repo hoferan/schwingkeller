@@ -1,5 +1,6 @@
 import { ChevronRight, Camera } from 'lucide-react';
 import type { Venue } from '../venues/types';
+import type { PosterTarget } from '../venues/posterSubject';
 import { groupByCanton } from '../venues/grouping';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -13,7 +14,7 @@ interface CantonGroupsProps {
   onToggle: (key: string) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onGeneratePoster: (code: string) => void;
+  onGeneratePoster: (target: PosterTarget) => void;
 }
 
 // The sidebar grouped by canton, shown while the verband flag is off. Removed in #72.
@@ -73,7 +74,7 @@ export const CantonGroups = ({
               {isAdmin && (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); onGeneratePoster(group.code); }}
+                  onClick={(e) => { e.stopPropagation(); onGeneratePoster({ kind: 'canton', code: group.code }); }}
                   aria-label={t.generatePoster}
                   title={t.generatePoster}
                   // Every canton row renders this same button under the same label, so the code

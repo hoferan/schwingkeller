@@ -6,6 +6,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { wappenUrl } from '../../data/cantons';
 import type { Venue } from '../venues/types';
+import type { PosterTarget } from '../venues/posterSubject';
 import { AssociationGroups } from './AssociationGroups';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -27,9 +28,13 @@ interface HarnessProps {
   list?: Venue[];
   filtering?: boolean;
   expandedInit?: Record<string, boolean>;
+  isAdmin?: boolean;
+  onGeneratePoster?: (target: PosterTarget) => void;
 }
 
-const Harness = ({ list = venues, filtering = false, expandedInit = ALL_OPEN }: HarnessProps) => {
+const Harness = ({
+  list = venues, filtering = false, expandedInit = ALL_OPEN, isAdmin = false, onGeneratePoster = () => {},
+}: HarnessProps) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(expandedInit);
   return (
     <AssociationGroups
@@ -39,6 +44,8 @@ const Harness = ({ list = venues, filtering = false, expandedInit = ALL_OPEN }: 
       onToggle={(key) => setExpanded((e) => ({ ...e, [key]: !e[key] }))}
       selectedId={null}
       onSelect={() => {}}
+      isAdmin={isAdmin}
+      onGeneratePoster={onGeneratePoster}
     />
   );
 };
@@ -127,9 +134,51 @@ describe('AssociationGroups', () => {
     expect(new Set(leads).size).toBe(1);
   });
 
-  it('renders no poster button', () => {
+  it('shows admins a poster button on every Verband row and none on Teilverband rows', () => {
+    renderGroups({ isAdmin: true });
+    expect(screen.getAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(29);
+    expect(screen.getByTestId('generate-poster-freiburg')).toHaveAccessibleName(STR.de.generatePoster);
+    expect(screen.queryByTestId('generate-poster-swsv')).toBeNull();
+  });
+
+  it('shows non-admins no poster button', () => {
     renderGroups();
-    expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();
+    expect(screen.queryAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(0);
+  });
+
+  it('asks for the Verband poster without toggling the row', async () => {
+    const user = userEvent.setup();
+    const onGeneratePoster = vi.fn();
+    renderGroups({ isAdmin: true, onGeneratePoster });
+    await user.click(screen.getByTestId('generate-poster-freiburg'));
+    expect(onGeneratePoster).toHaveBeenCalledTimes(1);
+    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(screen.getByTestId('group-freiburg')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Halle Düdingen')).toBeNull();
+  });
+
+  it('opens the poster from the keyboard without toggling the row', async () => {
+    const user = userEvent.setup();
+    const onGeneratePoster = vi.fn();
+    renderGroups({ isAdmin: true, onGeneratePoster });
+    screen.getByTestId('generate-poster-freiburg').focus();
+    await user.keyboard('{Enter}');
+    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(screen.getByTestId('group-freiburg')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('asks for the poster while filtering, with the groups forced open', async () => {
+    const user = userEvent.setup();
+    const onGeneratePoster = vi.fn();
+    renderGroups({ isAdmin: true, filtering: true, onGeneratePoster });
+    await user.click(screen.getByTestId('generate-poster-freiburg'));
+    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(screen.getByText('Halle Düdingen')).toBeInTheDocument();
+  });
+
+  it('nests no button inside another button', () => {
+    const { container } = renderGroups({ isAdmin: true });
+    expect(container.querySelectorAll('button button')).toHaveLength(0);
   });
 
   it('names each Teilverband with its badge and each Verband with its name', () => {
