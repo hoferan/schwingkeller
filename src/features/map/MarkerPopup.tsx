@@ -38,7 +38,7 @@ const wappenStyle: CSSProperties = {
 };
 const nameStyle: CSSProperties = {
   fontFamily: theme.font.display, textTransform: 'uppercase', fontWeight: 700, fontSize: '14.5px',
-  color: theme.color.ink, lineHeight: 1.2,
+  color: theme.color.ink, lineHeight: 1.2, overflowWrap: 'anywhere', minWidth: 0,
 };
 const addressStyle: CSSProperties = { fontSize: '11.5px', color: theme.color.muted, marginTop: '3px' };
 const verbandRowStyle: CSSProperties = {

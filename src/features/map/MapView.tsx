@@ -83,6 +83,11 @@ const fitAllWrapStyle = (top: number, size: number, border: string, backgroundCl
   ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${top}px`,
   width: `${size}px`, height: `${size}px`, border, backgroundClip, zIndex: 1000,
 });
+// Leaflet stacks markers by their screen y, so a pin just south of the selected one would cover the
+// teardrop's tip. The selected pin is lifted above its neighbours, and stays under the location dot
+// (zIndexOffset 1000).
+const pinZIndexOffset = (selected: boolean): number => (selected ? 500 : 0);
+
 // The selected pin is a teardrop anchored at its tip, so the icon box and anchors come with the pin.
 const venueIcon = (v: Venue, selected: boolean): L.DivIcon =>
   L.divIcon({ className: '', ...pinIcon(selected, v.association_id) });
@@ -149,8 +154,9 @@ export function MapView({
     group.clearLayers(); markersRef.current = {};
     venuesRef.current.forEach((v) => {
       // clusterIcon reads associationId from the options to colour the cluster's ring.
+      const selected = v.id === selectedIdRef.current;
       const options: L.MarkerOptions & { associationId: CantonalId } = {
-        icon: venueIcon(v, v.id === selectedIdRef.current), associationId: v.association_id,
+        icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
@@ -161,7 +167,8 @@ export function MapView({
 
   const updatePins = () => {
     venuesRef.current.forEach((v) => {
-      markersRef.current[v.id]?.setIcon(venueIcon(v, v.id === selectedIdRef.current));
+      const selected = v.id === selectedIdRef.current;
+      markersRef.current[v.id]?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
     });
   };
 

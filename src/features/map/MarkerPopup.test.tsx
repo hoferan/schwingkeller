@@ -71,6 +71,11 @@ describe('MarkerPopup', () => {
     expect(screen.getByText('Schwingkeller Langnau').parentElement).toHaveStyle({ paddingRight: '28px' });
   });
 
+  it('breaks a long single-word name instead of running under the close button', () => {
+    popup({ ...venue, name: 'Schwingkellergenossenschaftsanlage' });
+    expect(screen.getByText('Schwingkellergenossenschaftsanlage')).toHaveStyle({ overflowWrap: 'anywhere' });
+  });
+
   it('aligns the outlined canton arms with the first line of the name', () => {
     const { container } = popup(venue);
     expect(screen.getByText('Schwingkeller Langnau').parentElement).toHaveStyle({ alignItems: 'flex-start' });

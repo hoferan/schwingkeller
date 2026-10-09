@@ -169,6 +169,11 @@ describe('DetailModal layout', () => {
     expect(line).toHaveTextContent('Freiburg');
   });
 
+  it('breaks a long single-word name instead of pushing the close button out', () => {
+    renderModal({ venue: { ...venue, name: 'Schwingkellergenossenschaftsanlage' } });
+    expect(screen.getByText('Schwingkellergenossenschaftsanlage')).toHaveStyle({ overflowWrap: 'anywhere' });
+  });
+
   it('shows only the contact rows that have a value', () => {
     renderModal({ venue: { ...venue, person: '', website: '' } });
     expect(screen.getByText(STR.de.contact)).toBeInTheDocument();

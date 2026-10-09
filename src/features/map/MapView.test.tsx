@@ -152,6 +152,20 @@ describe('MapView venue pins', () => {
     expect(icon?.style.marginTop).toBe('-39px');
   });
 
+  it('draws the selected pin over a neighbour just south of it, but under the location dot', () => {
+    // Leaflet stacks markers by screen y, so a pin further south would paint over the teardrop's tip.
+    const venues = [venueAt('1', 'emmental', 46.9001, 7.7), venueAt('2', 'luzern', 46.9, 7.7)];
+    const { container, rerender } = render(mapView(null, venues));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, venues, '1'));
+    const pins = [...container.querySelectorAll<HTMLElement>('.leaflet-marker-icon')];
+    const selected = pins.find((el) => el.querySelector('path'))!;
+    const neighbour = pins.find((el) => !el.querySelector('path'))!;
+    expect(Number(selected.style.zIndex)).toBeGreaterThan(Number(neighbour.style.zIndex));
+    // The location dot sits 1000 above its own position; the selected pin must stay below that.
+    expect(Number(selected.style.zIndex) - Number(neighbour.style.zIndex)).toBeLessThan(1000);
+  });
+
   it("labels the popup's close button in the visitor's language", () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);

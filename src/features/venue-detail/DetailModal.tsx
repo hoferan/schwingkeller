@@ -89,7 +89,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
             <div
               style={{
                 fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '21px', fontWeight: 700,
-                color: theme.color.ink, lineHeight: 1.18,
+                color: theme.color.ink, lineHeight: 1.18, overflowWrap: 'anywhere',
               }}
             >
               {venue.name}
