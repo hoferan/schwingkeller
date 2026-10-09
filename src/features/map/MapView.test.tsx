@@ -418,11 +418,38 @@ describe('MapView selection from the map', () => {
     expect(popupBottom(container) - overDisc).toBe(22);
   });
 
-  it('keeps autoPan on for venue popups, so a popup near the edge pans into view', () => {
-    const bindPopup = vi.spyOn(L.Layer.prototype, 'bindPopup');
+  it('moves a popup out from under the controls in the top right', () => {
+    // jsdom lays nothing out, so the boxes measured in the browser for the Säntis popup are handed in.
+    const boxes: Record<string, [number, number, number, number]> = {
+      popup: [787, 65, 1011, 248], overlay: [880, 72, 1012, 250], map: [344, 60, 1024, 768],
+    };
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.classList.contains('leaflet-popup') ? 'popup'
+        : this.dataset.testid === 'map-overlay' ? 'overlay'
+          : this.classList.contains('leaflet-container') ? 'map' : null;
+      const [left, top, right, bottom] = key ? boxes[key] : [0, 0, 0, 0];
+      return { left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top, toJSON: () => ({}) } as DOMRect;
+    });
+    const panBy = vi.spyOn(L.Map.prototype, 'panBy');
     const { container } = renderHarness();
     fireEvent.click(pin(container, 'Keller 1'));
-    expect(bindPopup).toHaveBeenCalled();
-    for (const [, options] of bindPopup.mock.calls) expect(options?.autoPan).not.toBe(false);
+    // The popup moves 139px left, so the map pans 139px right.
+    expect(panBy).toHaveBeenCalledWith([139, 0]);
+  });
+
+  it('pans a popup that sticks out at the top of the map into view', () => {
+    const boxes: Record<string, [number, number, number, number]> = {
+      popup: [500, 30, 724, 213], map: [344, 60, 1024, 768],
+    };
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const key = this.classList.contains('leaflet-popup') ? 'popup'
+        : this.classList.contains('leaflet-container') ? 'map' : null;
+      const [left, top, right, bottom] = key ? boxes[key] : [0, 0, 0, 0];
+      return { left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top, toJSON: () => ({}) } as DOMRect;
+    });
+    const panBy = vi.spyOn(L.Map.prototype, 'panBy');
+    const { container } = renderHarness();
+    fireEvent.click(pin(container, 'Keller 1'));
+    expect(panBy).toHaveBeenCalledWith([0, -35]);
   });
 });

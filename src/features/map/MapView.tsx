@@ -14,6 +14,7 @@ import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
+import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
 
 interface MapViewProps {
@@ -125,6 +126,10 @@ export function MapView({
   const quietCloseRef = useRef(false);
   // The handler that opens a focused venue's popup once its flight lands.
   const landingRef = useRef<(() => void) | null>(null);
+  // Controls drawn over the map, which an open popup is kept clear of.
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const fitAllRef = useRef<HTMLDivElement | null>(null);
+  const locateRef = useRef<HTMLDivElement | null>(null);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
@@ -174,7 +179,8 @@ export function MapView({
         title: v.name,
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
-      m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
+      // autoPan is off because panPopupIntoView does its job and also clears the controls.
+      m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
       // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
       // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
       // a second click on the pin, or a zoom that folds the pin into a cluster. Picking a second pin
@@ -193,14 +199,31 @@ export function MapView({
     });
   };
 
+  // Pans the map so that the open popup is inside it and no control covers it. See popupShift.ts. A
+  // map with no size yet (a page opened hidden) has nothing to pan into.
+  const panPopupIntoView = (popup: L.Popup) => {
+    const map = mapRef.current; const el = popup.getElement();
+    if (!map || !el || !popup.isOpen()) return;
+    const mapBox = map.getContainer().getBoundingClientRect();
+    if (!mapBox.width || !mapBox.height) return;
+    const controls = [overlayRef.current, map.zoomControl?.getContainer(), fitAllRef.current, locateRef.current]
+      .filter((c): c is HTMLElement => !!c)
+      .map((c) => c.getBoundingClientRect());
+    const shift = popupShift(el.getBoundingClientRect(), controls, mapBox);
+    // Subtracting from 0 rather than negating keeps an unmoved axis at 0 instead of -0.
+    if (shift) map.panBy([0 - shift.dx, 0 - shift.dy]);
+  };
+
   // setIcon leaves an open popup where it was. A pin clicked into the teardrop has its popup open
-  // already, so the popup is moved up to the teardrop's anchor instead of covering its head.
+  // already, so the popup is moved up to the teardrop's anchor instead of covering its head, and
+  // panned into view again from there.
   const updatePins = () => {
     venuesRef.current.forEach((v) => {
       const selected = v.id === selectedIdRef.current;
       const m = markersRef.current[v.id];
       m?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
-      if (m?.isPopupOpen()) m.getPopup()?.update();
+      const popup = m?.isPopupOpen() ? m.getPopup() : undefined;
+      if (popup) { popup.update(); panPopupIntoView(popup); }
     });
   };
 
@@ -257,6 +280,7 @@ export function MapView({
     const close = el.querySelector('.leaflet-popup-close-button');
     close?.setAttribute('aria-label', tRef.current.close);
     close?.setAttribute('title', tRef.current.close);
+    panPopupIntoView(e.popup);
   };
 
   // Mount: create the map once.
@@ -345,6 +369,7 @@ export function MapView({
     const fromMap = selectedId === selectedFromMapRef.current;
     selectedFromMapRef.current = null;
     if (!fromMap) focusVenue(selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   // Crosshair cursor while placing.
@@ -406,7 +431,7 @@ export function MapView({
   return (
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
-      <div style={overlayStyle}>
+      <div ref={overlayRef} data-testid="map-overlay" style={overlayStyle}>
         <div style={baseToggleWrapStyle}>
           <button onClick={() => onChangeBase('map')} style={baseToggleBtnStyle(baseKind === 'map')}>
             {t.mapView}
@@ -417,7 +442,7 @@ export function MapView({
         </div>
         {isFeatureOn('verband') && <MapLegend isMobile={isMobile} />}
       </div>
-      <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
+      <div ref={fitAllRef} style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
@@ -428,7 +453,7 @@ export function MapView({
         </button>
       </div>
       {geoStatus !== 'unsupported' && (
-        <div style={{ ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${fitAllTop + fitAllSize + 10}px`, width: `${fitAllSize}px`, height: `${fitAllSize}px`, border: fitAllBorder, backgroundClip: fitAllBgClip, zIndex: 1000 }}>
+        <div ref={locateRef} style={{ ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${fitAllTop + fitAllSize + 10}px`, width: `${fitAllSize}px`, height: `${fitAllSize}px`, border: fitAllBorder, backgroundClip: fitAllBgClip, zIndex: 1000 }}>
           <button
             className="sk-native-ctrl-btn"
             onClick={onRequestLocation}
