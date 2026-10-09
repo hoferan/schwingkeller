@@ -153,6 +153,18 @@ describe('EditForm field labels', () => {
   });
 });
 
+describe('EditForm layout', () => {
+  // The fields scroll; the title and the save buttons stay put, and the scrollbar runs only beside
+  // the fields.
+  it('keeps the title and the save buttons out of the scrolling area', () => {
+    renderForm();
+    const scroller = screen.getByLabelText(STR.de.name).closest('.sk-scroll');
+    expect(scroller).not.toBeNull();
+    expect(scroller).not.toContainElement(screen.getByRole('button', { name: STR.de.saveClose }));
+    expect(scroller).not.toContainElement(screen.getByRole('button', { name: STR.de.close }));
+  });
+});
+
 describe('EditForm association and address', () => {
   const base: Venue = {
     id: 'v9', name: 'Halle', canton: 'FR', address: '', lat: 46.8, lng: 7.16, indoor: true, outdoor: false,

@@ -160,29 +160,71 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   const editingCoords = Number(draft.lat).toFixed(4) + ', ' + Number(draft.lng).toFixed(4);
   const saving = create.isPending || update.isPending;
 
-  return (
-    <Modal onClose={onClose} width={480}>
-      <div
+  const header = (
+    <div
+      style={{
+        flex: 'none', background: theme.color.bg, borderBottom: '1px solid ' + theme.color.line,
+        padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}
+    >
+      <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '17px', fontWeight: 700, color: theme.color.ink }}>
+        {editTitle}
+      </span>
+      <button
+        onClick={onClose}
+        aria-label={t.close}
         style={{
-          position: 'sticky', top: 0, background: theme.color.bg, borderBottom: '1px solid ' + theme.color.line,
-          padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2,
+          border: 'none', background: 'transparent', color: theme.color.ink, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
-        <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '17px', fontWeight: 700, color: theme.color.ink }}>
-          {editTitle}
-        </span>
+        <X size={18} />
+      </button>
+    </div>
+  );
+  const footer = (
+    <div
+      style={{
+        flex: 'none', background: theme.color.bg, borderTop: '1px solid ' + theme.color.line,
+        padding: '13px 18px', display: 'flex', flexDirection: 'column', gap: '9px',
+      }}
+    >
+      <button
+        onClick={() => { void save(false); }}
+        disabled={saving}
+        style={{
+          width: '100%', border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600,
+          fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
+        }}
+      >
+        {t.saveClose}
+      </button>
+      <div style={{ display: 'flex', gap: '9px' }}>
         <button
           onClick={onClose}
-          aria-label={t.close}
           style={{
-            border: 'none', background: 'transparent', color: theme.color.ink, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
+            fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
           }}
         >
-          <X size={18} />
+          {t.cancel}
+        </button>
+        <button
+          onClick={() => { void save(true); }}
+          disabled={saving}
+          style={{
+            flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
+            fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
+          }}
+        >
+          {t.saveNew}
         </button>
       </div>
+    </div>
+  );
 
+  return (
+    <Modal onClose={onClose} width={480} header={header} footer={footer}>
       <div style={{ padding: '16px 18px 18px' }}>
         {/* photo */}
         <label style={{ ...labelStyle, marginBottom: '7px' }}>{t.photo}</label>
@@ -352,44 +394,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         />
       </div>
 
-      <div
-        style={{
-          position: 'sticky', bottom: 0, background: theme.color.bg, borderTop: '1px solid ' + theme.color.line,
-          padding: '13px 18px', display: 'flex', flexDirection: 'column', gap: '9px',
-        }}
-      >
-        <button
-          onClick={() => { void save(false); }}
-          disabled={saving}
-          style={{
-            width: '100%', border: 'none', background: theme.color.accent, color: theme.color.accentInk, fontWeight: 600,
-            fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
-          }}
-        >
-          {t.saveClose}
-        </button>
-        <div style={{ display: 'flex', gap: '9px' }}>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
-            }}
-          >
-            {t.cancel}
-          </button>
-          <button
-            onClick={() => { void save(true); }}
-            disabled={saving}
-            style={{
-              flex: 1, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.ink,
-              fontWeight: 600, fontSize: '13.5px', padding: '11px', borderRadius: theme.radius.sm, cursor: 'pointer',
-            }}
-          >
-            {t.saveNew}
-          </button>
-        </div>
-      </div>
     </Modal>
   );
 };
