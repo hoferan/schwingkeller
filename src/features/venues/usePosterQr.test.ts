@@ -10,7 +10,7 @@ vi.mock('qrcode', () => ({
   default: { toDataURL },
 }));
 
-import { usePosterQr } from './usePosterQr';
+import { POSTER_QR_OPTIONS, usePosterQr } from './usePosterQr';
 import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
 import { associationsFor } from '../associations/useAssociations';
 
@@ -32,6 +32,12 @@ describe('usePosterQr', () => {
     const { result } = renderHook(() => usePosterQr(subject));
     expect(result.current.url).toBe('http://localhost:3000/?vb=freiburg');
     await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?vb=freiburg', expect.any(Object)));
+  });
+
+  it('renders the QR with the options the e2e suite compares against', async () => {
+    renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
+    await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?ctn=BE', POSTER_QR_OPTIONS));
+    expect(POSTER_QR_OPTIONS).toEqual({ margin: 1, width: 240 });
   });
 
   it('leaves dataUrl null when QR generation rejects', async () => {
