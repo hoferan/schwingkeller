@@ -6,7 +6,8 @@ import { theme } from '../../theme';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { boundsForCanton } from '../../data/cantonBounds';
 import { createTileLayer, TILE_ATTRIBUTION, TILE_MAX_ZOOM, type BaseKind } from '../map/tileLayers';
-import { generateCantonPosterBlob } from './cantonPoster';
+import { generatePosterBlob } from './generatePoster';
+import { cantonPosterSubject } from './posterSubject';
 import {
   computeChromeLayout, CHROME_STYLE_COLORS, qrRect, labelObstacles, LABEL_COLORS,
   type ChromeLayoutResult,
@@ -297,7 +298,7 @@ export const PosterEditorModal = ({
     };
     setBusy(true);
     try {
-      const { blob, filename } = await generateCantonPosterBlob(code, venues, {
+      const { blob, filename } = await generatePosterBlob(cantonPosterSubject(code, venues), {
         baseKind,
         view,
         unitLabel,

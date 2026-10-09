@@ -8,13 +8,13 @@ import type { Venue } from './types';
 // Mock the heavy capture path — we assert wiring, not real canvas output.
 // NB: vi.mock(...) factories are hoisted above all top-level statements in this file, so a plain
 // `const` referenced inside a factory would be read in its temporal-dead-zone. vi.hoisted() lifts
-// the variable itself alongside the mock registration (same pattern as cantonPoster.test.ts).
-const { generateCantonPosterBlob } = vi.hoisted(() => ({
-  generateCantonPosterBlob: vi.fn().mockResolvedValue({
+// the variable itself alongside the mock registration (same pattern as generatePoster.test.ts).
+const { generatePosterBlob } = vi.hoisted(() => ({
+  generatePosterBlob: vi.fn().mockResolvedValue({
     blob: new Blob(['x'], { type: 'image/png' }), filename: 'schwingkeller-be.png',
   }),
 }));
-vi.mock('./cantonPoster', () => ({ generateCantonPosterBlob }));
+vi.mock('./generatePoster', () => ({ generatePosterBlob }));
 
 // Mock QR hook so no real qrcode/canvas runs.
 vi.mock('./usePosterQr', () => ({
@@ -87,7 +87,7 @@ const renderEditor = (props: Partial<Parameters<typeof PosterEditorModal>[0]> = 
   );
 
 describe('PosterEditorModal', () => {
-  beforeEach(() => { generateCantonPosterBlob.mockClear(); });
+  beforeEach(() => { generatePosterBlob.mockClear(); });
 
   it('renders the controls and the QR image', () => {
     renderEditor();
@@ -105,7 +105,7 @@ describe('PosterEditorModal', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     // jsdom's window is 1024px wide, so the preview locks to 540; the export zoom is the preview
     // zoom (11) bumped by log2(1080/540) = 1, i.e. an exact integer 12, framing the same area.
-    expect(generateCantonPosterBlob).toHaveBeenCalledWith('BE', expect.any(Array), expect.objectContaining({
+    expect(generatePosterBlob).toHaveBeenCalledWith(expect.objectContaining({ id: 'BE' }), expect.objectContaining({
       baseKind: 'map',
       unitLabel: 'Schwingkeller',
       view: { center: [46.9, 7.4], zoom: 12 },
@@ -122,12 +122,12 @@ describe('PosterEditorModal', () => {
     renderEditor();
     await user.click(screen.getByLabelText(STR.de.posterToggleQr));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2].qrDataUrl).toBeNull();
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1].qrDataUrl).toBeNull();
   });
 
   it('reports capture failures via onError and resets the busy state', async () => {
-    generateCantonPosterBlob.mockRejectedValueOnce(new Error('boom'));
+    generatePosterBlob.mockRejectedValueOnce(new Error('boom'));
     const user = userEvent.setup();
     const onSave = vi.fn();
     const onError = vi.fn();
@@ -143,7 +143,7 @@ describe('PosterEditorModal', () => {
 });
 
 describe('default framing', () => {
-  // clearAllMocks (not just generateCantonPosterBlob.mockClear) — these tests assert on fakeMap
+  // clearAllMocks (not just generatePosterBlob.mockClear) — these tests assert on fakeMap
   // call counts, and fakeMap's vi.fn()s accumulate calls across every render in this file. It
   // clears recorded calls only; the mock implementations (mockReturnValue etc.) stay intact.
   beforeEach(() => { vi.clearAllMocks(); });
@@ -234,13 +234,13 @@ describe('aspect ratio', () => {
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
-  it('forwards the current aspectRatio to generateCantonPosterBlob', async () => {
+  it('forwards the current aspectRatio to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
     await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'portrait' });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ aspectRatio: 'portrait' });
   });
 });
 
@@ -257,7 +257,7 @@ describe('header/footer customization controls', () => {
     expect(screen.getByRole('button', { name: STR.de.posterQrCornerBottomRight })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('forwards the current header/footer/style/size/QR-corner selections to generateCantonPosterBlob', async () => {
+  it('forwards the current header/footer/style/size/QR-corner selections to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
 
@@ -266,8 +266,8 @@ describe('header/footer customization controls', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterQrCornerTopLeft }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({
       chromeStyle: 'transparent', chromeSize: 'compact', qrCorner: 'top-left',
       headerPosition: 'top', footerPosition: 'bottom',
     });
@@ -359,9 +359,9 @@ describe('soft zoom', () => {
     fakeMap.getZoom.mockReturnValueOnce(11.25);
     renderEditor();
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
     // previewSize 540 → deltaZoom 1; 11.25 + 1 = 12.25, forwarded exactly (no Math.round).
-    expect(generateCantonPosterBlob.mock.calls[0][2].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
+    expect(generatePosterBlob.mock.calls[0][1].view).toEqual({ center: [46.9, 7.4], zoom: 12.25 });
   });
 
   it('steps the zoom by 0.25 via the precise +/- control', async () => {
@@ -394,15 +394,15 @@ describe('landscape format', () => {
     expect(fakeMap.invalidateSize).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards landscape to generateCantonPosterBlob', async () => {
+  it('forwards landscape to generatePosterBlob', async () => {
     const user = userEvent.setup();
     renderEditor();
 
     await user.click(screen.getByRole('button', { name: STR.de.posterFormatLandscape }));
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
 
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ aspectRatio: 'landscape' });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ aspectRatio: 'landscape' });
   });
 });
 
@@ -438,8 +438,8 @@ describe('venue name labels', () => {
     expect(screen.queryAllByTestId('poster-preview-label')).toHaveLength(0);
 
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
-    await waitFor(() => expect(generateCantonPosterBlob).toHaveBeenCalled());
-    expect(generateCantonPosterBlob.mock.calls[0][2]).toMatchObject({ showLabels: false });
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(generatePosterBlob.mock.calls[0][1]).toMatchObject({ showLabels: false });
   });
 
   it('paints the preview labels in brand red whichever chrome style is chosen', async () => {

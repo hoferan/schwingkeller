@@ -46,7 +46,7 @@ const SCALE_RE = /scale\((-?\d+(?:\.\d+)?)\)/;
 // translate3d + scale(...) transform, which Leaflet uses at fractional zoom levels (the tile
 // pane is CSS-scaled from the nearest integer zoom) — into coordinates directly comparable to
 // map.latLngToContainerPoint()'s pin coordinates. That only holds because the capture map in
-// cantonPoster.ts sets its view exactly once with no prior setView/pan/zoom and
+// generatePoster.ts sets its view exactly once with no prior setView/pan/zoom and
 // fadeAnimation: false — so the tile layer and the pin projection share the same origin. If the
 // capture map's setup ever gains an initial view or an animated transition before the final
 // view, this alignment can silently break.
