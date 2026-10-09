@@ -3,7 +3,7 @@ import type { DivIconOptions } from 'leaflet';
 import type { Venue } from '../venues/types';
 import type { STR } from '../../i18n/translations';
 import { theme } from '../../theme';
-import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
+import { REGIONAL_TINTS, UNASSIGNED_TINT, tintOf } from '../../data/associationTints';
 import { isFeatureOn } from '../../lib/features';
 import { MarkerPopup } from './MarkerPopup';
 
@@ -17,7 +17,7 @@ export const pinSize = (selected: boolean): number => (selected && isFeatureOn('
 
 export const pinHtml = (selected: boolean, associationId: string | null): string => {
   const verband = isFeatureOn('verband');
-  const fill = (verband ? tintOf(associationId) : null) ?? theme.color.accent;
+  const fill = verband ? (tintOf(associationId) ?? UNASSIGNED_TINT) : theme.color.accent;
   const marked = selected && verband;
   const size = pinSize(selected);
   const dot = marked ? 12 : 10;
@@ -46,14 +46,14 @@ export const userPinHtml = (): string => {
 const percent = (part: number, whole: number): number => Math.round((part / whole) * 10000) / 100;
 
 // The ring around a cluster: one segment per Teilverband, sized by how many of the cluster's venues
-// belong to it, in the order of REGIONAL_TINTS. Venues without an association come last, in red.
+// belong to it, in the order of REGIONAL_TINTS. Venues without an association come last, in grey.
 export const clusterRing = (associationIds: readonly (string | null)[]): string => {
   const counts = new Map<string, number>();
   for (const id of associationIds) {
-    const tint = tintOf(id) ?? theme.color.accent;
+    const tint = tintOf(id) ?? UNASSIGNED_TINT;
     counts.set(tint, (counts.get(tint) ?? 0) + 1);
   }
-  const order = [...Object.values(REGIONAL_TINTS), theme.color.accent];
+  const order = [...Object.values(REGIONAL_TINTS), UNASSIGNED_TINT];
   let done = 0;
   const segments = order.flatMap((tint) => {
     const n = counts.get(tint);
@@ -82,7 +82,7 @@ export const clusterIcon = <I,>(L: { divIcon(options: DivIconOptions): I }) => (
     return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>' });
   }
   const ids = cluster.getAllChildMarkers().map((m) => m.options.associationId ?? null);
-  const tints = new Set(ids.map((id) => tintOf(id) ?? theme.color.accent));
+  const tints = new Set(ids.map((id) => tintOf(id) ?? UNASSIGNED_TINT));
   const countColor = tints.size === 1 ? [...tints][0] : theme.color.ink;
   return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="box-sizing:border-box;width:' + size + 'px;height:' + size + 'px;border-radius:50%;padding:5px;background:' + clusterRing(ids) + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';">'
     + '<div style="width:100%;height:100%;border-radius:50%;background:' + theme.color.bg + ';display:flex;align-items:center;justify-content:center;color:' + countColor + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';line-height:1;">' + n + '</div>'
