@@ -24,9 +24,9 @@ vi.mock('./lib/supabase', () => ({
     },
   },
 }));
-const mocked = vi.hoisted(() => ({ venues: null as Venue[] | null }));
+const mocked = vi.hoisted(() => ({ venues: null as Venue[] | null, loaded: true }));
 vi.mock('./features/venues/useVenues', () => ({
-  useVenues: () => ({ data: mocked.venues ?? [venue], isSuccess: true }),
+  useVenues: () => ({ data: mocked.loaded ? (mocked.venues ?? [venue]) : undefined, isSuccess: mocked.loaded }),
   useVenueMutations: () => ({}),
 }));
 vi.mock('./features/geo/useGeolocation', () => ({
@@ -225,7 +225,7 @@ describe('App — permalinks', () => {
 });
 
 describe('App — poster editor wiring', () => {
-  beforeEach(() => { localStorage.clear(); });
+  beforeEach(() => { localStorage.clear(); mocked.loaded = true; });
 
   it('opens the poster editor for the canton the sidebar requests', async () => {
     const user = userEvent.setup();
@@ -238,19 +238,20 @@ describe('App — poster editor wiring', () => {
     expect(screen.getByText('editor:BE')).toBeInTheDocument();
   });
 
-  it('fills the open editor with venues that load after the poster was requested', async () => {
-    // An admin can click a poster button before the venues have loaded; the editor must pick them
-    // up when they arrive instead of keeping the empty list from the click.
+  it('opens a poster asked for before the venues loaded once they have, with the venues in it', async () => {
+    // The editor frames the map and places its pins when it opens, so it must not open on an empty
+    // list that fills in a moment later.
     const user = userEvent.setup();
-    mocked.venues = [];
+    mocked.loaded = false;
     const { rerender } = render(<App />);
     await user.click(screen.getByText('gen-poster'));
-    expect(await screen.findByTestId('poster-editor-venues')).toHaveTextContent('0');
+    expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument();
 
+    mocked.loaded = true;
     mocked.venues = [venue];
     rerender(<App />);
 
-    expect(screen.getByTestId('poster-editor-venues')).toHaveTextContent('1');
+    expect(await screen.findByTestId('poster-editor-venues')).toHaveTextContent('1');
     mocked.venues = null;
   });
 
