@@ -14,12 +14,15 @@ import type { GeoStatus } from '../geo/useGeolocation';
 import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
+import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
 
 interface MapViewProps {
   venues: Venue[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  // Called when the visitor closes the selected venue's popup.
+  onDeselect: () => void;
   onOpenDetail: (id: string) => void;
   baseKind: 'map' | 'sat';
   onChangeBase: (k: 'map' | 'sat') => void;
@@ -98,7 +101,7 @@ const fitAllBtnStyle: CSSProperties = {
 };
 
 export function MapView({
-  venues, selectedId, onSelect, onOpenDetail,
+  venues, selectedId, onSelect, onDeselect, onOpenDetail,
   baseKind, onChangeBase, placing, onPickLocation, registerFitAll, initialFocusBounds,
   userPosition, geoStatus, onRequestLocation, isMobile,
 }: MapViewProps) {
@@ -116,12 +119,30 @@ export function MapView({
   const [fitAllBorder, setFitAllBorder] = useState(FIT_ALL_DEFAULT_BORDER);
   const [fitAllBgClip, setFitAllBgClip] = useState(FIT_ALL_DEFAULT_BG_CLIP);
   const appliedInitialFocusRef = useRef(false);
+  // The id a pin click just selected, so the selection effect leaves the map where it is.
+  const selectedFromMapRef = useRef<string | null>(null);
+  // True while MapView removes markers itself. Their popups close then, but the visitor didn't
+  // close them, so the selection stays.
+  const quietCloseRef = useRef(false);
+  // The handler that opens a focused venue's popup once its flight lands.
+  const landingRef = useRef<(() => void) | null>(null);
+  // markercluster takes every pin off the map and puts it back on each zoom step, which closes the
+  // pin's popup. Between zoomstart and moveend such a close isn't the visitor's: reopenRef holds the
+  // selected venue whose popup it closed, and reopeningRef is set while that popup is put back.
+  const zoomingRef = useRef(false);
+  const reopenRef = useRef<string | null>(null);
+  const reopeningRef = useRef(false);
+  // Controls drawn over the map, which an open popup is kept clear of.
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const fitAllRef = useRef<HTMLDivElement | null>(null);
+  const locateRef = useRef<HTMLDivElement | null>(null);
 
   // Latest-value refs so the imperative map callbacks (bound once) see fresh props.
   const venuesRef = useRef(venues);
   const selectedIdRef = useRef(selectedId);
   const placingRef = useRef(placing);
   const onSelectRef = useRef(onSelect);
+  const onDeselectRef = useRef(onDeselect);
   const onOpenDetailRef = useRef(onOpenDetail);
   const onPickLocationRef = useRef(onPickLocation);
   const tRef = useRef(t);
@@ -131,6 +152,7 @@ export function MapView({
     selectedIdRef.current = selectedId;
     placingRef.current = placing;
     onSelectRef.current = onSelect;
+    onDeselectRef.current = onDeselect;
     onOpenDetailRef.current = onOpenDetail;
     onPickLocationRef.current = onPickLocation;
     tRef.current = t;
@@ -151,34 +173,94 @@ export function MapView({
     if (!group || !map) return;
     const sz = map.getSize ? map.getSize() : null;
     if (sz && (sz.x <= 0 || sz.y <= 0)) { window.setTimeout(refreshMarkers, 120); return; }
-    group.clearLayers(); markersRef.current = {};
+    quietCloseRef.current = true;
+    try { group.clearLayers(); } finally { quietCloseRef.current = false; }
+    markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      // clusterIcon reads associationId from the options to colour the cluster's ring.
+      // clusterIcon reads associationId from the options to colour the cluster's ring. Leaflet makes
+      // each pin a focusable button; the title gives that button the venue's name.
       const selected = v.id === selectedIdRef.current;
       const options: L.MarkerOptions & { associationId: CantonalId } = {
         icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
+        title: v.name,
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
-      m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true });
-      m.on('click', () => onSelectRef.current(v.id));
+      // autoPan is off because panPopupIntoView does its job and also clears the controls.
+      m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
+      // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
+      // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
+      // or a second click on the pin. Picking a second pin closes the first popup before opening the
+      // next within the same click, so React renders the two changes as one and the selection moves
+      // without a gap. A pin's own popup opening selects it, and the selection effect then moves the
+      // popup onto the teardrop and pans. focusVenue and onMoveEnd open the popup of a venue that is
+      // already selected; only focusVenue's needs a pan, since a zoom leaves the map where it is.
+      m.on('popupopen', (e: L.PopupEvent) => {
+        if (selectedIdRef.current !== v.id) {
+          selectedFromMapRef.current = v.id;
+          onSelectRef.current(v.id);
+        } else if (!reopeningRef.current) {
+          panPopupIntoView(e.popup);
+        }
+      });
+      m.on('popupclose', () => {
+        if (quietCloseRef.current || selectedIdRef.current !== v.id) return;
+        if (zoomingRef.current) { reopenRef.current = v.id; return; }
+        onDeselectRef.current();
+      });
       markersRef.current[v.id] = m;
     });
   };
 
+  // Pans the map so that the open popup is inside it and no control covers it. See popupShift.ts. A
+  // map with no size yet (a page opened hidden) has nothing to pan into.
+  const panPopupIntoView = (popup: L.Popup) => {
+    const map = mapRef.current; const el = popup.getElement();
+    if (!map || !el || !popup.isOpen()) return;
+    const mapBox = map.getContainer().getBoundingClientRect();
+    if (!mapBox.width || !mapBox.height) return;
+    const controls = [overlayRef.current, map.zoomControl?.getContainer(), fitAllRef.current, locateRef.current]
+      .filter((c): c is HTMLElement => !!c)
+      .map((c) => c.getBoundingClientRect());
+    const shift = popupShift(el.getBoundingClientRect(), controls, mapBox);
+    // Subtracting from 0 rather than negating keeps an unmoved axis at 0 instead of -0.
+    if (shift) map.panBy([0 - shift.dx, 0 - shift.dy]);
+  };
+
+  // setIcon leaves an open popup where it was. A pin clicked into the teardrop has its popup open
+  // already, so the popup is moved up to the teardrop's anchor instead of covering its head, and
+  // panned into view from there. setLatLng moves it without re-rendering its content, which
+  // popup.update() would do, dropping the Details button's handler with it.
   const updatePins = () => {
     venuesRef.current.forEach((v) => {
       const selected = v.id === selectedIdRef.current;
-      markersRef.current[v.id]?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
+      const m = markersRef.current[v.id];
+      m?.setIcon(venueIcon(v, selected)).setZIndexOffset(pinZIndexOffset(selected));
+      const popup = selected && m?.isPopupOpen() ? m.getPopup() : undefined;
+      const at = popup?.getLatLng();
+      if (popup && at) { popup.setLatLng(at); panPopupIntoView(popup); }
     });
   };
 
+  // Flies to a venue picked in the list or opened by a link, and opens its popup once the flight has
+  // landed: before that, the pin may still sit in a cluster at the old view. A pan still running when
+  // the flight starts ends with a moveend of its own at the old view, so the popup waits for the
+  // moveend that finds the map centred on the venue.
   const focusVenue = (id: string) => {
     const map = mapRef.current; const m = markersRef.current[id];
     if (!m || !map) return;
     const mx = map.getMaxZoom ? map.getMaxZoom() : 17;
     const z = Math.min(mx, Math.max(map.getZoom() + 4, 16));
-    map.flyTo(m.getLatLng(), z, { duration: 0.8 });
-    window.setTimeout(() => { const mm = markersRef.current[id]; if (mm) mm.openPopup(); }, 880);
+    const target = m.getLatLng();
+    if (landingRef.current) map.off('moveend', landingRef.current);
+    const land = () => {
+      if (map.latLngToContainerPoint(map.getCenter()).distanceTo(map.latLngToContainerPoint(target)) > 1) return;
+      map.off('moveend', land);
+      landingRef.current = null;
+      if (selectedIdRef.current === id) markersRef.current[id]?.openPopup();
+    };
+    landingRef.current = land;
+    map.on('moveend', land);
+    map.flyTo(target, z, { duration: 0.8 });
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,6 +300,23 @@ export function MapView({
     close?.setAttribute('title', tRef.current.close);
   };
 
+  // After a zoom has closed the selected venue's popup (see the marker's popupclose), markercluster
+  // has put the pins back by now: zoomend comes before moveend. The popup returns if its pin stands
+  // on its own, and the selection goes if the pin has joined a cluster.
+  const onMoveEnd = () => {
+    zoomingRef.current = false;
+    const id = reopenRef.current; reopenRef.current = null;
+    const map = mapRef.current;
+    if (!id || !map || selectedIdRef.current !== id) return;
+    const m = markersRef.current[id];
+    if (m && map.hasLayer(m)) {
+      reopeningRef.current = true;
+      try { m.openPopup(); } finally { reopeningRef.current = false; }
+    } else {
+      onDeselectRef.current();
+    }
+  };
+
   // Mount: create the map once.
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
@@ -233,6 +332,8 @@ export function MapView({
       : L.layerGroup();
     if (markerGroupRef.current.on) markerGroupRef.current.on('clusterclick', onClusterClick);
     map.on('popupopen', onPopupOpen);
+    map.on('zoomstart', () => { zoomingRef.current = true; });
+    map.on('moveend', onMoveEnd);
     map.on('click', onMapClick);
 
     map.whenReady(() => {
@@ -260,7 +361,8 @@ export function MapView({
     });
 
     return () => {
-      map.remove();
+      quietCloseRef.current = true;
+      try { map.remove(); } finally { quietCloseRef.current = false; }
       mapRef.current = null;
       markerGroupRef.current = null;
       markersRef.current = {};
@@ -295,11 +397,15 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venues, t, associations]);
 
-  // Selection change → recolor pins and focus.
+  // Selection change → recolor pins, and fly to a venue picked anywhere but on the map.
   useEffect(() => {
     if (!mapRef.current) return;
     updatePins();
-    if (selectedId) focusVenue(selectedId);
+    if (selectedId === null) return;
+    const fromMap = selectedId === selectedFromMapRef.current;
+    selectedFromMapRef.current = null;
+    if (!fromMap) focusVenue(selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   // Crosshair cursor while placing.
@@ -361,7 +467,7 @@ export function MapView({
   return (
     <div style={wrapStyle}>
       <div ref={mapElRef} style={mapElStyle} />
-      <div style={overlayStyle}>
+      <div ref={overlayRef} data-testid="map-overlay" style={overlayStyle}>
         <div style={baseToggleWrapStyle}>
           <button onClick={() => onChangeBase('map')} style={baseToggleBtnStyle(baseKind === 'map')}>
             {t.mapView}
@@ -372,7 +478,7 @@ export function MapView({
         </div>
         {isFeatureOn('verband') && <MapLegend isMobile={isMobile} />}
       </div>
-      <div style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
+      <div ref={fitAllRef} style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button
           className="sk-native-ctrl-btn"
           onClick={() => { const map = mapRef.current; if (map) map.flyToBounds([[45.7, 5.7], [47.95, 10.65]], { padding: [24, 24], duration: 0.8 }); }}
@@ -383,7 +489,7 @@ export function MapView({
         </button>
       </div>
       {geoStatus !== 'unsupported' && (
-        <div style={{ ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${fitAllTop + fitAllSize + 10}px`, width: `${fitAllSize}px`, height: `${fitAllSize}px`, border: fitAllBorder, backgroundClip: fitAllBgClip, zIndex: 1000 }}>
+        <div ref={locateRef} style={{ ...nativeCtrlStyle, position: 'absolute', left: '10px', top: `${fitAllTop + fitAllSize + 10}px`, width: `${fitAllSize}px`, height: `${fitAllSize}px`, border: fitAllBorder, backgroundClip: fitAllBgClip, zIndex: 1000 }}>
           <button
             className="sk-native-ctrl-btn"
             onClick={onRequestLocation}

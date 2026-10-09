@@ -82,6 +82,74 @@ Then('the details of {string} are open', async ({ page }, name: string) => {
   await expect(page.getByTestId('venue-detail')).toContainText(name);
 });
 
+// Leaflet names a pin's button after the marker's title, which MapView sets to the venue's name.
+const pinOf = (page: import('@playwright/test').Page, name: string) =>
+  page.locator(`.leaflet-marker-icon[title="${name}"]`);
+
+// The map's zoom, read from the tiles it shows: every tile URL carries its zoom level
+// (tile.openstreetmap.org/{z}/{x}/{y}.png). While the map flies or zooms, tiles of two levels are on
+// screen, and then this returns -1.
+const tileZoom = async (page: import('@playwright/test').Page) => {
+  const srcs = await page.locator('img.leaflet-tile').evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src));
+  const levels = [...new Set(srcs.map((src) => Number(new URL(src).pathname.split('/')[1])))];
+  return levels.length === 1 ? levels[0] : -1;
+};
+
+// MapView opens on the whole country at zoom 8, and a canton link flies in from there.
+const COUNTRY_ZOOM = 8;
+
+// The zoom once the map is at rest. Partway through a flight the tiles can show a single level for
+// a moment, so a lone level alone doesn't prove the map has landed; a pin that stays put for 300 ms
+// does, since every frame of a flight moves it.
+const restingZoom = async (page: import('@playwright/test').Page, pin: import('@playwright/test').Locator) => {
+  let zoom = -1;
+  await expect.poll(async () => {
+    const before = await pin.boundingBox();
+    await page.waitForTimeout(300);
+    const after = await pin.boundingBox();
+    const still = !!before && !!after && before.x === after.x && before.y === after.y;
+    zoom = still ? await tileZoom(page) : -1;
+    return zoom;
+  }, { timeout: 10_000 }).toBeGreaterThan(COUNTRY_ZOOM);
+  return zoom;
+};
+
+When('I click the pin of {string}', async ({ page, mapZoom }, name: string) => {
+  // The pin is clicked once the canton link's flight has landed.
+  mapZoom.before = await restingZoom(page, pinOf(page, name));
+  await pinOf(page, name).click();
+});
+
+Then('the popup of {string} is open', async ({ page }, name: string) => {
+  await expect(page.locator('.leaflet-popup')).toContainText(name);
+});
+
+// A pin click used to fly the map in, which took 800 ms. This checks that nothing happens, so it
+// waits out that time before it reads the zoom again.
+Then('the map has kept its zoom', async ({ page, mapZoom }) => {
+  await page.waitForTimeout(1000);
+  await expect.poll(() => tileZoom(page)).toBe(mapZoom.before);
+});
+
+// The selected pin is the only teardrop (an SVG path), and its row in the list is marked current.
+Then('{string} is selected', async ({ page }, name: string) => {
+  await expect(pinOf(page, name).locator('path')).toHaveCount(1);
+  await expect(rows(page).filter({ hasText: name })).toHaveAttribute('aria-current', 'true');
+});
+
+When('I open the details from the popup', async ({ page }) => {
+  await page.locator('.leaflet-popup').getByRole('button', { name: t.details }).click();
+});
+
+When('I close the popup', async ({ page }) => {
+  await page.locator('.leaflet-popup').getByRole('button', { name: t.close }).click();
+});
+
+Then('no venue is selected', async ({ page }) => {
+  await expect(page.locator('.leaflet-marker-icon path')).toHaveCount(0);
+  await expect(page.locator('[data-testid="venue-row"][aria-current="true"]')).toHaveCount(0);
+});
+
 When('I follow a shared link to canton {string}', async ({ page }, canton: string) => {
   await page.goto(`/?ctn=${canton}`);
 });

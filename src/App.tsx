@@ -301,6 +301,7 @@ function AppShell() {
             venues={venues}
             selectedId={selectedId}
             onSelect={selectVenue}
+            onDeselect={() => setSelectedId(null)}
             onOpenDetail={openDetail}
             baseKind={baseKind}
             onChangeBase={setBaseKind}
