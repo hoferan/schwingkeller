@@ -91,12 +91,15 @@ in `docs/adr/README.md`.
 
 `.github/workflows/ci.yml` has six jobs. `build-test` runs lint, typecheck,
 coverage and a compile-only build. `e2e` runs the Gherkin feature files in
-`e2e/features` through playwright-bdd, in an admin and a visitor project,
-against the Compose backend. Playwright builds the production bundle with
-`VITE_APP_ENV=production` and serves it with Vite on port 4173, in CI and
-locally alike, so the suite sees production's feature flag values. It never
-tests the Compose dev server on 5173, and it refuses to start if its base URL
-or Supabase URL isn't local. `integration` runs `npm run test:integration`
+`e2e/features` through playwright-bdd against the Compose backend. Playwright
+builds two bundles and serves them with Vite, in CI and locally alike: one
+with `VITE_APP_ENV=production` on port 4173, which has production's feature
+flag values, and one with `VITE_APP_ENV=stage` on 4174, which has the Verband
+view on. Each bundle gets an admin and a visitor project. A scenario runs
+against both unless it is tagged `@canton-view` (flag off only) or
+`@verband-view` (flag on only). The suite never tests the Compose dev server
+on 5173, and it refuses to start if a base URL or the Supabase URL isn't
+local. `integration` runs `npm run test:integration`
 against another fresh Compose backend. `all-green` depends on those three and is the single
 required status check. On pushes to `main`, `migrate` pushes the Supabase
 migrations once `all-green` passed, and `deploy` then builds the production

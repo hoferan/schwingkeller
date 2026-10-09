@@ -72,6 +72,12 @@ describe('AssociationGroups', () => {
     expect(screen.getByTestId('group-nosv')).toHaveTextContent('0');
   });
 
+  it('marks each group total for the browser suite', () => {
+    renderGroups();
+    expect(within(screen.getByTestId('group-swsv')).getByTestId('group-count')).toHaveTextContent('2');
+    expect(within(screen.getByTestId('group-bksv')).getByTestId('group-count')).toHaveTextContent('1');
+  });
+
   it('lists all 29 Verbände closed while not filtering', () => {
     renderGroups();
     const verbaende = screen

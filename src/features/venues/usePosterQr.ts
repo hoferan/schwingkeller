@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import type { PosterSubject } from './posterSubject';
+import { POSTER_QR_OPTIONS } from './posterLayout';
 
 export interface PosterQr {
   url: string;
@@ -13,7 +14,7 @@ export const usePosterQr = (subject: PosterSubject): PosterQr => {
 
   useEffect(() => {
     let active = true;
-    QRCode.toDataURL(url, { margin: 1, width: 240 })
+    QRCode.toDataURL(url, POSTER_QR_OPTIONS)
       .then((d) => { if (active) setDataUrl(d); })
       .catch(() => { if (active) setDataUrl(null); });
     return () => { active = false; };
