@@ -11,6 +11,7 @@ Feature: Venue details
     When I follow a shared link to "Mythen Schwingkeller"
     Then the details of "Mythen Schwingkeller" are open
 
+  @canton-view
   Scenario: A shared canton link shows that canton
     When I follow a shared link to canton "FR"
     Then the venues of canton "FR" are shown

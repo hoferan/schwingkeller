@@ -64,6 +64,10 @@ own value.
 `src/lib/features.test.ts` checks how `VITE_APP_ENV` maps to the three columns, including the
 fallback for unknown values.
 
+The e2e suite builds two bundles, one with production's values and one for `stage`, and runs its
+scenarios against both, so each state of `verband` is tested in a browser. A scenario that only
+applies to one state is tagged `@canton-view` or `@verband-view` and runs against that bundle alone.
+
 ## More information
 
 * Mechanism: [#62](https://github.com/hoferan/schwingkeller/issues/62). Switch and removal of

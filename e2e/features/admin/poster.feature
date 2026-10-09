@@ -1,3 +1,4 @@
+@canton-view
 Feature: Poster for a canton
   An admin makes a poster of a canton's venues to post online or print.
 
