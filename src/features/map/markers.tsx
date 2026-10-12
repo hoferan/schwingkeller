@@ -8,6 +8,7 @@ import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
 import { isFeatureOn } from '../../lib/features';
 import { MarkerPopup } from './MarkerPopup';
 import type { Associations } from '../associations/useAssociations';
+import type { TipExtents } from './pinNames';
 
 type T = typeof STR.de;
 
@@ -51,6 +52,14 @@ export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon =
   };
 };
 
+// Where a pin's name chip may open, 1px clear of the pin (see placeTip). The disc's outer edge is
+// 14px from its centre. The teardrop is anchored at its tip: its head (radius 13.75 with the
+// stroke) is centred 23.5px above it, and its ground shadow reaches 1.8px below.
+export const pinTipExtents = (selected: boolean): TipExtents =>
+  selected
+    ? { top: -38, bottom: 3, left: -15, right: 15, midY: -23.5 }
+    : { top: -15, bottom: 15, left: -15, right: 15, midY: 0 };
+
 // The width of the "you are here" marker, halo included. MapView sizes and anchors the icon with it.
 export const USER_PIN_SIZE = 48;
 
@@ -93,12 +102,21 @@ interface ClusterLike {
   getAllChildMarkers(): { options: { associationId: CantonalId } }[];
 }
 
+// A cluster icon's width and height for the number of venues in it.
+export const clusterSize = (count: number): number => (count < 10 ? 34 : count < 50 ? 40 : 46);
+
+// Where a hovered cluster's list may open, 1px clear of the icon (see placeTip).
+export const clusterTipExtents = (count: number): TipExtents => {
+  const r = clusterSize(count) / 2 + 1;
+  return { top: -r, bottom: r, left: -r, right: r, midY: 0 };
+};
+
 // With the verband flag off a cluster is a red disc. With it on it is drawn like a pin with a number:
 // a white edge, a ring showing which Teilverbände its venues belong to, and a white centre with the
 // count. The count takes the ring's colour when there is only one, and the ink colour otherwise.
-export const clusterIcon = <I,>(L: { divIcon(options: DivIconOptions): I }) => (cluster: ClusterLike): I => {
+export const clusterIcon =<I,>(L: { divIcon(options: DivIconOptions): I }) => (cluster: ClusterLike): I => {
   const n = cluster.getChildCount();
-  const size = n < 10 ? 34 : (n < 50 ? 40 : 46);
+  const size = clusterSize(n);
   const fontSize = (n < 100 ? 14 : 12) + 'px';
   if (!isFeatureOn('verband')) {
     return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>' });

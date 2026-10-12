@@ -7,7 +7,7 @@ import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAssociations } from '../associations/useAssociations';
-import { pinIcon, popupHtml, clusterIcon, userPinHtml, USER_PIN_SIZE } from './markers';
+import { pinIcon, popupHtml, clusterIcon, clusterTipExtents, pinTipExtents, userPinHtml, USER_PIN_SIZE } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { CantonalId } from '../../data/associations';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -16,6 +16,8 @@ import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
+import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, placeTip, TIP_FADE_MS, TIP_SHOW_DELAY_MS, type NamePin, type TipExtents } from './pinNames';
+import type { LabelRect } from '../../lib/labelPlacement';
 
 interface MapViewProps {
   venues: Venue[];
@@ -37,7 +39,11 @@ interface MapViewProps {
 }
 
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
-const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
+// The chips' show delay and fade, for .pin-tip in index.css.
+const mapElStyle = {
+  position: 'absolute', inset: 0,
+  '--pin-tip-delay': `${TIP_SHOW_DELAY_MS}ms`, '--pin-tip-fade': `${TIP_FADE_MS}ms`,
+} as CSSProperties;
 // The base switch, with the legend under it. The zoom and location controls sit on the left and
 // the phone's drawer covers the bottom, so the top right is the one corner that is always free.
 const overlayStyle: CSSProperties = {
@@ -91,6 +97,8 @@ const fitAllWrapStyle = (top: number, size: number, border: string, backgroundCl
 // (zIndexOffset 1000).
 const pinZIndexOffset = (selected: boolean): number => (selected ? 500 : 0);
 
+type PinOptions = L.MarkerOptions & { associationId: CantonalId; venueName: string };
+
 // The selected pin is a teardrop anchored at its tip, so the icon box and anchors come with the pin.
 const venueIcon = (v: Venue, selected: boolean): L.DivIcon =>
   L.divIcon({ className: '', ...pinIcon(selected, v.association_id) });
@@ -112,6 +120,8 @@ export function MapView({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markerGroupRef = useRef<any>(null);
   const markersRef = useRef<Record<string, L.Marker>>({});
+  // The venue names written next to lone pins from NAME_ZOOM on (refreshNames).
+  const namesLayerRef = useRef<L.LayerGroup | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const [fitAllTop, setFitAllTop] = useState(FIT_ALL_DEFAULT_TOP);
@@ -177,16 +187,36 @@ export function MapView({
     try { group.clearLayers(); } finally { quietCloseRef.current = false; }
     markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      // clusterIcon reads associationId from the options to colour the cluster's ring. Leaflet makes
-      // each pin a focusable button; the title gives that button the venue's name.
+      // clusterIcon reads associationId from the options to colour the cluster's ring, and a hovered
+      // cluster lists the venueName of its pins.
       const selected = v.id === selectedIdRef.current;
-      const options: L.MarkerOptions & { associationId: CantonalId } = {
-        icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
-        title: v.name,
+      const options: PinOptions = {
+        icon: venueIcon(v, selected), associationId: v.association_id, venueName: v.name,
+        zIndexOffset: pinZIndexOffset(selected),
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
+      // Leaflet makes each pin a focusable button. Its name comes from aria-label rather than title,
+      // which would show the browser's own tooltip next to the chip. markercluster builds a new
+      // element each time it puts the pin back on the map, so the label goes on at every add, and
+      // so does keyboard focus for the chip: Leaflet only wires focus to the element the pin had
+      // when refreshNames bound the chip. Without a chip bound, both calls do nothing.
+      const setUpElement = () => {
+        const el = m.getElement();
+        if (!el) return;
+        el.setAttribute('aria-label', v.name);
+        L.DomEvent.on(el, 'focus', () => m.openTooltip());
+        L.DomEvent.on(el, 'blur', () => m.closeTooltip());
+      };
+      m.on('add', setUpElement);
+      setUpElement();
       // autoPan is off because panPopupIntoView does its job and also clears the controls.
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
+      // refreshNames gives the pin its name chip on hover or keyboard focus. Leaflet would also open
+      // the chip on the click that opens the popup; the popup already names the venue, so it closes.
+      m.on('tooltipopen', () => {
+        if (m.isPopupOpen()) m.closeTooltip();
+        else orientTip(m, pinTipExtents(v.id === selectedIdRef.current));
+      });
       // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
       // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
       // or a second click on the pin. Picking a second pin closes the first popup before opening the
@@ -195,6 +225,7 @@ export function MapView({
       // popup onto the teardrop and pans. focusVenue and onMoveEnd open the popup of a venue that is
       // already selected; only focusVenue's needs a pan, since a zoom leaves the map where it is.
       m.on('popupopen', (e: L.PopupEvent) => {
+        m.closeTooltip();
         if (selectedIdRef.current !== v.id) {
           selectedFromMapRef.current = v.id;
           onSelectRef.current(v.id);
@@ -207,7 +238,77 @@ export function MapView({
         if (zoomingRef.current) { reopenRef.current = v.id; return; }
         onDeselectRef.current();
       });
+      // An open popup names its venue, so the pin's own name goes while it is open. Popups that a
+      // rebuild or a zoom closes leave this to the rebuild and to moveend.
+      m.on('popupopen', () => { if (!zoomingRef.current) refreshNames(); });
+      m.on('popupclose', () => { if (!quietCloseRef.current && !zoomingRef.current) refreshNames(v.id); });
       markersRef.current[v.id] = m;
+    });
+    refreshNames();
+  };
+
+  // The controls drawn over the map, in client pixels: an open popup and the names keep clear of them.
+  const controlRects = (): DOMRect[] =>
+    [overlayRef.current, mapRef.current?.zoomControl?.getContainer(), fitAllRef.current, locateRef.current]
+      .filter((c): c is HTMLElement => !!c)
+      .map((c) => c.getBoundingClientRect());
+
+  // A box in client pixels, moved into the map's own pixels, where names and chips are placed.
+  const inMapPixels = (r: DOMRect): LabelRect => {
+    const box = mapRef.current?.getContainer().getBoundingClientRect();
+    return { x: r.left - (box?.left ?? 0), y: r.top - (box?.top ?? 0), w: r.width, h: r.height };
+  };
+
+  // From NAME_ZOOM on, writes each lone pin's name next to it where it fits (pinNames.ts). A name
+  // opens its venue like the pin does. A pin without a name, at any zoom, shows the name chip on
+  // hover instead, on devices that can hover. Leaflet fires popupclose while the popup still counts
+  // as open, so the pin whose popup is closing comes in as `closing`.
+  const refreshNames = (closing?: string) => {
+    const map = mapRef.current; const group = markerGroupRef.current; const layer = namesLayerRef.current;
+    if (!map || !group || !layer) return;
+    layer.clearLayers();
+    const named = new Set<string>();
+    if (map.getZoom() >= NAME_ZOOM) {
+      const size = map.getSize();
+      const obstacles = controlRects().map(inMapPixels);
+      const clusters = new Set<unknown>();
+      const pins: NamePin[] = [];
+      venuesRef.current.forEach((v) => {
+        const m = markersRef.current[v.id];
+        const shown = m && (group.getVisibleParent ? group.getVisibleParent(m) : m);
+        if (!shown || !map.hasLayer(shown)) return;
+        if (shown !== m) {
+          // A cluster: its icon is in the way of names, once.
+          if (!clusters.has(shown)) { clusters.add(shown); const el = shown.getElement?.(); if (el) obstacles.push(inMapPixels(el.getBoundingClientRect())); }
+          return;
+        }
+        if (m.isPopupOpen() && v.id !== closing) {
+          [m.getElement(), m.getPopup()?.getElement()].forEach((el) => { if (el) obstacles.push(inMapPixels(el.getBoundingClientRect())); });
+          return;
+        }
+        const p = map.latLngToContainerPoint(m.getLatLng());
+        if (p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) return;
+        pins.push({ id: v.id, x: p.x, y: p.y, name: v.name });
+      });
+      placeNames(pins, measureName, { width: size.x, height: size.y, obstacles }).forEach((n) => {
+        const pin = pins.find((p) => p.id === n.id)!;
+        const nameMarker = L.marker(markersRef.current[n.id].getLatLng(), {
+          icon: L.divIcon({ className: 'pin-name', html: escapeHtml(n.text), iconSize: [n.w, n.h], iconAnchor: [pin.x - n.x, pin.y - n.y] }),
+          keyboard: false, zIndexOffset: -1000,
+        });
+        // The pin already gives screen readers the name.
+        nameMarker.on('add', () => nameMarker.getElement()?.setAttribute('aria-hidden', 'true'));
+        nameMarker.on('click', () => markersRef.current[n.id]?.openPopup());
+        nameMarker.addTo(layer);
+        named.add(n.id);
+      });
+    }
+    const hover = canHover();
+    venuesRef.current.forEach((v) => {
+      const m = markersRef.current[v.id];
+      if (!m) return;
+      if (!hover || named.has(v.id)) m.unbindTooltip();
+      else if (!m.getTooltip()) m.bindTooltip(escapeHtml(v.name), { direction: 'top', className: 'pin-tip', opacity: 1 });
     });
   };
 
@@ -218,10 +319,7 @@ export function MapView({
     if (!map || !el || !popup.isOpen()) return;
     const mapBox = map.getContainer().getBoundingClientRect();
     if (!mapBox.width || !mapBox.height) return;
-    const controls = [overlayRef.current, map.zoomControl?.getContainer(), fitAllRef.current, locateRef.current]
-      .filter((c): c is HTMLElement => !!c)
-      .map((c) => c.getBoundingClientRect());
-    const shift = popupShift(el.getBoundingClientRect(), controls, mapBox);
+    const shift = popupShift(el.getBoundingClientRect(), controlRects(), mapBox);
     // Subtracting from 0 rather than negating keeps an unmoved axis at 0 instead of -0.
     if (shift) map.panBy([0 - shift.dx, 0 - shift.dy]);
   };
@@ -283,6 +381,37 @@ export function MapView({
     map.flyTo(ll ? [ll.lat, ll.lng] : map.getCenter(), Math.min(mx, map.getZoom() + 3), { duration: 0.6 });
   };
 
+  // A hovered cluster lists its venues, on devices that can hover. The list is built at each hover,
+  // so it follows the venues and the language. The tooltip Leaflet binds closes itself on mouseout.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onClusterOver = (e: any) => {
+    if (!canHover()) return;
+    const children: L.Marker[] = e.layer.getAllChildMarkers();
+    const names = children.map((c) => (c.options as PinOptions).venueName);
+    e.layer.unbindTooltip()
+      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { className: 'pin-tip', opacity: 1 })
+      .openTooltip();
+    orientTip(e.layer, clusterTipExtents(children.length));
+  };
+
+  // Opens an open chip or cluster list on the side of its marker where it fits inside the map and
+  // clear of the controls (placeTip). It is measured once open, then moved there. Leaflet takes the
+  // side and the offset from the tooltip's options and re-reads them on update. The icons set no
+  // tooltipAnchor, which Leaflet would add on every side; a cluster couldn't even have one, as
+  // markercluster makes the cluster its own icon.
+  const orientTip = (layer: L.Marker, ext: TipExtents) => {
+    const map = mapRef.current; const tip = layer.getTooltip(); const el = tip?.getElement();
+    if (!map || !tip || !el) return;
+    const size = map.getSize();
+    const { direction, offset } = placeTip(
+      map.latLngToContainerPoint(layer.getLatLng()), ext, { w: el.offsetWidth, h: el.offsetHeight },
+      { width: size.x, height: size.y, obstacles: controlRects().map(inMapPixels) },
+    );
+    tip.options.direction = direction;
+    tip.options.offset = offset;
+    tip.update();
+  };
+
   const onMapClick = (e: L.LeafletMouseEvent) => {
     if (!placingRef.current) return;
     const lat = +e.latlng.lat.toFixed(5);
@@ -330,7 +459,10 @@ export function MapView({
     markerGroupRef.current = Lany.markerClusterGroup
       ? Lany.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50, spiderfyOnMaxZoom: true, zoomToBoundsOnClick: false, disableClusteringAtZoom: 16, removeOutsideVisibleBounds: false, animate: false, iconCreateFunction: clusterIcon(L) })
       : L.layerGroup();
-    if (markerGroupRef.current.on) markerGroupRef.current.on('clusterclick', onClusterClick);
+    if (markerGroupRef.current.on) {
+      markerGroupRef.current.on('clusterclick', onClusterClick);
+      markerGroupRef.current.on('clustermouseover', onClusterOver);
+    }
     map.on('popupopen', onPopupOpen);
     map.on('zoomstart', () => { zoomingRef.current = true; });
     map.on('moveend', onMoveEnd);
@@ -356,9 +488,18 @@ export function MapView({
         if (mapRef.current !== map || !markerGroupRef.current) return;
         map.invalidateSize();
         if (!map.hasLayer(markerGroupRef.current)) markerGroupRef.current.addTo(map);
+        // After the cluster group is on the map, so that its own moveend handler has regrouped the
+        // pins by the time the names are placed.
+        map.on('moveend resize', () => refreshNames());
         refreshMarkers();
       }, 160);
     });
+    namesLayerRef.current = L.layerGroup().addTo(map);
+    // Names are measured in Oswald 600, which nothing else on the page uses, so the browser hasn't
+    // fetched it yet and document.fonts.ready has long settled. Names measured in the fallback font
+    // come out a third too wide, so the map asks for the face and places the names again once it
+    // is there. A failed load leaves the fallback measurements, which still keep names apart.
+    document.fonts?.load(NAME_FONT).then(() => { if (mapRef.current === map) refreshNames(); }, () => {});
 
     return () => {
       quietCloseRef.current = true;

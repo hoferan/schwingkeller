@@ -6,6 +6,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { MapView } from './MapView';
 import { USER_PIN_SIZE } from './markers';
+import { TIP_FADE_MS, TIP_SHOW_DELAY_MS } from './pinNames';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
 
@@ -191,10 +192,12 @@ describe('MapView venue pins', () => {
     expect(popup).toHaveTextContent('Fribourg');
   });
 
-  it('names each pin after its venue', () => {
+  it('names each pin for screen readers, without a title for the browser to show', () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
-    expect(container.querySelector('.leaflet-marker-icon')).toHaveAttribute('title', 'Keller 1');
+    const pin = container.querySelector('.leaflet-marker-icon');
+    expect(pin).toHaveAttribute('aria-label', 'Keller 1');
+    expect(pin).not.toHaveAttribute('title');
   });
 
   it("hands each venue's association to the cluster icon", () => {
@@ -298,7 +301,7 @@ describe('MapView selection from the map', () => {
     return result;
   };
   const pin = (container: HTMLElement, name: string) =>
-    container.querySelector<HTMLElement>(`.leaflet-marker-icon[title="${name}"]`)!;
+    container.querySelector<HTMLElement>(`.leaflet-marker-icon[aria-label="${name}"]`)!;
   const teardrops = (container: HTMLElement) => container.querySelectorAll('.leaflet-marker-icon path');
   const closePopup = (container: HTMLElement) =>
     fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
@@ -530,5 +533,289 @@ describe('MapView selection from the map', () => {
     const { container } = renderHarness();
     fireEvent.click(pin(container, 'Keller 1'));
     expect(panBy).toHaveBeenCalledWith([0, -35]);
+  });
+});
+
+describe('MapView pin names on hover', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  // A desktop with a mouse can hover; a phone or tablet can't.
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  const renderPin = () => {
+    const result = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    return { ...result, pin: result.container.querySelector<HTMLElement>('.leaflet-marker-icon')! };
+  };
+  const tooltip = (container: HTMLElement) => container.querySelector('.leaflet-tooltip');
+
+  it('shows the name chip on hover where the device can hover', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.mouseOver(pin);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('shows it on keyboard focus too', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.focus(pin);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('still shows it on keyboard focus after a zoom, when markercluster has rebuilt the pin', () => {
+    setHover(true);
+    const { container } = renderPin();
+    fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+    fireEvent.focus(container.querySelector<HTMLElement>('.leaflet-marker-icon[aria-label="Keller 1"]')!);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('opens the chip below a pin at the top edge of the map, where above it would be cut off', () => {
+    setHover(true);
+    // 10px below the top edge of the 800×600 map at the starting view.
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 47.9, 8.23)]));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(container.querySelector<HTMLElement>('.leaflet-marker-icon')!);
+    expect(container.querySelector('.leaflet-tooltip')).toHaveClass('leaflet-tooltip-bottom');
+  });
+
+  // index.css waits --pin-tip-delay, then fades a chip in over --pin-tip-fade. A pointer passing
+  // over pins on its way across the map leaves each one before its chip shows.
+  it('hands the chip its show delay and fade from pinNames to the CSS', () => {
+    const { container } = renderPin();
+    const map = container.querySelector<HTMLElement>('.leaflet-container')!;
+    expect(map.style.getPropertyValue('--pin-tip-delay')).toBe(`${TIP_SHOW_DELAY_MS}ms`);
+    expect(map.style.getPropertyValue('--pin-tip-fade')).toBe(`${TIP_FADE_MS}ms`);
+  });
+
+  it('hides the chip when keyboard focus moves on, also after a zoom has rebuilt the pin', () => {
+    setHover(true);
+    const { container } = renderPin();
+    fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+    const pin = container.querySelector<HTMLElement>('.leaflet-marker-icon[aria-label="Keller 1"]')!;
+    fireEvent.focus(pin);
+    fireEvent.blur(pin);
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
+  it('shows no tooltip on a touch device, neither on hover nor on tap', () => {
+    setHover(false);
+    const { container, pin } = renderPin();
+    fireEvent.mouseOver(pin);
+    fireEvent.click(pin);
+    expect(tooltip(container)).toBeNull();
+  });
+
+  it('shows no tooltip over an open popup', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.click(pin);
+    fireEvent.mouseOver(pin);
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+    expect(tooltip(container)).toBeNull();
+  });
+});
+
+describe('MapView cluster list on hover', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  // Seven venues within a few hundred metres: one cluster at the starting zoom 8.
+  const seven = ['1', '2', '3', '4', '5', '6', '7'].map((id, i) => venueAt(id, 'emmental', 46.82 + i * 0.001, 8.23));
+  // The cluster's icon is the one marker without a venue name.
+  const clusterOf = (container: HTMLElement) =>
+    container.querySelector<HTMLElement>('.leaflet-marker-icon:not([aria-label])')!;
+  const lines = (container: HTMLElement) =>
+    [...container.querySelectorAll('.leaflet-tooltip .pin-tip-list > div')].map((d) => d.textContent);
+
+  it('lists the venues of a hovered cluster', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(lines(container)).toEqual(['Keller 1', 'Keller 2', 'Keller 3', 'Keller 4', 'Keller 5', '+ 2 weitere']);
+  });
+
+  it('says the rest in the language the visitor switched to', () => {
+    setHover(true);
+    const { container, rerender } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, seven, null, null, 'fr'));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(lines(container).at(-1)).toBe('+ 2 autres');
+  });
+
+  // jsdom lays out nothing, so a tooltip is 0px high and its top is where it points. Leaflet places a
+  // marker's icon at its point and pulls it up by the icon anchor with a negative margin.
+  const pointsAtOrAboveTopOf = (tip: HTMLElement, icon: HTMLElement) =>
+    parseFloat(tip.style.top) <= parseFloat(icon.style.top) + parseFloat(icon.style.marginTop);
+
+  it('opens the list from the top of the cluster, as a pin opens its chip, not from its centre', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    const icon = clusterOf(container);
+    fireEvent.mouseOver(icon);
+    expect(pointsAtOrAboveTopOf(container.querySelector<HTMLElement>('.leaflet-tooltip')!, icon)).toBe(true);
+  });
+
+  it('closes the list when the pointer leaves the cluster', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    fireEvent.mouseOut(clusterOf(container));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
+  it('shows no cluster list on a touch device', () => {
+    setHover(false);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+});
+
+describe('MapView names from zoom 12', () => {
+  // The map starts at zoom 8 over [46.82, 8.23]; four clicks on "+" reach 12, where these two are
+  // lone pins some 90px either side of the centre.
+  const agy = { ...venueAt('1', 'freiburg', 46.82, 8.2), name: 'Halle Agy' };
+  const prehl = { ...venueAt('2', 'freiburg', 46.82, 8.26), name: 'Turnhalle Prehl' };
+  let measureText: ReturnType<typeof vi.fn<(s: string) => { width: number }>>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setContainerSize(800, 600);
+    measureText = vi.fn((s: string) => ({ width: s.length * 7 }));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({ font: '', measureText } as unknown as CanvasRenderingContext2D);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  const map = (venues: Venue[], props: { placing?: boolean; onSelect?: (id: string) => void; onPickLocation?: () => void } = {}) => (
+    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+      <MapView
+        venues={venues} selectedId={null} onSelect={props.onSelect ?? vi.fn()} onDeselect={vi.fn()} onOpenDetail={vi.fn()}
+        baseKind="map" onChangeBase={vi.fn()} placing={props.placing ?? false} onPickLocation={props.onPickLocation ?? vi.fn()}
+        userPosition={null} geoStatus="unsupported" onRequestLocation={vi.fn()} isMobile={false}
+      />
+    </I18nContext.Provider>
+  );
+  const zoomTo = (container: HTMLElement, steps: number) => {
+    for (let i = 0; i < steps; i++) fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+  };
+  const names = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('.pin-name')];
+  const nameOf = (container: HTMLElement, name: string) => names(container).find((n) => n.textContent === name) ?? null;
+  const pinOf = (container: HTMLElement, name: string) =>
+    container.querySelector<HTMLElement>(`.leaflet-marker-icon[aria-label="${name}"]`)!;
+  const renderAt = (steps: number, venues: Venue[] = [agy, prehl], props = {}) => {
+    const result = render(map(venues, props));
+    vi.advanceTimersByTime(200);
+    zoomTo(result.container, steps);
+    return result;
+  };
+
+  it('writes the names next to lone pins from zoom 12, hidden from screen readers', () => {
+    const { container } = renderAt(4);
+    expect(names(container).map((n) => n.textContent).sort()).toEqual(['Halle Agy', 'Turnhalle Prehl']);
+    names(container).forEach((n) => expect(n).toHaveAttribute('aria-hidden', 'true'));
+  });
+
+  it('names no pin inside a cluster, only the ones standing alone', () => {
+    // Two venues a few metres apart share a cluster at zoom 12; Prehl stands alone.
+    const near = [
+      { ...venueAt('3', 'freiburg', 46.82, 8.2), name: 'Nah A' },
+      { ...venueAt('4', 'freiburg', 46.8202, 8.2002), name: 'Nah B' },
+    ];
+    const { container } = renderAt(4, [...near, prehl]);
+    expect(names(container).map((n) => n.textContent)).toEqual(['Turnhalle Prehl']);
+  });
+
+  it('writes no names at zoom 11', () => {
+    const { container } = renderAt(3);
+    expect(names(container)).toHaveLength(0);
+  });
+
+  it('opens the venue when its name is tapped, without picking a location', () => {
+    const onSelect = vi.fn(); const onPickLocation = vi.fn();
+    const { container } = renderAt(4, [agy, prehl], { placing: true, onSelect, onPickLocation });
+    fireEvent.click(nameOf(container, 'Halle Agy')!);
+    expect(onSelect).toHaveBeenCalledWith('1');
+    expect(onPickLocation).not.toHaveBeenCalled();
+  });
+
+  it('adds no hover chip to a pin that carries its name', () => {
+    setHover(true);
+    const { container } = renderAt(4);
+    fireEvent.mouseOver(pinOf(container, 'Halle Agy'));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
+  it("drops a pin's name while its popup is open and brings it back on close", () => {
+    const { container } = renderAt(4);
+    fireEvent.click(pinOf(container, 'Halle Agy'));
+    expect(nameOf(container, 'Halle Agy')).toBeNull();
+    fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
+    expect(nameOf(container, 'Halle Agy')).not.toBeNull();
+  });
+
+  it('names a venue added while zoomed in', () => {
+    const { container, rerender } = renderAt(4);
+    rerender(map([agy, prehl, { ...venueAt('3', 'freiburg', 46.8, 8.23), name: 'Neu' }]));
+    vi.advanceTimersByTime(200);
+    expect(nameOf(container, 'Neu')).not.toBeNull();
+  });
+
+  // On a first visit nothing on the page uses Oswald 600 before the names do, so document.fonts.ready
+  // has long settled when they are first placed. The map asks for that face itself.
+  it("places the names again once the names' font has loaded", async () => {
+    let fontLoaded = () => {};
+    const loaded = new Promise<void>((resolve) => { fontLoaded = resolve; });
+    const load = vi.fn(() => loaded);
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve(), load } });
+    try {
+      renderAt(4);
+      expect(load).toHaveBeenCalledWith('600 11px Oswald, sans-serif');
+      const before = measureText.mock.calls.length;
+      fontLoaded();
+      await loaded;
+      await Promise.resolve();
+      expect(measureText.mock.calls.length).toBeGreaterThan(before);
+    } finally {
+      delete (document as { fonts?: unknown }).fonts;
+    }
   });
 });

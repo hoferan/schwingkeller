@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { clusterIcon, clusterRing, pinIcon, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
+import { clusterIcon, clusterRing, clusterSize, clusterTipExtents, pinIcon, pinTipExtents, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
@@ -180,5 +180,29 @@ describe('userPinHtml', () => {
   it('is wider than a venue pin, so its shape tells it apart from a blue NWSV pin', () => {
     expect(USER_PIN_SIZE).toBeGreaterThan(pinIcon(true, 'aargau').iconSize[0]);
     expect(userPinHtml()).not.toBe(pinIcon(false, 'aargau').html);
+  });
+});
+
+describe('tooltip extents', () => {
+  it('opens a chip 1px clear of the 28px disc on every side', () => {
+    expect(pinTipExtents(false)).toEqual({ top: -15, bottom: 15, left: -15, right: 15, midY: 0 });
+  });
+  it("opens it around the teardrop's head, or below its tip", () => {
+    expect(pinTipExtents(true)).toEqual({ top: -38, bottom: 3, left: -15, right: 15, midY: -23.5 });
+  });
+  it('opens a cluster list 1px clear of the cluster icon', () => {
+    expect(clusterTipExtents(2)).toEqual({ top: -18, bottom: 18, left: -18, right: 18, midY: 0 });
+    expect(clusterTipExtents(50)).toEqual({ top: -24, bottom: 24, left: -24, right: 24, midY: 0 });
+  });
+  it('leaves Leaflet no tooltip anchor of its own, which it would add on every side', () => {
+    expect(pinIcon(false, 'emmental')).not.toHaveProperty('tooltipAnchor');
+    expect(pinIcon(true, 'emmental')).not.toHaveProperty('tooltipAnchor');
+  });
+});
+
+describe('clusterSize', () => {
+  it('grows with the number of venues, and sizes the icon', () => {
+    expect([9, 10, 49, 50].map(clusterSize)).toEqual([34, 40, 40, 46]);
+    expect(clusterHtml(['emmental', 'freiburg']).iconSize).toEqual([34, 34]);
   });
 });
