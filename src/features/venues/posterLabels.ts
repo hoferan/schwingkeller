@@ -1,34 +1,18 @@
 // Venue-name pin labels for the canton poster: where each name sits relative to its pin, in
-// POSTER_SIZE (1080-space) px. Pure geometry — no canvas, no DOM — so the canvas exporter
+// POSTER_SIZE (1080-space) px. The placement rule itself is shared with the map's names
+// (src/lib/labelPlacement.ts); this file gives it the poster's sizes. Pure geometry — no canvas, no
+// DOM — so the canvas exporter
 // (posterCanvas.drawPinLabels) and the editor's live DOM preview (PosterEditorModal) place labels
 // identically from one source of truth, the same way posterLayout/computeChromeLayout already do.
 // Callers measure the text themselves and pass the width in, which is what keeps this file free of
 // any rendering dependency.
 
 import { POSTER_SIZE, POSTER_LAYOUT } from './posterLayout';
+import { placeLabels, type LabelPin, type LabelRect, type LabelSlot, type PlacedLabel } from '../../lib/labelPlacement';
 
 const L = POSTER_LAYOUT;
 
-export interface LabelPin {
-  x: number;
-  y: number;
-  text: string;
-  width: number; // measured text width in 1080-space px
-}
-
-export interface LabelRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export type LabelSlot = 'right' | 'left' | 'above' | 'below';
-
-export interface PlacedLabel extends LabelRect {
-  text: string;
-  slot: LabelSlot;
-}
+export type { LabelPin, LabelRect, LabelSlot, PlacedLabel };
 
 export interface PlacePinLabelsOptions {
   posterWidth: number;
@@ -38,64 +22,13 @@ export interface PlacePinLabelsOptions {
   obstacles?: LabelRect[];
 }
 
-// Tried in this order; the first slot that clears everything wins.
-const SLOT_ORDER: readonly LabelSlot[] = ['right', 'left', 'above', 'below'];
+// The poster's sizes for the shared placement rule in src/lib/labelPlacement.ts.
+const POSTER_METRICS = { pinRadius: L.pinRadius, gap: L.labelGap, labelH: L.labelH, padX: L.labelPadX };
 
-const OFFSET = L.pinRadius + L.labelGap; // pin centre to the near edge of the pill
-
-const slotRect = (pin: LabelPin, w: number, h: number, slot: LabelSlot): LabelRect => {
-  switch (slot) {
-    case 'right':
-      return { x: pin.x + OFFSET, y: pin.y - h / 2, w, h };
-    case 'left':
-      return { x: pin.x - OFFSET - w, y: pin.y - h / 2, w, h };
-    case 'above':
-      return { x: pin.x - w / 2, y: pin.y - OFFSET - h, w, h };
-    case 'below':
-      return { x: pin.x - w / 2, y: pin.y + OFFSET, w, h };
-  }
-};
-
-const overlaps = (a: LabelRect, b: LabelRect): boolean =>
-  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-
-const insidePoster = (r: LabelRect, width: number, height: number): boolean =>
-  r.x >= 0 && r.y >= 0 && r.x + r.w <= width && r.y + r.h <= height;
-
-// A pin's own footprint, so a label never covers a neighboring pin. Every slot already clears its
-// own pin by labelGap, so pins need no special-casing here.
-const pinRect = (pin: LabelPin): LabelRect => ({
-  x: pin.x - L.pinRadius,
-  y: pin.y - L.pinRadius,
-  w: L.pinRadius * 2,
-  h: L.pinRadius * 2,
-});
-
-// Places as many names as fit, in the order given — earlier pins get first pick of the slots. A pin
-// whose four slots are all blocked is left out of the result rather than labelled on top of
-// something else, so the caller draws that pin bare. Same pins in, same boxes out.
 export const placePinLabels = (
   pins: LabelPin[],
   { posterWidth, posterHeight, obstacles = [] }: PlacePinLabelsOptions,
-): PlacedLabel[] => {
-  const blocked: LabelRect[] = [...obstacles, ...pins.map(pinRect)];
-  const placed: PlacedLabel[] = [];
-
-  pins.forEach((pin) => {
-    const w = pin.width + L.labelPadX * 2;
-    const slot = SLOT_ORDER.find((candidate) => {
-      const rect = slotRect(pin, w, L.labelH, candidate);
-      return insidePoster(rect, posterWidth, posterHeight) && !blocked.some((b) => overlaps(rect, b));
-    });
-    if (!slot) return;
-
-    const rect = slotRect(pin, w, L.labelH, slot);
-    placed.push({ ...rect, text: pin.text, slot });
-    blocked.push(rect);
-  });
-
-  return placed;
-};
+): PlacedLabel[] => placeLabels(pins, POSTER_METRICS, { width: posterWidth, height: posterHeight, obstacles });
 
 const ELLIPSIS = '…';
 
