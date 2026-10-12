@@ -13,6 +13,8 @@ export interface Venue {
   address: string;
   lat: number;
   lng: number;
+  // Still a column, but the app neither shows nor edits it: every venue has a room inside. Only
+  // `outdoor`, a place outside as well, is shown.
   indoor: boolean;
   outdoor: boolean;
   person: string;
@@ -24,4 +26,5 @@ export interface Venue {
   association_id: CantonalId;
 }
 
-export type VenueInput = Omit<Venue, 'id' | 'photos'>;
+// Leaves `indoor` out, so a new venue gets the column's default and an edit leaves it as it is.
+export type VenueInput = Omit<Venue, 'id' | 'photos' | 'indoor'>;

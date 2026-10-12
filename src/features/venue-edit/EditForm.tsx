@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Check, Home, Mountain, Crosshair, Search } from 'lucide-react';
+import { X, Check, Mountain, Crosshair, Search } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
@@ -23,7 +23,7 @@ interface EditFormProps {
 
 // Editable copy of a Venue plus a transient UI flag mirroring the prototype's `cantonAuto`. A new
 // venue has no association until the editor picks one, and saving waits for that.
-type Draft = Omit<Venue, 'association_id'> & { association_id: CantonalId | null; cantonAuto: boolean };
+type Draft = Omit<Venue, 'association_id' | 'indoor'> & { association_id: CantonalId | null; cantonAuto: boolean };
 
 const blankDraft = (): Draft => ({
   id: '',
@@ -32,7 +32,6 @@ const blankDraft = (): Draft => ({
   address: '',
   lat: 46.8,
   lng: 8.2,
-  indoor: true,
   outdoor: false,
   person: '',
   phone: '',
@@ -128,7 +127,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
     address: draft.address,
     lat: draft.lat,
     lng: draft.lng,
-    indoor: draft.indoor,
     outdoor: draft.outdoor,
     person: draft.person.trim(),
     phone: draft.phone.trim(),
@@ -334,12 +332,8 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
         <label style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.space}</label>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={() => setDraft((d) => ({ ...d, indoor: !d.indoor }))}
-            style={draft.indoor ? spOn : spOff}
-          >
-            <Home size={14} /> {t.indoor}
-          </button>
-          <button
+            type="button"
+            aria-pressed={draft.outdoor}
             onClick={() => setDraft((d) => ({ ...d, outdoor: !d.outdoor }))}
             style={draft.outdoor ? spOn : spOff}
           >

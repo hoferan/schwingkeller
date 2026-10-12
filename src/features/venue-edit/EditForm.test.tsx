@@ -204,6 +204,22 @@ describe('EditForm association and address', () => {
   beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
+  it('offers an Aussen toggle and no Innen toggle', () => {
+    renderWith(base);
+    expect(screen.getByRole('button', { name: STR.de.outdoor })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Innen' })).toBeNull();
+  });
+
+  it('saves Aussen and leaves the indoor column to the database', async () => {
+    renderWith(base);
+    fireEvent.click(screen.getByRole('button', { name: STR.de.outdoor }));
+    expect(screen.getByRole('button', { name: STR.de.outdoor })).toHaveAttribute('aria-pressed', 'true');
+    save();
+    const payload = await savedPayload();
+    expect(payload).toMatchObject({ outdoor: true });
+    expect(payload).not.toHaveProperty('indoor');
+  });
+
   it('trims the contact fields, so a field of spaces is saved empty', async () => {
     renderWith(base);
     fireEvent.change(screen.getByPlaceholderText(STR.de.person), { target: { value: '   ' } });
