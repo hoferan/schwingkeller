@@ -67,15 +67,16 @@ const pinRect = (pin: LabelPin, r: number): LabelRect => ({ x: pin.x - r, y: pin
 
 // Places as many labels as fit, in the order given: earlier pins get first pick of the slots. A pin
 // whose four slots are all blocked is left out of the result rather than labelled on top of
-// something else, so the caller draws that pin bare. Same pins in, same boxes out.
-export const placeLabels = (
-  pins: LabelPin[],
+// something else, so the caller draws that pin bare. Same pins in, same boxes out. Each result
+// carries the pin it was placed for.
+export const placeLabelsFor = <P extends LabelPin>(
+  pins: P[],
   { pinRadius, gap, labelH, padX }: LabelMetrics,
   { width, height, obstacles = [] }: LabelArea,
-): PlacedLabel[] => {
+): { pin: P; label: PlacedLabel }[] => {
   const offset = pinRadius + gap; // pin centre to the near edge of the label
   const blocked: LabelRect[] = [...obstacles, ...pins.map((p) => pinRect(p, pinRadius))];
-  const placed: PlacedLabel[] = [];
+  const placed: { pin: P; label: PlacedLabel }[] = [];
 
   pins.forEach((pin) => {
     const w = pin.width + padX * 2;
@@ -86,9 +87,12 @@ export const placeLabels = (
     if (!slot) return;
 
     const rect = slotRect(pin, w, labelH, offset, slot);
-    placed.push({ ...rect, text: pin.text, slot });
+    placed.push({ pin, label: { ...rect, text: pin.text, slot } });
     blocked.push(rect);
   });
 
   return placed;
 };
+
+export const placeLabels = (pins: LabelPin[], metrics: LabelMetrics, area: LabelArea): PlacedLabel[] =>
+  placeLabelsFor(pins, metrics, area).map((r) => r.label);
