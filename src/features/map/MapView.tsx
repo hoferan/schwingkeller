@@ -16,6 +16,7 @@ import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
+import { canHover, escapeHtml } from './pinNames';
 
 interface MapViewProps {
   venues: Venue[];
@@ -90,6 +91,8 @@ const fitAllWrapStyle = (top: number, size: number, border: string, backgroundCl
 // teardrop's tip. The selected pin is lifted above its neighbours, and stays under the location dot
 // (zIndexOffset 1000).
 const pinZIndexOffset = (selected: boolean): number => (selected ? 500 : 0);
+
+type PinOptions = L.MarkerOptions & { associationId: CantonalId; venueName: string };
 
 // The selected pin is a teardrop anchored at its tip, so the icon box and anchors come with the pin.
 const venueIcon = (v: Venue, selected: boolean): L.DivIcon =>
@@ -177,16 +180,28 @@ export function MapView({
     try { group.clearLayers(); } finally { quietCloseRef.current = false; }
     markersRef.current = {};
     venuesRef.current.forEach((v) => {
-      // clusterIcon reads associationId from the options to colour the cluster's ring. Leaflet makes
-      // each pin a focusable button; the title gives that button the venue's name.
+      // clusterIcon reads associationId from the options to colour the cluster's ring, and a hovered
+      // cluster lists the venueName of its pins.
       const selected = v.id === selectedIdRef.current;
-      const options: L.MarkerOptions & { associationId: CantonalId } = {
-        icon: venueIcon(v, selected), associationId: v.association_id, zIndexOffset: pinZIndexOffset(selected),
-        title: v.name,
+      const options: PinOptions = {
+        icon: venueIcon(v, selected), associationId: v.association_id, venueName: v.name,
+        zIndexOffset: pinZIndexOffset(selected),
       };
       const m = L.marker([v.lat, v.lng], options).addTo(group);
+      // Leaflet makes each pin a focusable button. Its name comes from aria-label rather than title,
+      // which would show the browser's own tooltip next to the chip. markercluster builds a new
+      // element each time it puts the pin back on the map, so the label goes on at every add.
+      const nameForScreenReaders = () => m.getElement()?.setAttribute('aria-label', v.name);
+      m.on('add', nameForScreenReaders);
+      nameForScreenReaders();
       // autoPan is off because panPopupIntoView does its job and also clears the controls.
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
+      // The name chip on hover or keyboard focus, on devices that can hover. Leaflet would also open
+      // it on the click that opens the popup; the popup already names the venue, so it closes again.
+      if (canHover()) {
+        m.bindTooltip(escapeHtml(v.name), { direction: 'top', className: 'pin-tip', opacity: 1 });
+        m.on('tooltipopen', () => { if (m.isPopupOpen()) m.closeTooltip(); });
+      }
       // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
       // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
       // or a second click on the pin. Picking a second pin closes the first popup before opening the
@@ -195,6 +210,7 @@ export function MapView({
       // popup onto the teardrop and pans. focusVenue and onMoveEnd open the popup of a venue that is
       // already selected; only focusVenue's needs a pan, since a zoom leaves the map where it is.
       m.on('popupopen', (e: L.PopupEvent) => {
+        m.closeTooltip();
         if (selectedIdRef.current !== v.id) {
           selectedFromMapRef.current = v.id;
           onSelectRef.current(v.id);

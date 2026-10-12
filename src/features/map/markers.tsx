@@ -19,6 +19,8 @@ export interface PinIcon {
   iconSize: [number, number];
   iconAnchor: [number, number];
   popupAnchor: [number, number];
+  // Where the name chip on hover points to, just above the pin's head.
+  tooltipAnchor: [number, number];
 }
 
 // A venue pin is a disc in its Teilverband's colour, or red with the verband flag off. The selected
@@ -35,6 +37,7 @@ export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon =
       iconSize: [28, 28],
       iconAnchor: [14, 14],
       popupAnchor: [0, -20],
+      tooltipAnchor: [0, -15],
     };
   }
   // The head is a circle of radius 12.5 around (15, 15.5); the tip at (15, 39) is the venue's spot,
@@ -48,6 +51,7 @@ export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon =
     iconSize: [30, 42],
     iconAnchor: [15, 39],
     popupAnchor: [0, -42],
+    tooltipAnchor: [0, -40],
   };
 };
 

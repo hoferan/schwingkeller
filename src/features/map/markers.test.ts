@@ -182,3 +182,12 @@ describe('userPinHtml', () => {
     expect(userPinHtml()).not.toBe(pinIcon(false, 'aargau').html);
   });
 });
+
+describe('pin tooltip anchor', () => {
+  it('opens the name chip just above the disc', () => {
+    expect(pinIcon(false, 'emmental').tooltipAnchor).toEqual([0, -15]);
+  });
+  it("opens it above the teardrop's head", () => {
+    expect(pinIcon(true, 'emmental').tooltipAnchor).toEqual([0, -40]);
+  });
+});

@@ -155,9 +155,9 @@ Then('the details of {string} are open', async ({ page }, name: string) => {
   await expect(page.getByTestId('venue-detail')).toContainText(name);
 });
 
-// Leaflet names a pin's button after the marker's title, which MapView sets to the venue's name.
+// MapView gives each pin's button the venue's name as aria-label.
 const pinOf = (page: import('@playwright/test').Page, name: string) =>
-  page.locator(`.leaflet-marker-icon[title="${name}"]`);
+  page.locator(`.leaflet-marker-icon[aria-label="${name}"]`);
 
 // The map's zoom, read from the tiles it shows: every tile URL carries its zoom level
 // (tile.openstreetmap.org/{z}/{x}/{y}.png). While the map flies or zooms, tiles of two levels are on

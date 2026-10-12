@@ -191,10 +191,12 @@ describe('MapView venue pins', () => {
     expect(popup).toHaveTextContent('Fribourg');
   });
 
-  it('names each pin after its venue', () => {
+  it('names each pin for screen readers, without a title for the browser to show', () => {
     const { container } = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
     vi.advanceTimersByTime(200);
-    expect(container.querySelector('.leaflet-marker-icon')).toHaveAttribute('title', 'Keller 1');
+    const pin = container.querySelector('.leaflet-marker-icon');
+    expect(pin).toHaveAttribute('aria-label', 'Keller 1');
+    expect(pin).not.toHaveAttribute('title');
   });
 
   it("hands each venue's association to the cluster icon", () => {
@@ -298,7 +300,7 @@ describe('MapView selection from the map', () => {
     return result;
   };
   const pin = (container: HTMLElement, name: string) =>
-    container.querySelector<HTMLElement>(`.leaflet-marker-icon[title="${name}"]`)!;
+    container.querySelector<HTMLElement>(`.leaflet-marker-icon[aria-label="${name}"]`)!;
   const teardrops = (container: HTMLElement) => container.querySelectorAll('.leaflet-marker-icon path');
   const closePopup = (container: HTMLElement) =>
     fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
@@ -530,5 +532,58 @@ describe('MapView selection from the map', () => {
     const { container } = renderHarness();
     fireEvent.click(pin(container, 'Keller 1'));
     expect(panBy).toHaveBeenCalledWith([0, -35]);
+  });
+});
+
+describe('MapView pin names on hover', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  // A desktop with a mouse can hover; a phone or tablet can't.
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  const renderPin = () => {
+    const result = render(mapView(null, [venueAt('1', 'emmental', 46.9, 7.7)]));
+    vi.advanceTimersByTime(200);
+    return { ...result, pin: result.container.querySelector<HTMLElement>('.leaflet-marker-icon')! };
+  };
+  const tooltip = (container: HTMLElement) => container.querySelector('.leaflet-tooltip');
+
+  it('shows the name chip on hover where the device can hover', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.mouseOver(pin);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('shows it on keyboard focus too', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.focus(pin);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('shows no tooltip on a touch device, neither on hover nor on tap', () => {
+    setHover(false);
+    const { container, pin } = renderPin();
+    fireEvent.mouseOver(pin);
+    fireEvent.click(pin);
+    expect(tooltip(container)).toBeNull();
+  });
+
+  it('shows no tooltip over an open popup', () => {
+    setHover(true);
+    const { container, pin } = renderPin();
+    fireEvent.click(pin);
+    fireEvent.mouseOver(pin);
+    expect(container.querySelector('.leaflet-popup')).not.toBeNull();
+    expect(tooltip(container)).toBeNull();
   });
 });
