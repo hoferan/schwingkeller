@@ -49,15 +49,12 @@ const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em',
   textTransform: 'uppercase', color: theme.color.muted, marginBottom: '6px',
 };
-const spOn: React.CSSProperties = {
-  flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.accent, background: theme.color.accent, color: theme.color.accentInk,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+const checkRowStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: theme.color.ink,
+  cursor: 'pointer', width: 'fit-content',
 };
-const spOff: React.CSSProperties = {
-  flex: 1, cursor: 'pointer', fontWeight: 600, fontSize: '13.5px', padding: '11px',
-  borderRadius: theme.radius.sm, border: '1.5px solid ' + theme.color.line, background: theme.color.bg, color: theme.color.muted,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+const checkboxStyle: React.CSSProperties = {
+  width: '16px', height: '16px', margin: 0, accentColor: theme.color.accent, cursor: 'pointer',
 };
 
 export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoords, onError }: EditFormProps) => {
@@ -328,19 +325,6 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           </div>
         )}
 
-        {/* spaces */}
-        <label style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.space}</label>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            type="button"
-            aria-pressed={draft.outdoor}
-            onClick={() => setDraft((d) => ({ ...d, outdoor: !d.outdoor }))}
-            style={draft.outdoor ? spOn : spOff}
-          >
-            <Mountain size={14} /> {t.outdoor}
-          </button>
-        </div>
-
         {/* location */}
         <label style={{ ...labelStyle, margin: '14px 0 6px' }}>{t.location}</label>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -386,6 +370,18 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           placeholder={t.website}
           style={inputStyle}
         />
+
+        {/* more details: what doesn't need a section of its own */}
+        <div style={{ ...labelStyle, margin: '16px 0 8px' }}>{t.moreDetails}</div>
+        <label style={checkRowStyle}>
+          <input
+            type="checkbox"
+            checked={draft.outdoor}
+            onChange={(e) => setDraft((d) => ({ ...d, outdoor: e.target.checked }))}
+            style={checkboxStyle}
+          />
+          <Mountain size={14} aria-hidden /> {t.outdoor}
+        </label>
       </div>
 
     </Modal>
