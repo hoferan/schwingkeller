@@ -7,7 +7,7 @@ import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAssociations } from '../associations/useAssociations';
-import { pinIcon, popupHtml, clusterIcon, userPinHtml, USER_PIN_SIZE } from './markers';
+import { pinIcon, popupHtml, clusterIcon, clusterSize, userPinHtml, USER_PIN_SIZE } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { CantonalId } from '../../data/associations';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -375,9 +375,14 @@ export function MapView({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onClusterOver = (e: any) => {
     if (!canHover()) return;
-    const names = e.layer.getAllChildMarkers().map((c: L.Marker) => (c.options as PinOptions).venueName);
+    const children: L.Marker[] = e.layer.getAllChildMarkers();
+    const names = children.map((c) => (c.options as PinOptions).venueName);
+    // A pin's chip opens from the tooltipAnchor of its icon. A cluster's icon option is the cluster
+    // itself (markercluster), so Leaflet never sees an anchor there, and the list would open from
+    // the icon's centre. The offset lifts it to the icon's top, 1px clear like a pin's chip.
+    const offset: L.PointExpression = [0, -(clusterSize(children.length) / 2 + 1)];
     e.layer.unbindTooltip()
-      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { direction: 'top', className: 'pin-tip', opacity: 1 })
+      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { direction: 'top', className: 'pin-tip', opacity: 1, offset })
       .openTooltip();
   };
 

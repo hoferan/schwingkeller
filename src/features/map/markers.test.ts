@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { clusterIcon, clusterRing, pinIcon, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
+import { clusterIcon, clusterRing, clusterSize, pinIcon, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
@@ -12,7 +12,7 @@ const venue: Venue = {
 };
 
 // Stands in for Leaflet: divIcon hands back its options, and a cluster is its children's ids.
-const fakeL = { divIcon: (o: { html: string; iconSize: [number, number]; tooltipAnchor?: [number, number] }) => o };
+const fakeL = { divIcon: (o: { html: string; iconSize: [number, number] }) => o };
 const cluster = (ids: CantonalId[]) => ({
   getChildCount: () => ids.length,
   getAllChildMarkers: () => ids.map((associationId) => ({ options: { associationId } })),
@@ -192,10 +192,9 @@ describe('pin tooltip anchor', () => {
   });
 });
 
-describe('cluster tooltip anchor', () => {
-  it('opens the list just above the cluster, whatever its size', () => {
-    expect(clusterHtml(['emmental', 'freiburg']).tooltipAnchor).toEqual([0, -17]);
-    const fifty = clusterIcon(fakeL)(cluster(Array<CantonalId>(50).fill('emmental')));
-    expect(fifty.tooltipAnchor).toEqual([0, -23]);
+describe('clusterSize', () => {
+  it('grows with the number of venues, and sizes the icon', () => {
+    expect([9, 10, 49, 50].map(clusterSize)).toEqual([34, 40, 40, 46]);
+    expect(clusterHtml(['emmental', 'freiburg']).iconSize).toEqual([34, 34]);
   });
 });

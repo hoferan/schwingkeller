@@ -636,6 +636,20 @@ describe('MapView cluster list on hover', () => {
     expect(lines(container).at(-1)).toBe('+ 2 autres');
   });
 
+  // jsdom lays out nothing, so a tooltip is 0px high and its top is where it points. Leaflet places a
+  // marker's icon at its point and pulls it up by the icon anchor with a negative margin.
+  const pointsAtOrAboveTopOf = (tip: HTMLElement, icon: HTMLElement) =>
+    parseFloat(tip.style.top) <= parseFloat(icon.style.top) + parseFloat(icon.style.marginTop);
+
+  it('opens the list from the top of the cluster, as a pin opens its chip, not from its centre', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    const icon = clusterOf(container);
+    fireEvent.mouseOver(icon);
+    expect(pointsAtOrAboveTopOf(container.querySelector<HTMLElement>('.leaflet-tooltip')!, icon)).toBe(true);
+  });
+
   it('shows no cluster list on a touch device', () => {
     setHover(false);
     const { container } = render(mapView(null, seven));

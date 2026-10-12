@@ -97,21 +97,24 @@ interface ClusterLike {
   getAllChildMarkers(): { options: { associationId: CantonalId } }[];
 }
 
+// A cluster icon's width and height for the number of venues in it. A hovered cluster's list opens
+// from its top, half this above its point (MapView).
+export const clusterSize = (count: number): number => (count < 10 ? 34 : count < 50 ? 40 : 46);
+
 // With the verband flag off a cluster is a red disc. With it on it is drawn like a pin with a number:
 // a white edge, a ring showing which Teilverbände its venues belong to, and a white centre with the
 // count. The count takes the ring's colour when there is only one, and the ink colour otherwise.
-// The list of venues a hovered cluster shows opens from the top of the icon.
-export const clusterIcon = <I,>(L: { divIcon(options: DivIconOptions): I }) => (cluster: ClusterLike): I => {
+export const clusterIcon =<I,>(L: { divIcon(options: DivIconOptions): I }) => (cluster: ClusterLike): I => {
   const n = cluster.getChildCount();
-  const size = n < 10 ? 34 : (n < 50 ? 40 : 46);
+  const size = clusterSize(n);
   const fontSize = (n < 100 ? 14 : 12) + 'px';
   if (!isFeatureOn('verband')) {
-    return L.divIcon({ className: '', iconSize: [size, size], tooltipAnchor: [0, -size / 2], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>' });
+    return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + n + '</div>' });
   }
   const ids = cluster.getAllChildMarkers().map((m) => m.options.associationId);
   const tints = new Set(ids.map(tintOf));
   const countColor = tints.size === 1 ? [...tints][0] : theme.color.ink;
-  return L.divIcon({ className: '', iconSize: [size, size], tooltipAnchor: [0, -size / 2], html: '<div style="box-sizing:border-box;width:' + size + 'px;height:' + size + 'px;border-radius:50%;padding:5px;background:' + clusterRing(ids) + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';">'
+  return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="box-sizing:border-box;width:' + size + 'px;height:' + size + 'px;border-radius:50%;padding:5px;background:' + clusterRing(ids) + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';">'
     + '<div style="width:100%;height:100%;border-radius:50%;background:' + theme.color.bg + ';display:flex;align-items:center;justify-content:center;color:' + countColor + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';line-height:1;">' + n + '</div>'
     + '</div>' });
 };
