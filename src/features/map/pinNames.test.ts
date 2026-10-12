@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { STR } from '../../i18n/translations';
-import { canHover, clusterTipHtml, measureName, placeNames } from './pinNames';
+import { canHover, clusterTipHtml, measureName, placeNames, placeTip } from './pinNames';
 
 // The text of each line of a cluster list, in order.
 const textLines = (html: string): string[] =>
@@ -73,5 +73,37 @@ describe('canHover', () => {
     expect(canHover()).toBe(true);
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     expect(canHover()).toBe(false);
+  });
+});
+
+describe('placeTip', () => {
+  // A 28px disc pin, its chip 1px clear on every side.
+  const disc = { top: -15, bottom: 15, left: -15, right: 15, midY: 0 };
+  const size = { w: 100, h: 20 };
+  const map = { width: 800, height: 600, obstacles: [] };
+
+  it('opens above the pin when there is room', () => {
+    expect(placeTip({ x: 400, y: 300 }, disc, size, map)).toEqual({ direction: 'top', offset: [0, -15] });
+  });
+
+  it('opens below a pin at the top edge', () => {
+    expect(placeTip({ x: 400, y: 10 }, disc, size, map)).toEqual({ direction: 'bottom', offset: [0, 15] });
+  });
+
+  it('opens to the right of a pin at the left edge', () => {
+    expect(placeTip({ x: 10, y: 300 }, disc, size, map)).toEqual({ direction: 'right', offset: [15, 0] });
+  });
+
+  it('opens to the left of a pin at the right edge', () => {
+    expect(placeTip({ x: 790, y: 300 }, disc, size, map)).toEqual({ direction: 'left', offset: [-15, 0] });
+  });
+
+  it('keeps clear of a map control above the pin', () => {
+    const legend = { x: 300, y: 200, w: 200, h: 80 };
+    expect(placeTip({ x: 400, y: 300 }, disc, size, { ...map, obstacles: [legend] }).direction).toBe('bottom');
+  });
+
+  it('stays above when no side has room', () => {
+    expect(placeTip({ x: 400, y: 300 }, disc, { w: 900, h: 700 }, map).direction).toBe('top');
   });
 });

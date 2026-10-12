@@ -21,6 +21,12 @@ const LIST_MAX = 5;
 // The names' font. MapView loads it before the names need it.
 export const NAME_FONT = '600 11px Oswald, sans-serif';
 
+// How long the pointer has to rest on a pin or a cluster before its chip or list shows, and how long
+// it then takes to fade in. A pointer passing over pins on its way across the map leaves each one
+// before its chip shows, so nothing flickers. MapView hands both to the CSS (.pin-tip in index.css).
+export const TIP_SHOW_DELAY_MS = 300;
+export const TIP_FADE_MS = 150;
+
 // Phones and tablets can't hover: there a tap opens the popup and nothing else.
 export const canHover = (): boolean => window.matchMedia?.('(hover: hover)').matches === true;
 
@@ -69,4 +75,36 @@ export const placeNames = (
     return { x: p.x, y: p.y, text, width, id: p.id };
   });
   return placeLabelsFor(labels, NAME_METRICS, area).map(({ pin, label }) => ({ ...label, id: pin.id }));
+};
+
+// The distances from a marker's point to the edges of its icon, plus 1px of air: a tooltip opens
+// just outside them. midY is the height a tooltip to the left or right lines up with.
+export interface TipExtents { top: number; bottom: number; left: number; right: number; midY: number }
+
+export type TipDirection = 'top' | 'bottom' | 'right' | 'left';
+
+// Leaflet's tooltip arrow, which its CSS adds between the tooltip and the point it opens from.
+const TIP_ARROW = 6;
+
+// The side a chip or a cluster's list opens on: above when it fits inside the map and clear of the
+// map's controls, else below, right or left, else above all the same. Above and below keep it
+// centred on the marker; the sides are for markers at the left or right edge. The offset is what
+// Leaflet's tooltip needs for that side.
+export const placeTip = (
+  p: { x: number; y: number },
+  ext: TipExtents,
+  { w, h }: { w: number; h: number },
+  area: { width: number; height: number; obstacles: LabelRect[] },
+): { direction: TipDirection; offset: [number, number] } => {
+  const sides: { direction: TipDirection; offset: [number, number]; rect: LabelRect }[] = [
+    { direction: 'top', offset: [0, ext.top], rect: { x: p.x - w / 2, y: p.y + ext.top - TIP_ARROW - h, w, h } },
+    { direction: 'bottom', offset: [0, ext.bottom], rect: { x: p.x - w / 2, y: p.y + ext.bottom + TIP_ARROW, w, h } },
+    { direction: 'right', offset: [ext.right, ext.midY], rect: { x: p.x + ext.right + TIP_ARROW, y: p.y + ext.midY - h / 2, w, h } },
+    { direction: 'left', offset: [ext.left, ext.midY], rect: { x: p.x + ext.left - TIP_ARROW - w, y: p.y + ext.midY - h / 2, w, h } },
+  ];
+  const fits = ({ x, y }: LabelRect) => x >= 0 && y >= 0 && x + w <= area.width && y + h <= area.height;
+  const clear = (r: LabelRect) =>
+    area.obstacles.every((o) => r.x >= o.x + o.w || o.x >= r.x + r.w || r.y >= o.y + o.h || o.y >= r.y + r.h);
+  const side = sides.find((s) => fits(s.rect) && clear(s.rect)) ?? sides[0];
+  return { direction: side.direction, offset: side.offset };
 };

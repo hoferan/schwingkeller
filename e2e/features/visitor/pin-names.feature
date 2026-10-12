@@ -11,6 +11,12 @@ Feature: Venue names on the map
     Then a tooltip shows "Säntis Schwingkeller"
     And the browser shows no tooltip of its own
 
+  Scenario: A name waits for the pointer to rest on its pin
+    Given I visit the map
+    When I hover over the pin of "Säntis Schwingkeller"
+    Then the tooltip waits a moment before it fades in
+    And a tooltip shows "Säntis Schwingkeller"
+
   Scenario: Hovering a cluster lists its venues
     Given I visit the map
     When I hover over the cluster that holds "Halle Agy"

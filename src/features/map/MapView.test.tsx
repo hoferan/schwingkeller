@@ -6,6 +6,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { MapView } from './MapView';
 import { USER_PIN_SIZE } from './markers';
+import { TIP_FADE_MS, TIP_SHOW_DELAY_MS } from './pinNames';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
 
@@ -577,6 +578,24 @@ describe('MapView pin names on hover', () => {
     vi.advanceTimersByTime(500);
     fireEvent.focus(container.querySelector<HTMLElement>('.leaflet-marker-icon[aria-label="Keller 1"]')!);
     expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
+  it('opens the chip below a pin at the top edge of the map, where above it would be cut off', () => {
+    setHover(true);
+    // 10px below the top edge of the 800×600 map at the starting view.
+    const { container } = render(mapView(null, [venueAt('1', 'emmental', 47.9, 8.23)]));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(container.querySelector<HTMLElement>('.leaflet-marker-icon')!);
+    expect(container.querySelector('.leaflet-tooltip')).toHaveClass('leaflet-tooltip-bottom');
+  });
+
+  // index.css waits --pin-tip-delay, then fades a chip in over --pin-tip-fade. A pointer passing
+  // over pins on its way across the map leaves each one before its chip shows.
+  it('hands the chip its show delay and fade from pinNames to the CSS', () => {
+    const { container } = renderPin();
+    const map = container.querySelector<HTMLElement>('.leaflet-container')!;
+    expect(map.style.getPropertyValue('--pin-tip-delay')).toBe(`${TIP_SHOW_DELAY_MS}ms`);
+    expect(map.style.getPropertyValue('--pin-tip-fade')).toBe(`${TIP_FADE_MS}ms`);
   });
 
   it('shows no tooltip on a touch device, neither on hover nor on tap', () => {

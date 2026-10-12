@@ -1,4 +1,5 @@
 import { STR } from '../../src/i18n/translations';
+import { TIP_FADE_MS, TIP_SHOW_DELAY_MS } from '../../src/features/map/pinNames';
 import { anonClient } from '../../test-support/local-stack';
 import { When, Then, expect } from '../fixtures';
 import { E2E_PREFIX } from '../db';
@@ -230,6 +231,17 @@ When('I hover over the pin of {string}', async ({ page }, name: string) => {
 
 Then('a tooltip shows {string}', async ({ page }, name: string) => {
   await expect(tip(page)).toHaveText(name);
+});
+
+// The chip is in the page at once but transparent; it shows once the pointer has rested on the pin
+// for TIP_SHOW_DELAY_MS, fading in over TIP_FADE_MS.
+Then('the tooltip waits a moment before it fades in', async ({ page }) => {
+  const animation = await tip(page).evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { name: s.animationName, delay: s.animationDelay, duration: s.animationDuration };
+  });
+  expect(animation).toEqual({ name: 'pin-tip-in', delay: `${TIP_SHOW_DELAY_MS / 1000}s`, duration: `${TIP_FADE_MS / 1000}s` });
+  await expect.poll(() => tip(page).evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 });
 
 // The pins carry their names as aria-label; a title would make the browser show its own tooltip.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { clusterIcon, clusterRing, clusterSize, pinIcon, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
+import { clusterIcon, clusterRing, clusterSize, clusterTipExtents, pinIcon, pinTipExtents, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
@@ -183,12 +183,20 @@ describe('userPinHtml', () => {
   });
 });
 
-describe('pin tooltip anchor', () => {
-  it('opens the name chip just above the disc', () => {
-    expect(pinIcon(false, 'emmental').tooltipAnchor).toEqual([0, -15]);
+describe('tooltip extents', () => {
+  it('opens a chip 1px clear of the 28px disc on every side', () => {
+    expect(pinTipExtents(false)).toEqual({ top: -15, bottom: 15, left: -15, right: 15, midY: 0 });
   });
-  it("opens it above the teardrop's head", () => {
-    expect(pinIcon(true, 'emmental').tooltipAnchor).toEqual([0, -40]);
+  it("opens it around the teardrop's head, or below its tip", () => {
+    expect(pinTipExtents(true)).toEqual({ top: -38, bottom: 3, left: -15, right: 15, midY: -23.5 });
+  });
+  it('opens a cluster list 1px clear of the cluster icon', () => {
+    expect(clusterTipExtents(2)).toEqual({ top: -18, bottom: 18, left: -18, right: 18, midY: 0 });
+    expect(clusterTipExtents(50)).toEqual({ top: -24, bottom: 24, left: -24, right: 24, midY: 0 });
+  });
+  it('leaves Leaflet no tooltip anchor of its own, which it would add on every side', () => {
+    expect(pinIcon(false, 'emmental')).not.toHaveProperty('tooltipAnchor');
+    expect(pinIcon(true, 'emmental')).not.toHaveProperty('tooltipAnchor');
   });
 });
 

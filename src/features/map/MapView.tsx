@@ -7,7 +7,7 @@ import { Maximize, LocateFixed } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useAssociations } from '../associations/useAssociations';
-import { pinIcon, popupHtml, clusterIcon, clusterSize, userPinHtml, USER_PIN_SIZE } from './markers';
+import { pinIcon, popupHtml, clusterIcon, clusterTipExtents, pinTipExtents, userPinHtml, USER_PIN_SIZE } from './markers';
 import type { LatLng } from '../venues/distance';
 import type { CantonalId } from '../../data/associations';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -16,7 +16,7 @@ import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
-import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, type NamePin } from './pinNames';
+import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, placeTip, TIP_FADE_MS, TIP_SHOW_DELAY_MS, type NamePin, type TipExtents } from './pinNames';
 import type { LabelRect } from '../../lib/labelPlacement';
 
 interface MapViewProps {
@@ -39,7 +39,11 @@ interface MapViewProps {
 }
 
 const wrapStyle: CSSProperties = { position: 'relative', flex: 1, height: '100%' };
-const mapElStyle: CSSProperties = { position: 'absolute', inset: 0 };
+// The chips' show delay and fade, for .pin-tip in index.css.
+const mapElStyle = {
+  position: 'absolute', inset: 0,
+  '--pin-tip-delay': `${TIP_SHOW_DELAY_MS}ms`, '--pin-tip-fade': `${TIP_FADE_MS}ms`,
+} as CSSProperties;
 // The base switch, with the legend under it. The zoom and location controls sit on the left and
 // the phone's drawer covers the bottom, so the top right is the one corner that is always free.
 const overlayStyle: CSSProperties = {
@@ -209,7 +213,10 @@ export function MapView({
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
       // refreshNames gives the pin its name chip on hover or keyboard focus. Leaflet would also open
       // the chip on the click that opens the popup; the popup already names the venue, so it closes.
-      m.on('tooltipopen', () => { if (m.isPopupOpen()) m.closeTooltip(); });
+      m.on('tooltipopen', () => {
+        if (m.isPopupOpen()) m.closeTooltip();
+        else orientTip(m, pinTipExtents(v.id === selectedIdRef.current));
+      });
       // The popup carries the selection. Leaflet opens it on a click, or on Enter for a focused pin,
       // and closes it on the close button, a click on the map, Escape, another pin's popup opening,
       // or a second click on the pin. Picking a second pin closes the first popup before opening the
@@ -246,6 +253,12 @@ export function MapView({
       .filter((c): c is HTMLElement => !!c)
       .map((c) => c.getBoundingClientRect());
 
+  // A box in client pixels, moved into the map's own pixels, where names and chips are placed.
+  const inMapPixels = (r: DOMRect): LabelRect => {
+    const box = mapRef.current?.getContainer().getBoundingClientRect();
+    return { x: r.left - (box?.left ?? 0), y: r.top - (box?.top ?? 0), w: r.width, h: r.height };
+  };
+
   // From NAME_ZOOM on, writes each lone pin's name next to it where it fits (pinNames.ts). A name
   // opens its venue like the pin does. A pin without a name, at any zoom, shows the name chip on
   // hover instead, on devices that can hover. Leaflet fires popupclose while the popup still counts
@@ -257,9 +270,7 @@ export function MapView({
     const named = new Set<string>();
     if (map.getZoom() >= NAME_ZOOM) {
       const size = map.getSize();
-      const box = map.getContainer().getBoundingClientRect();
-      const inMap = (r: DOMRect): LabelRect => ({ x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height });
-      const obstacles = controlRects().map(inMap);
+      const obstacles = controlRects().map(inMapPixels);
       const clusters = new Set<unknown>();
       const pins: NamePin[] = [];
       venuesRef.current.forEach((v) => {
@@ -268,11 +279,11 @@ export function MapView({
         if (!shown || !map.hasLayer(shown)) return;
         if (shown !== m) {
           // A cluster: its icon is in the way of names, once.
-          if (!clusters.has(shown)) { clusters.add(shown); const el = shown.getElement?.(); if (el) obstacles.push(inMap(el.getBoundingClientRect())); }
+          if (!clusters.has(shown)) { clusters.add(shown); const el = shown.getElement?.(); if (el) obstacles.push(inMapPixels(el.getBoundingClientRect())); }
           return;
         }
         if (m.isPopupOpen() && v.id !== closing) {
-          [m.getElement(), m.getPopup()?.getElement()].forEach((el) => { if (el) obstacles.push(inMap(el.getBoundingClientRect())); });
+          [m.getElement(), m.getPopup()?.getElement()].forEach((el) => { if (el) obstacles.push(inMapPixels(el.getBoundingClientRect())); });
           return;
         }
         const p = map.latLngToContainerPoint(m.getLatLng());
@@ -377,13 +388,28 @@ export function MapView({
     if (!canHover()) return;
     const children: L.Marker[] = e.layer.getAllChildMarkers();
     const names = children.map((c) => (c.options as PinOptions).venueName);
-    // A pin's chip opens from the tooltipAnchor of its icon. A cluster's icon option is the cluster
-    // itself (markercluster), so Leaflet never sees an anchor there, and the list would open from
-    // the icon's centre. The offset lifts it to the icon's top, 1px clear like a pin's chip.
-    const offset: L.PointExpression = [0, -(clusterSize(children.length) / 2 + 1)];
     e.layer.unbindTooltip()
-      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { direction: 'top', className: 'pin-tip', opacity: 1, offset })
+      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { className: 'pin-tip', opacity: 1 })
       .openTooltip();
+    orientTip(e.layer, clusterTipExtents(children.length));
+  };
+
+  // Opens an open chip or cluster list on the side of its marker where it fits inside the map and
+  // clear of the controls (placeTip). It is measured once open, then moved there. Leaflet takes the
+  // side and the offset from the tooltip's options and re-reads them on update. The icons set no
+  // tooltipAnchor, which Leaflet would add on every side; a cluster couldn't even have one, as
+  // markercluster makes the cluster its own icon.
+  const orientTip = (layer: L.Marker, ext: TipExtents) => {
+    const map = mapRef.current; const tip = layer.getTooltip(); const el = tip?.getElement();
+    if (!map || !tip || !el) return;
+    const size = map.getSize();
+    const { direction, offset } = placeTip(
+      map.latLngToContainerPoint(layer.getLatLng()), ext, { w: el.offsetWidth, h: el.offsetHeight },
+      { width: size.x, height: size.y, obstacles: controlRects().map(inMapPixels) },
+    );
+    tip.options.direction = direction;
+    tip.options.offset = offset;
+    tip.update();
   };
 
   const onMapClick = (e: L.LeafletMouseEvent) => {
