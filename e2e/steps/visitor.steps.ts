@@ -218,6 +218,69 @@ When('I close the popup', async ({ page }) => {
   await page.locator('.leaflet-popup').getByRole('button', { name: t.close }).click();
 });
 
+// The name chip of a hovered pin and the list of a hovered cluster are Leaflet tooltips styled
+// .pin-tip; the names written next to pins from zoom 12 are .pin-name markers.
+const tip = (page: import('@playwright/test').Page) => page.locator('.leaflet-tooltip.pin-tip');
+const nameNextTo = (page: import('@playwright/test').Page, name: string) =>
+  page.locator('.leaflet-marker-icon.pin-name', { hasText: name });
+
+When('I hover over the pin of {string}', async ({ page }, name: string) => {
+  await pinOf(page, name).hover();
+});
+
+Then('a tooltip shows {string}', async ({ page }, name: string) => {
+  await expect(tip(page)).toHaveText(name);
+});
+
+// The pins carry their names as aria-label; a title would make the browser show its own tooltip.
+Then('the browser shows no tooltip of its own', async ({ page }) => {
+  await expect(page.locator('.leaflet-marker-icon[title]')).toHaveCount(0);
+});
+
+// A cluster is a marker without a venue's name. Each one is hovered until one lists the venue.
+When('I hover over the cluster that holds {string}', async ({ page, hoveredCluster }, name: string) => {
+  const clusters = page.locator('.leaflet-marker-icon:not([aria-label]):not(.pin-name)');
+  await expect(clusters.first()).toBeVisible();
+  for (const cluster of await clusters.all()) {
+    await cluster.hover();
+    // Leaflet fades the previous cluster's list out for 200 ms before it removes it.
+    await expect(tip(page)).toHaveCount(1);
+    if ((await tip(page).textContent())?.includes(name)) {
+      hoveredCluster.count = Number((await cluster.innerText()).trim());
+      return;
+    }
+  }
+  throw new Error(`no cluster lists "${name}"`);
+});
+
+// One line per venue: a name broken over two lines would read as two venues.
+Then('the tooltip lists {string}', async ({ page }, name: string) => {
+  const lines = tip(page).locator('.pin-tip-list > div');
+  await expect(lines.filter({ hasText: name })).toBeVisible();
+  for (const line of await lines.all()) {
+    expect((await line.boundingBox())!.height, await line.textContent() ?? '').toBeLessThan(24);
+  }
+});
+
+Then('the tooltip lists at most five names and says how many more', async ({ page, hoveredCluster }) => {
+  const n = hoveredCluster.count!;
+  const lines = tip(page).locator('.pin-tip-list > div');
+  if (n <= 6) {
+    await expect(lines).toHaveCount(n);
+    return;
+  }
+  await expect(lines).toHaveCount(6);
+  await expect(lines.last()).toHaveText(t.moreVenues.replace('{n}', String(n - 5)));
+});
+
+Then('{string} has its name next to its pin', async ({ page }, name: string) => {
+  await expect(nameNextTo(page, name)).toBeVisible();
+});
+
+When('I tap the name next to {string}', async ({ page }, name: string) => {
+  await nameNextTo(page, name).click();
+});
+
 Then('no venue is selected', async ({ page }) => {
   await expect(page.locator('.leaflet-marker-icon path')).toHaveCount(0);
   await expect(page.locator('[data-testid="venue-row"][aria-current="true"]')).toHaveCount(0);

@@ -78,7 +78,7 @@ export const setupTest = playwrightTest.extend<SetupOptions>({
 });
 
 export const test = bddTest.extend<
-  { venuePrefix: string; posterDownload: { current?: Download }; mapZoom: { before?: number } },
+  { venuePrefix: string; posterDownload: { current?: Download }; mapZoom: { before?: number }; hoveredCluster: { count?: number } },
   { adminDb: SupabaseClient }
 >({
   page: stubbedPage,
@@ -105,6 +105,12 @@ export const test = bddTest.extend<
   // The pin step notes the map's zoom for the step that checks it afterwards.
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
   mapZoom: async ({}, use) => {
+    await use({});
+  },
+
+  // The cluster step notes how many venues the hovered cluster holds, for the step that checks its list.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  hoveredCluster: async ({}, use) => {
     await use({});
   },
 });
