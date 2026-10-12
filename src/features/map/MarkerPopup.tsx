@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Home, Mountain, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import type { STR } from '../../i18n/translations';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
@@ -44,11 +44,6 @@ const verbandRowStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: '6px', marginTop: '5px', fontSize: '11.5px',
   color: theme.color.muted,
 };
-const tagsRowStyle: CSSProperties = { display: 'flex', gap: '6px', marginTop: '9px' };
-const tagStyle: CSSProperties = {
-  fontSize: '11.5px', fontWeight: 600, color: theme.color.ink, background: theme.color.bg,
-  border: '1px solid ' + theme.color.line, borderRadius: theme.radius.pill, padding: '3px 9px',
-};
 const detailBtnStyle: CSSProperties = {
   marginTop: '12px', width: '100%', height: '40px', border: 'none', cursor: 'pointer',
   background: theme.color.accent, color: theme.color.accentInk, fontFamily: theme.font.body,
@@ -84,14 +79,6 @@ export function MarkerPopup({ venue, t, associations }: MarkerPopupProps) {
             <span>{associations.nameOf(venue.association_id)}</span>
           </div>
         )}
-        <div style={tagsRowStyle}>
-          {venue.indoor && (
-            <span style={tagStyle}><Home size={11} style={iconStyle} /> {t.indoor}</span>
-          )}
-          {venue.outdoor && (
-            <span style={tagStyle}><Mountain size={11} style={iconStyle} /> {t.outdoor}</span>
-          )}
-        </div>
         <button data-detail={venue.id} style={detailBtnStyle}>
           {t.details} <ArrowRight size={13} style={iconStyle} />
         </button>

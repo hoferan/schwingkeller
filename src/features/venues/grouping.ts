@@ -3,31 +3,19 @@ import type { Venue } from './types';
 import type { LatLng } from './distance';
 import { sortByDistance } from './distance';
 
-export interface Facets {
-  indoor: boolean;
-  outdoor: boolean;
-}
-
 // `extraText` adds text a query may also match, such as a venue's association names.
 export const filterVenues = (
   venues: Venue[],
   search: string,
-  facets?: Facets,
   extraText?: (v: Venue) => string,
 ): Venue[] => {
   const q = search.trim().toLowerCase();
-  const anyFacet = !!facets && (facets.indoor || facets.outdoor);
-  if (!q && !anyFacet) return venues;
+  if (!q) return venues;
   return venues.filter((v) => {
     const c = cantonByCode(v.canton);
-    const textOk =
-      !q ||
-      `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''} ${extraText?.(v) ?? ''}`
-        .toLowerCase()
-        .includes(q);
-    const facetOk =
-      !anyFacet || (facets!.indoor && v.indoor) || (facets!.outdoor && v.outdoor);
-    return textOk && facetOk;
+    return `${v.name} ${v.address} ${c ? c.name : ''} ${v.person ?? ''} ${extraText?.(v) ?? ''}`
+      .toLowerCase()
+      .includes(q);
   });
 };
 

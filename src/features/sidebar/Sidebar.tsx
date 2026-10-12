@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { Search, X, ChevronRight, ChevronLeft, Plus, Home, Mountain } from 'lucide-react';
+import { Search, X, ChevronRight, ChevronLeft, Plus } from 'lucide-react';
 import type { Venue } from '../venues/types';
 import type { PosterTarget } from '../venues/posterSubject';
-import { filterVenues, flatSorted, type SortMode, type Facets } from '../venues/grouping';
+import { filterVenues, flatSorted, type SortMode } from '../venues/grouping';
 import { haversineKm, formatDistance, type LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
 import { useAuth } from '../auth/useAuth';
@@ -108,7 +108,6 @@ export const Sidebar = ({
   const tabletDraggingRef = useRef(false);
   const startedOnDragZoneRef = useRef(false);
   const [dragX, setDragX] = useState<number | null>(null);
-  const [facets, setFacets] = useState<Facets>({ indoor: false, outdoor: false });
   const sidebarWidth = useSidebarWidth();
   // Pointer x and column width when the current drag started; null while nothing is dragged.
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
@@ -336,13 +335,11 @@ export const Sidebar = ({
       regional ? (associations.shortOf(regional.id) ?? '') : '',
     ].join(' ');
   };
-  const list = filterVenues(venues, search, facets, verband ? associationText : undefined);
+  const list = filterVenues(venues, search, verband ? associationText : undefined);
   const searching = search.trim() !== '';
-  const filtering = searching || facets.indoor || facets.outdoor;
-  const hasSearch = search.trim() !== '';
   const totalText = `${list.length} ${t.unitTotal}`;
   const flat = sortMode !== 'canton' && sortMode !== 'association';
-  const noResults = filtering && list.length === 0;
+  const noResults = searching && list.length === 0;
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
   const sectionLabel =
     sortMode === 'name'
@@ -561,7 +558,7 @@ export const Sidebar = ({
               minWidth: 0,
             }}
           />
-          {hasSearch && (
+          {searching && (
             <button
               onClick={() => onSearch('')}
               aria-label="clear"
@@ -583,40 +580,6 @@ export const Sidebar = ({
             </button>
           )}
         </div>
-      </div>
-
-      <div style={{ padding: '0 15px 11px', flex: 'none', display: 'flex', gap: '8px' }}>
-        {([
-          { key: 'indoor', label: t.indoor, Icon: Home },
-          { key: 'outdoor', label: t.outdoor, Icon: Mountain },
-        ] satisfies { key: keyof Facets; label: string; Icon: typeof Home }[]).map(({ key, label, Icon }) => {
-          const active = facets[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setFacets((f) => ({ ...f, [key]: !f[key] }))}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                border: '1px solid ' + (active ? theme.color.accent : theme.color.line),
-                background: active ? theme.color.accent : theme.color.bg,
-                color: active ? theme.color.accentInk : theme.color.ink,
-                fontWeight: 600,
-                fontSize: '12.5px',
-                padding: '9px 8px',
-                borderRadius: theme.radius.sm,
-                cursor: 'pointer',
-              }}
-            >
-              <Icon size={14} aria-hidden /> {label}
-            </button>
-          );
-        })}
       </div>
 
       <div style={{ padding: '0 15px 10px', flex: 'none' }} role="radiogroup" aria-label={t.sortBy}>
@@ -674,7 +637,7 @@ export const Sidebar = ({
         {!flat && verband && (
           <AssociationGroups
             list={list}
-            filtering={filtering}
+            filtering={searching}
             expanded={expanded}
             onToggle={onToggleGroup}
             selectedId={selectedId}
@@ -686,7 +649,7 @@ export const Sidebar = ({
         {!flat && !verband && (
           <CantonGroups
             list={list}
-            filtering={filtering}
+            filtering={searching}
             isAdmin={isAdmin}
             expanded={expanded}
             onToggle={onToggleGroup}
