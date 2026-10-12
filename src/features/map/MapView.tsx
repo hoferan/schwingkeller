@@ -382,7 +382,7 @@ export function MapView({
   };
 
   // A hovered cluster lists its venues, on devices that can hover. The list is built at each hover,
-  // so it follows the venues and the language.
+  // so it follows the venues and the language. The tooltip Leaflet binds closes itself on mouseout.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onClusterOver = (e: any) => {
     if (!canHover()) return;
@@ -462,8 +462,6 @@ export function MapView({
     if (markerGroupRef.current.on) {
       markerGroupRef.current.on('clusterclick', onClusterClick);
       markerGroupRef.current.on('clustermouseover', onClusterOver);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      markerGroupRef.current.on('clustermouseout', (e: any) => e.layer.closeTooltip());
     }
     map.on('popupopen', onPopupOpen);
     map.on('zoomstart', () => { zoomingRef.current = true; });

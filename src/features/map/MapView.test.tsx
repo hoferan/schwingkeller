@@ -598,6 +598,17 @@ describe('MapView pin names on hover', () => {
     expect(map.style.getPropertyValue('--pin-tip-fade')).toBe(`${TIP_FADE_MS}ms`);
   });
 
+  it('hides the chip when keyboard focus moves on, also after a zoom has rebuilt the pin', () => {
+    setHover(true);
+    const { container } = renderPin();
+    fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+    const pin = container.querySelector<HTMLElement>('.leaflet-marker-icon[aria-label="Keller 1"]')!;
+    fireEvent.focus(pin);
+    fireEvent.blur(pin);
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
   it('shows no tooltip on a touch device, neither on hover nor on tap', () => {
     setHover(false);
     const { container, pin } = renderPin();
@@ -669,6 +680,15 @@ describe('MapView cluster list on hover', () => {
     expect(pointsAtOrAboveTopOf(container.querySelector<HTMLElement>('.leaflet-tooltip')!, icon)).toBe(true);
   });
 
+  it('closes the list when the pointer leaves the cluster', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    fireEvent.mouseOut(clusterOf(container));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
   it('shows no cluster list on a touch device', () => {
     setHover(false);
     const { container } = render(mapView(null, seven));
@@ -732,6 +752,16 @@ describe('MapView names from zoom 12', () => {
     const { container } = renderAt(4);
     expect(names(container).map((n) => n.textContent).sort()).toEqual(['Halle Agy', 'Turnhalle Prehl']);
     names(container).forEach((n) => expect(n).toHaveAttribute('aria-hidden', 'true'));
+  });
+
+  it('names no pin inside a cluster, only the ones standing alone', () => {
+    // Two venues a few metres apart share a cluster at zoom 12; Prehl stands alone.
+    const near = [
+      { ...venueAt('3', 'freiburg', 46.82, 8.2), name: 'Nah A' },
+      { ...venueAt('4', 'freiburg', 46.8202, 8.2002), name: 'Nah B' },
+    ];
+    const { container } = renderAt(4, [...near, prehl]);
+    expect(names(container).map((n) => n.textContent)).toEqual(['Turnhalle Prehl']);
   });
 
   it('writes no names at zoom 11', () => {
