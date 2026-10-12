@@ -28,3 +28,9 @@ export const verbandId = (name: string): CantonalId => {
 
 export const verbandIdsOf = (teilverband: RegionalId): CantonalId[] =>
   de.childrenOf(teilverband).filter(isCantonal).map((a) => a.id);
+
+export const teilverbandOf = (verband: CantonalId): RegionalId => {
+  const regional = de.regionalOf(verband);
+  if (!regional) throw new Error(`no Teilverband above "${verband}"`);
+  return regional.id;
+};

@@ -89,11 +89,9 @@ describe('App — sidebar default state', () => {
   });
 
   // VITE_APP_ENV unset reads as development, where the verband flag is on.
-  it('opens the Teilverbände by default with the flag on', () => {
+  it('starts with every Teilverband closed with the flag on', () => {
     render(<App />);
-    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toEqual({
-      bksv: true, isv: true, nosv: true, nwsv: true, swsv: true,
-    });
+    expect(screen.getByTestId('expanded-state')).toHaveTextContent('{}');
   });
 
   it('sorts by association by default with the flag on', () => {
@@ -130,7 +128,7 @@ describe('App — permalinks', () => {
     it("expands BKSV and Emmental for ?vb=emmental and frames Emmental's venues", () => {
       openAt('?vb=emmental');
       render(<App />);
-      expect(expandedState()).toMatchObject({ bksv: true, emmental: true });
+      expect(expandedState()).toEqual({ bksv: true, emmental: true });
       expect(focusBounds()).toEqual([[46.95, 7.6], [47.05, 7.8]]);
     });
 
@@ -150,30 +148,36 @@ describe('App — permalinks', () => {
     it('frames all venues of a Teilverband for ?vb=bksv', () => {
       openAt('?vb=bksv');
       render(<App />);
-      expect(expandedState()).toMatchObject({ bksv: true });
+      expect(expandedState()).toEqual({ bksv: true });
       expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
     });
 
     it('ignores an unknown ?vb= id', () => {
       openAt('?vb=nowhere');
       render(<App />);
-      expect(expandedState()).not.toHaveProperty('nowhere');
+      expect(expandedState()).toEqual({});
       expect(focusBounds()).toBeNull();
     });
 
     it('lands ?ctn=BE on BKSV', () => {
       openAt('?ctn=BE');
       render(<App />);
-      expect(expandedState()).toMatchObject({ bksv: true });
-      expect(expandedState()).not.toHaveProperty('BE');
+      expect(expandedState()).toEqual({ bksv: true });
       expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
     });
 
     it('lands ?ctn=AI on Appenzell', () => {
       openAt('?ctn=ai');
       render(<App />);
-      expect(expandedState()).toMatchObject({ nosv: true, appenzell: true });
+      expect(expandedState()).toEqual({ nosv: true, appenzell: true });
       expect(focusBounds()).toEqual([[47.33, 9.41], [47.33, 9.41]]);
+    });
+
+    // afls.ch embeds the map with ?ctn=fr.
+    it('lands ?ctn=fr on Freiburg and leaves the other Teilverbände closed', () => {
+      openAt('?ctn=fr');
+      render(<App />);
+      expect(expandedState()).toEqual({ swsv: true, freiburg: true });
     });
 
     it("lands ?ctn=ZH on Zürich and frames its venues, including one outside the canton", () => {
@@ -186,8 +190,7 @@ describe('App — permalinks', () => {
     it('prefers ?vb= over ?ctn=', () => {
       openAt('?ctn=ZH&vb=emmental');
       render(<App />);
-      expect(expandedState()).toMatchObject({ emmental: true });
-      expect(expandedState()).not.toHaveProperty('zuerich');
+      expect(expandedState()).toEqual({ bksv: true, emmental: true });
     });
 
     it('lets ?venue= beat ?vb=', () => {

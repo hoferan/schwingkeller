@@ -73,14 +73,12 @@ function AppShell() {
     return parseAssociationParam(search) ?? (code ? associationForCanton(code) : null);
   });
   const [search, setSearch] = useState('');
-  // Keyed by canton code or association id. With the verband flag on, the Teilverbände start open
-  // and the Verbände closed, and a ?vb= permalink opens its own. No canton starts open; a ?ctn=
-  // permalink opens its own.
+  // Keyed by canton code or association id. Every group starts closed, and a permalink opens only
+  // its own path: its canton with the flag off, its Teilverband and Verband with the flag on. afls.ch
+  // embeds the map with ?ctn=fr, and Freiburg's venues should sit near the top of the list.
   const associations = useAssociations();
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-    const open: string[] = isFeatureOn('verband')
-      ? associations.childrenOf('esv').map((a) => a.id)
-      : [];
+    const open: string[] = [];
     if (ctnParam) open.push(ctnParam);
     if (vbParam) open.push(...expandedKeysFor(vbParam, associations));
     return Object.fromEntries(open.map((key) => [key, true]));

@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { STR } from '../../src/i18n/translations';
 import { POSTER_QR_OPTIONS } from '../../src/features/venues/posterLayout';
 import { Given, When, Then, expect } from '../fixtures';
-import { verbandId } from '../associations';
+import { teilverbandOf, verbandId } from '../associations';
 
 const t = STR.de;
 
@@ -51,7 +51,7 @@ const readRects = (page: Page, selector: string, frameSelector?: string) =>
 
 const openPosterEditor = async (page: Page, id: string) => {
   // Venues arrive from PostgREST, and the canton rows only render once they do. The Verband rows
-  // render at once, inside their Teilverband, which starts open.
+  // render at once, but only inside an open Teilverband.
   await expect(page.getByTestId(`generate-poster-${id}`)).toBeVisible();
   await page.getByTestId(`generate-poster-${id}`).click();
   await expect(page.getByText(t.posterEditorTitle, { exact: false })).toBeVisible();
@@ -62,7 +62,9 @@ Given('I open the poster editor for canton {string}', async ({ page }, canton: s
 });
 
 Given('I open the poster editor for Verband {string}', async ({ page }, name: string) => {
-  await openPosterEditor(page, verbandId(name));
+  const id = verbandId(name);
+  await page.getByTestId(`group-${teilverbandOf(id)}`).click();
+  await openPosterEditor(page, id);
 });
 
 Then('the formats square, portrait and landscape are offered', async ({ page }) => {
