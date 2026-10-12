@@ -1,11 +1,10 @@
 // Venue-name pin labels for the canton poster: where each name sits relative to its pin, in
 // POSTER_SIZE (1080-space) px. The placement rule itself is shared with the map's names
-// (src/lib/labelPlacement.ts); this file gives it the poster's sizes. Pure geometry — no canvas, no
-// DOM — so the canvas exporter
-// (posterCanvas.drawPinLabels) and the editor's live DOM preview (PosterEditorModal) place labels
-// identically from one source of truth, the same way posterLayout/computeChromeLayout already do.
-// Callers measure the text themselves and pass the width in, which is what keeps this file free of
-// any rendering dependency.
+// (src/lib/labelPlacement.ts); this file gives it the poster's sizes. It is pure geometry, with no
+// canvas and no DOM, so the canvas exporter (posterCanvas.drawPinLabels) and the editor's live DOM
+// preview (PosterEditorModal) place labels identically from one source of truth, the same way
+// posterLayout/computeChromeLayout already do. Callers measure the text themselves and pass the
+// width in, which is what keeps this file free of any rendering dependency.
 
 import { POSTER_SIZE, POSTER_LAYOUT } from './posterLayout';
 import { placeLabels, type LabelPin, type LabelRect, type LabelSlot, type PlacedLabel } from '../../lib/labelPlacement';
