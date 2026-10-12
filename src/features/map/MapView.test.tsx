@@ -570,6 +570,15 @@ describe('MapView pin names on hover', () => {
     expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
   });
 
+  it('still shows it on keyboard focus after a zoom, when markercluster has rebuilt the pin', () => {
+    setHover(true);
+    const { container } = renderPin();
+    fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+    fireEvent.focus(container.querySelector<HTMLElement>('.leaflet-marker-icon[aria-label="Keller 1"]')!);
+    expect(container.querySelector('.leaflet-tooltip.pin-tip')).toHaveTextContent('Keller 1');
+  });
+
   it('shows no tooltip on a touch device, neither on hover nor on tap', () => {
     setHover(false);
     const { container, pin } = renderPin();
@@ -727,15 +736,19 @@ describe('MapView names from zoom 12', () => {
     expect(nameOf(container, 'Neu')).not.toBeNull();
   });
 
-  it('places the names again once the web fonts have loaded', async () => {
-    let fontsLoaded = () => {};
-    const ready = new Promise<void>((resolve) => { fontsLoaded = resolve; });
-    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready } });
+  // On a first visit nothing on the page uses Oswald 600 before the names do, so document.fonts.ready
+  // has long settled when they are first placed. The map asks for that face itself.
+  it("places the names again once the names' font has loaded", async () => {
+    let fontLoaded = () => {};
+    const loaded = new Promise<void>((resolve) => { fontLoaded = resolve; });
+    const load = vi.fn(() => loaded);
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve(), load } });
     try {
       renderAt(4);
+      expect(load).toHaveBeenCalledWith('600 11px Oswald, sans-serif');
       const before = measureText.mock.calls.length;
-      fontsLoaded();
-      await ready;
+      fontLoaded();
+      await loaded;
       await Promise.resolve();
       expect(measureText.mock.calls.length).toBeGreaterThan(before);
     } finally {

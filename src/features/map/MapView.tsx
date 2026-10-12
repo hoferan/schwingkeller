@@ -16,7 +16,7 @@ import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
-import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_ZOOM, placeNames, type NamePin } from './pinNames';
+import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, type NamePin } from './pinNames';
 import type { LabelRect } from '../../lib/labelPlacement';
 
 interface MapViewProps {
@@ -193,10 +193,18 @@ export function MapView({
       const m = L.marker([v.lat, v.lng], options).addTo(group);
       // Leaflet makes each pin a focusable button. Its name comes from aria-label rather than title,
       // which would show the browser's own tooltip next to the chip. markercluster builds a new
-      // element each time it puts the pin back on the map, so the label goes on at every add.
-      const nameForScreenReaders = () => m.getElement()?.setAttribute('aria-label', v.name);
-      m.on('add', nameForScreenReaders);
-      nameForScreenReaders();
+      // element each time it puts the pin back on the map, so the label goes on at every add, and
+      // so does keyboard focus for the chip: Leaflet only wires focus to the element the pin had
+      // when refreshNames bound the chip. Without a chip bound, both calls do nothing.
+      const setUpElement = () => {
+        const el = m.getElement();
+        if (!el) return;
+        el.setAttribute('aria-label', v.name);
+        L.DomEvent.on(el, 'focus', () => m.openTooltip());
+        L.DomEvent.on(el, 'blur', () => m.closeTooltip());
+      };
+      m.on('add', setUpElement);
+      setUpElement();
       // autoPan is off because panPopupIntoView does its job and also clears the controls.
       m.bindPopup(popupHtml(v, tRef.current, associationsRef.current), { maxWidth: 240, minWidth: 222, closeButton: true, autoPan: false });
       // refreshNames gives the pin its name chip on hover or keyboard focus. Leaflet would also open
@@ -458,8 +466,11 @@ export function MapView({
       }, 160);
     });
     namesLayerRef.current = L.layerGroup().addTo(map);
-    // Names measured before Oswald arrived come out too narrow, so they are placed again.
-    document.fonts?.ready.then(() => { if (mapRef.current === map) refreshNames(); });
+    // Names are measured in Oswald 600, which nothing else on the page uses, so the browser hasn't
+    // fetched it yet and document.fonts.ready has long settled. Names measured in the fallback font
+    // come out a third too wide, so the map asks for the face and places the names again once it
+    // is there. A failed load leaves the fallback measurements, which still keep names apart.
+    document.fonts?.load(NAME_FONT).then(() => { if (mapRef.current === map) refreshNames(); }, () => {});
 
     return () => {
       quietCloseRef.current = true;

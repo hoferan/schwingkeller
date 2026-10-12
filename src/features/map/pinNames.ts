@@ -18,7 +18,8 @@ export const NAME_MAX_TEXT_W = 160;
 // always stands for two or more and reads right in every language.
 const LIST_MAX = 5;
 
-const NAME_FONT = '600 11px Oswald, sans-serif';
+// The names' font. MapView loads it before the names need it.
+export const NAME_FONT = '600 11px Oswald, sans-serif';
 
 // Phones and tablets can't hover: there a tap opens the popup and nothing else.
 export const canHover = (): boolean => window.matchMedia?.('(hover: hover)').matches === true;
