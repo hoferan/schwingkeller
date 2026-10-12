@@ -21,6 +21,15 @@ describe('filterVenues', () => {
   it('matches canton name', () => {
     expect(filterVenues(venues, 'luzern').map((x) => x.id)).toEqual(['2', '3']);
   });
+  // The person column may be null in the database (0001_init: `person text default ''`).
+  it("doesn't match the word null for a venue without a contact person", () => {
+    const noPerson = v({ id: '4', person: null as unknown as string });
+    expect(filterVenues([noPerson], 'null')).toEqual([]);
+  });
+  it('finds a venue with an unknown canton code by its name', () => {
+    const unknownCanton = v({ id: '5', name: 'Altkeller', canton: 'XX' });
+    expect(filterVenues([unknownCanton], 'altkeller').map((x) => x.id)).toEqual(['5']);
+  });
 });
 
 describe('groupByCanton', () => {
