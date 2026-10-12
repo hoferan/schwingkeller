@@ -71,6 +71,18 @@ describe('DetailModal', () => {
     await waitFor(() => expect(screen.queryByText(STR.de.edit)).not.toBeInTheDocument());
   });
 
+  it('says Aussen for a venue that is also outside, and never Innen', () => {
+    renderModal({ venue: { ...venue, indoor: true, outdoor: true } });
+    expect(screen.getByText(STR.de.outdoor)).toBeInTheDocument();
+    expect(screen.queryByText('Innen')).toBeNull();
+  });
+
+  it('says neither for a venue that is not outside', () => {
+    renderModal({ venue: { ...venue, indoor: true, outdoor: false } });
+    expect(screen.queryByText(STR.de.outdoor)).toBeNull();
+    expect(screen.queryByText('Innen')).toBeNull();
+  });
+
   it('shows the edit button when admin is logged in', async () => {
     getSession.mockResolvedValue({ data: { session: { user: { id: 'admin' } } } });
     renderModal();

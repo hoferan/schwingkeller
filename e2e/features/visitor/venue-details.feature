@@ -7,6 +7,11 @@ Feature: Venue details
     Then I see the address "Schmiedgasse 5, 6430 Schwyz"
     And I can get directions to it
 
+  Scenario: A venue with a place outside says so
+    Given I visit the map
+    When I open "Schwinghalle Grand-Pré" from the list
+    Then the details say that it also has a place outside
+
   Scenario: The close button of a venue's popup
     Given I visit the map
     When I select "Mythen Schwingkeller" in the list

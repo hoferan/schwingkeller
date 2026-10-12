@@ -204,6 +204,29 @@ describe('EditForm association and address', () => {
   beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
+  it('offers Aussen as a checkbox under "Weitere Angaben", after the contact, and no Innen', () => {
+    renderWith(base);
+    const outdoor = screen.getByRole('checkbox', { name: STR.de.outdoor });
+    expect(outdoor).not.toBeChecked();
+    const heading = screen.getByText(STR.de.moreDetails);
+    const contact = screen.getByText(STR.de.contact);
+    expect(contact.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(heading.compareDocumentPosition(outdoor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText('Räumlichkeiten')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Innen' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Innen' })).toBeNull();
+  });
+
+  it('saves Aussen and leaves the indoor column to the database', async () => {
+    renderWith(base);
+    fireEvent.click(screen.getByRole('checkbox', { name: STR.de.outdoor }));
+    expect(screen.getByRole('checkbox', { name: STR.de.outdoor })).toBeChecked();
+    save();
+    const payload = await savedPayload();
+    expect(payload).toMatchObject({ outdoor: true });
+    expect(payload).not.toHaveProperty('indoor');
+  });
+
   it('trims the contact fields, so a field of spaces is saved empty', async () => {
     renderWith(base);
     fireEvent.change(screen.getByPlaceholderText(STR.de.person), { target: { value: '   ' } });

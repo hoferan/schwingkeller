@@ -23,12 +23,17 @@ const venue: Venue = {
 };
 
 describe('MarkerPopup', () => {
-  it('renders the venue name, address, and indoor/outdoor tags', () => {
+  it('renders the venue name and address', () => {
     render(<MarkerPopup venue={venue} t={STR.de} associations={associationsFor('de')} />);
     expect(screen.getByText('Schwingkeller Langnau')).toBeInTheDocument();
     expect(screen.getByText('3550 Langnau')).toBeInTheDocument();
-    expect(screen.getByText(STR.de.indoor)).toBeInTheDocument();
-    expect(screen.queryByText(STR.de.outdoor)).not.toBeInTheDocument();
+  });
+
+  // The detail view says whether a venue is also outside; the popup leaves it out.
+  it('shows neither Innen nor Aussen, even for a venue that has both', () => {
+    render(<MarkerPopup venue={{ ...venue, indoor: true, outdoor: true }} t={STR.de} associations={associationsFor('de')} />);
+    expect(screen.queryByText('Innen')).toBeNull();
+    expect(screen.queryByText(STR.de.outdoor)).toBeNull();
   });
 
   it('marks the details button with the venue id for click delegation', () => {
@@ -87,9 +92,8 @@ describe('MarkerPopup', () => {
     expect(container.querySelector('img')).toHaveStyle({ filter: theme.armsOutline });
   });
 
-  it('gives the tags 11.5px text and the Details button a 40px height', () => {
+  it('gives the Details button a 40px height', () => {
     popup(venue);
-    expect(screen.getByText(STR.de.indoor)).toHaveStyle({ fontSize: '11.5px' });
     expect(screen.getByRole('button', { name: STR.de.details })).toHaveStyle({ height: '40px' });
   });
 

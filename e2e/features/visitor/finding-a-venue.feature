@@ -15,8 +15,3 @@ Feature: Finding a Schwingkeller
   Scenario: A search without a match
     When I search for "Zzyzx"
     Then the list says that nothing was found
-
-  Scenario: Showing only outdoor venues
-    When I show only outdoor venues
-    Then the list shows "Schwinghalle Grand-Pré"
-    And the list does not show "Schwingkeller Freiburg-Altstadt"

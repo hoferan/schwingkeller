@@ -21,37 +21,14 @@ describe('filterVenues', () => {
   it('matches canton name', () => {
     expect(filterVenues(venues, 'luzern').map((x) => x.id)).toEqual(['2', '3']);
   });
-
-  const mixed = [
-    v({ id: '1', name: 'IndoorOnly', indoor: true, outdoor: false }),
-    v({ id: '2', name: 'OutdoorOnly', indoor: false, outdoor: true }),
-    v({ id: '3', name: 'Both', indoor: true, outdoor: true }),
-    v({ id: '4', name: 'Neither', indoor: false, outdoor: false }),
-  ];
-
-  it('returns all when no facet flag is set', () => {
-    expect(filterVenues(mixed, '', { indoor: false, outdoor: false }).map((x) => x.id))
-      .toEqual(['1', '2', '3', '4']);
+  // The person column may be null in the database (0001_init: `person text default ''`).
+  it("doesn't match the word null for a venue without a contact person", () => {
+    const noPerson = v({ id: '4', person: null as unknown as string });
+    expect(filterVenues([noPerson], 'null')).toEqual([]);
   });
-  it('returns all when facets is omitted', () => {
-    expect(filterVenues(mixed, '')).toHaveLength(4);
-  });
-  it('indoor chip keeps only indoor venues', () => {
-    expect(filterVenues(mixed, '', { indoor: true, outdoor: false }).map((x) => x.id))
-      .toEqual(['1', '3']);
-  });
-  it('outdoor chip keeps only outdoor venues', () => {
-    expect(filterVenues(mixed, '', { indoor: false, outdoor: true }).map((x) => x.id))
-      .toEqual(['2', '3']);
-  });
-  it('both chips keep the union (indoor OR outdoor), excluding neither', () => {
-    expect(filterVenues(mixed, '', { indoor: true, outdoor: true }).map((x) => x.id))
-      .toEqual(['1', '2', '3']);
-  });
-  it('combines text query and facet with AND', () => {
-    // "only" matches OutdoorOnly, Both, and IndoorOnly by name; outdoor chip narrows to outdoor ones.
-    expect(filterVenues(mixed, 'only', { indoor: false, outdoor: true }).map((x) => x.id))
-      .toEqual(['2']);
+  it('finds a venue with an unknown canton code by its name', () => {
+    const unknownCanton = v({ id: '5', name: 'Altkeller', canton: 'XX' });
+    expect(filterVenues([unknownCanton], 'altkeller').map((x) => x.id)).toEqual(['5']);
   });
 });
 
@@ -105,10 +82,10 @@ describe('flatSorted', () => {
 describe('filterVenues with extra text', () => {
   const extra = (x: Venue) => (x.id === '1' ? 'Emmental Bernisch-Kantonaler Schwingerverband BKSV' : '');
   it('matches the extra text', () => {
-    expect(filterVenues(venues, 'bksv', undefined, extra).map((x) => x.id)).toEqual(['1']);
+    expect(filterVenues(venues, 'bksv', extra).map((x) => x.id)).toEqual(['1']);
   });
   it('still matches the canton name with extra text given', () => {
-    expect(filterVenues(venues, 'luzern', undefined, extra).map((x) => x.id)).toEqual(['2', '3']);
+    expect(filterVenues(venues, 'luzern', extra).map((x) => x.id)).toEqual(['2', '3']);
   });
 });
 

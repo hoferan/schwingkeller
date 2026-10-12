@@ -1,4 +1,4 @@
-import { X, MapPin, Home, Mountain, User, Phone, Globe, ExternalLink, Share2 } from 'lucide-react';
+import { X, MapPin, Mountain, User, Phone, Globe, ExternalLink, Share2 } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -118,10 +118,12 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
           </div>
           {!hasPhotos && close}
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-          {venue.indoor && <span style={tag}><Home size={13} /> {t.indoor}</span>}
-          {venue.outdoor && <span style={tag}><Mountain size={13} /> {t.outdoor}</span>}
-        </div>
+        {/* Every venue has a room; only a place outside as well is worth saying. */}
+        {venue.outdoor && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+            <span style={tag}><Mountain size={13} /> {t.outdoor}</span>
+          </div>
+        )}
         {hasContact && (
           <>
             <div style={{ height: '1px', background: theme.color.line, margin: '18px 0 14px' }}></div>

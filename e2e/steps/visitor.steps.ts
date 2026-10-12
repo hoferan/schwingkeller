@@ -32,18 +32,8 @@ Then('the list shows {string}', async ({ page }, name: string) => {
   await expect(rows(page).filter({ hasText: name })).toHaveCount(1);
 });
 
-Then('the list does not show {string}', async ({ page }, name: string) => {
-  await expect(rows(page).filter({ hasText: name })).toHaveCount(0);
-});
-
 Then('the list says that nothing was found', async ({ page }) => {
   await expect(page.getByText(t.noResults)).toBeVisible();
-});
-
-When('I show only outdoor venues', async ({ page }) => {
-  const outdoor = page.getByRole('button', { name: t.outdoor, exact: true });
-  await outdoor.click();
-  await expect(outdoor).toHaveAttribute('aria-pressed', 'true');
 });
 
 // A visitor finds it by searching, which also expands its canton. Selecting a row flies the map to
@@ -150,6 +140,10 @@ Then('I can get directions to it', async ({ page }) => {
 
 When('I follow a shared link to {string}', async ({ page }, name: string) => {
   await page.goto(`/?venue=${await venueByName(name)}`);
+});
+
+Then('the details say that it also has a place outside', async ({ page }) => {
+  await expect(page.getByTestId('venue-detail').getByText(t.outdoor, { exact: true })).toBeVisible();
 });
 
 Then('the details of {string} are open', async ({ page }, name: string) => {
