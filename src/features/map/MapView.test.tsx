@@ -9,6 +9,7 @@ import { USER_PIN_SIZE } from './markers';
 import { TIP_FADE_MS, TIP_SHOW_DELAY_MS } from './pinNames';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
+import { setFeature } from '../../test/features';
 
 const BE_BOUNDS: [[number, number], [number, number]] = [[46.33, 6.86], [47.35, 8.46]];
 
@@ -241,15 +242,13 @@ describe('MapView location marker', () => {
 });
 
 describe('MapView legend', () => {
-  afterEach(() => { vi.unstubAllEnvs(); });
-
   it('shows the legend when the verband flag is on', () => {
     const { getByRole } = render(mapView(null));
     expect(getByRole('button', { name: STR.de.legendHide })).toBeTruthy();
   });
 
   it('has no legend when the verband flag is off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     const { queryByRole } = render(mapView(null));
     expect(queryByRole('button', { name: STR.de.legendHide })).toBeNull();
   });

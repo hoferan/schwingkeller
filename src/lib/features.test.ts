@@ -34,7 +34,7 @@ describe('isFeatureOn', () => {
     },
   );
 
-  it('ships verband on locally and on previews, off in production', () => {
-    expect(FEATURES.verband).toEqual({ development: true, stage: true, production: false });
+  it('ships verband on everywhere', () => {
+    expect(FEATURES.verband).toEqual({ development: true, stage: true, production: true });
   });
 });

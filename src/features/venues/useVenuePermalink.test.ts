@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createElement, type ReactNode } from 'react';
 import { renderHook } from '@testing-library/react';
 import { useVenuePermalink } from './useVenuePermalink';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import type { Venue } from './types';
+import { setFeature } from '../../test/features';
 
 const venue = (over: Partial<Venue> = {}): Venue => ({
   id: 'v1',
@@ -43,9 +44,8 @@ beforeEach(() => {
 });
 
 describe('useVenuePermalink — matching', () => {
-  // The canton view, as production shows it until the verband flag goes on there.
-  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
-  afterEach(() => { vi.unstubAllEnvs(); });
+  // The canton view, which stays until #72 removes it with the verband flag.
+  beforeEach(() => { setFeature('verband', false); });
 
   it('does nothing when venueParam is null', () => {
     const openDetail = vi.fn();

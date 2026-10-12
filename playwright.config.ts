@@ -24,6 +24,9 @@ const VERBAND_ADMIN_STATE = 'e2e/.auth/admin-verband.json';
 // Feature files by role, in e2e/features/admin or e2e/features/visitor. A scenario runs against
 // both bundles unless a tag ties it to one view: @canton-view runs only with the verband flag off,
 // @verband-view only with it on. bddgen writes each project's tests to its own folder.
+//
+// The verband flag is on in both bundles now, so neither runs the @canton-view scenarios. #72
+// deletes them along with the canton view.
 const bddProject = (name: string, role: 'admin' | 'visitor', tags: string) => ({
   name,
   testDir: defineBddConfig({
@@ -68,12 +71,12 @@ export default defineConfig<SetupOptions>({
     // exercised once per bundle rather than in front of each scenario.
     { name: 'setup', testDir: './e2e', testMatch: /auth\.setup\.ts/, use: { storageStatePath: ADMIN_STATE } },
     {
-      ...bddProject('admin', 'admin', 'not @verband-view'),
+      ...bddProject('admin', 'admin', 'not @canton-view'),
       use: { ...devices['Desktop Chrome'], storageState: ADMIN_STATE },
       dependencies: ['setup'],
     },
     // Visitors are anonymous: no saved session and no dependency on the sign-in setup.
-    { ...bddProject('visitor', 'visitor', 'not @verband-view'), use: { ...devices['Desktop Chrome'] } },
+    { ...bddProject('visitor', 'visitor', 'not @canton-view'), use: { ...devices['Desktop Chrome'] } },
 
     // The same three against the bundle with the verband flag on.
     {
@@ -95,8 +98,8 @@ export default defineConfig<SetupOptions>({
 
   // The suite tests production bundles, so a bug that only shows after bundling or minification
   // fails it. The bundle on 4173 has production's flag values (src/lib/features.ts) and covers what
-  // visitors get today. The one on 4174 is built like a deploy preview, with VITE_APP_ENV=stage, and
-  // covers the Verband view before it is switched on. Playwright builds and serves both itself,
+  // visitors get. The one on 4174 is built like a deploy preview, with VITE_APP_ENV=stage, and covers
+  // a flag that is on there before it is switched on in production. Playwright builds and serves both itself,
   // locally as in CI, and never reuses a running one: a server someone else started may have been
   // built with other flags. It starts the servers one after the other, and the second bundle builds
   // into its own folder because the first is already being served from dist.
