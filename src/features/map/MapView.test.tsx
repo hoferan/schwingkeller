@@ -635,3 +635,111 @@ describe('MapView cluster list on hover', () => {
     expect(container.querySelector('.leaflet-tooltip')).toBeNull();
   });
 });
+
+describe('MapView names from zoom 12', () => {
+  // The map starts at zoom 8 over [46.82, 8.23]; four clicks on "+" reach 12, where these two are
+  // lone pins some 90px either side of the centre.
+  const agy = { ...venueAt('1', 'freiburg', 46.82, 8.2), name: 'Halle Agy' };
+  const prehl = { ...venueAt('2', 'freiburg', 46.82, 8.26), name: 'Turnhalle Prehl' };
+  let measureText: ReturnType<typeof vi.fn<(s: string) => { width: number }>>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setContainerSize(800, 600);
+    measureText = vi.fn((s: string) => ({ width: s.length * 7 }));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({ font: '', measureText } as unknown as CanvasRenderingContext2D);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  const map = (venues: Venue[], props: { placing?: boolean; onSelect?: (id: string) => void; onPickLocation?: () => void } = {}) => (
+    <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+      <MapView
+        venues={venues} selectedId={null} onSelect={props.onSelect ?? vi.fn()} onDeselect={vi.fn()} onOpenDetail={vi.fn()}
+        baseKind="map" onChangeBase={vi.fn()} placing={props.placing ?? false} onPickLocation={props.onPickLocation ?? vi.fn()}
+        userPosition={null} geoStatus="unsupported" onRequestLocation={vi.fn()} isMobile={false}
+      />
+    </I18nContext.Provider>
+  );
+  const zoomTo = (container: HTMLElement, steps: number) => {
+    for (let i = 0; i < steps; i++) fireEvent.click(container.querySelector('.leaflet-control-zoom-in')!);
+    vi.advanceTimersByTime(500);
+  };
+  const names = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('.pin-name')];
+  const nameOf = (container: HTMLElement, name: string) => names(container).find((n) => n.textContent === name) ?? null;
+  const pinOf = (container: HTMLElement, name: string) =>
+    container.querySelector<HTMLElement>(`.leaflet-marker-icon[aria-label="${name}"]`)!;
+  const renderAt = (steps: number, venues: Venue[] = [agy, prehl], props = {}) => {
+    const result = render(map(venues, props));
+    vi.advanceTimersByTime(200);
+    zoomTo(result.container, steps);
+    return result;
+  };
+
+  it('writes the names next to lone pins from zoom 12, hidden from screen readers', () => {
+    const { container } = renderAt(4);
+    expect(names(container).map((n) => n.textContent).sort()).toEqual(['Halle Agy', 'Turnhalle Prehl']);
+    names(container).forEach((n) => expect(n).toHaveAttribute('aria-hidden', 'true'));
+  });
+
+  it('writes no names at zoom 11', () => {
+    const { container } = renderAt(3);
+    expect(names(container)).toHaveLength(0);
+  });
+
+  it('opens the venue when its name is tapped, without picking a location', () => {
+    const onSelect = vi.fn(); const onPickLocation = vi.fn();
+    const { container } = renderAt(4, [agy, prehl], { placing: true, onSelect, onPickLocation });
+    fireEvent.click(nameOf(container, 'Halle Agy')!);
+    expect(onSelect).toHaveBeenCalledWith('1');
+    expect(onPickLocation).not.toHaveBeenCalled();
+  });
+
+  it('adds no hover chip to a pin that carries its name', () => {
+    setHover(true);
+    const { container } = renderAt(4);
+    fireEvent.mouseOver(pinOf(container, 'Halle Agy'));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+
+  it("drops a pin's name while its popup is open and brings it back on close", () => {
+    const { container } = renderAt(4);
+    fireEvent.click(pinOf(container, 'Halle Agy'));
+    expect(nameOf(container, 'Halle Agy')).toBeNull();
+    fireEvent.click(container.querySelector('.leaflet-popup-close-button')!);
+    expect(nameOf(container, 'Halle Agy')).not.toBeNull();
+  });
+
+  it('names a venue added while zoomed in', () => {
+    const { container, rerender } = renderAt(4);
+    rerender(map([agy, prehl, { ...venueAt('3', 'freiburg', 46.8, 8.23), name: 'Neu' }]));
+    vi.advanceTimersByTime(200);
+    expect(nameOf(container, 'Neu')).not.toBeNull();
+  });
+
+  it('places the names again once the web fonts have loaded', async () => {
+    let fontsLoaded = () => {};
+    const ready = new Promise<void>((resolve) => { fontsLoaded = resolve; });
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready } });
+    try {
+      renderAt(4);
+      const before = measureText.mock.calls.length;
+      fontsLoaded();
+      await ready;
+      await Promise.resolve();
+      expect(measureText.mock.calls.length).toBeGreaterThan(before);
+    } finally {
+      delete (document as { fonts?: unknown }).fonts;
+    }
+  });
+});

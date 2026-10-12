@@ -26,6 +26,9 @@ input, select, button, textarea { font-family: inherit; }
 .pin-tip.leaflet-tooltip-top:before { border-top-color: #111111; }
 .pin-tip .pin-tip-list { font-family: 'Work Sans', sans-serif; font-size: 11.5px; font-weight: 500; text-transform: none; line-height: 1.45; max-width: 240px; white-space: normal; }
 .pin-tip .pin-tip-more { color: #bbbbbb; }
+/* A venue name written next to its pin from zoom 12 (MapView refreshNames). Leaflet sets its width and
+   height from the measured text, so the box is border-box and the text never wraps. */
+.pin-name { box-sizing: border-box; background: #111111; color: #ffffff; border-radius: 10px; padding: 3px 8px; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; line-height: 14px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.18); cursor: pointer; }
 
 /* Custom scrollbar */
 .sk-scroll::-webkit-scrollbar { width: 9px; }
