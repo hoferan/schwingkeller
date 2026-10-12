@@ -16,8 +16,12 @@ Feature: Finding a Schwingkeller by Verband
       | NWSV        | 0      |
       | SWSV        | 15     |
 
+  Scenario: The Teilverbände start closed
+    Then every Teilverband is closed
+
   Scenario: Opening a Verband lists its venues, wherever they are
-    When I open the Verband "Emmental"
+    When I open the Teilverband "BKSV"
+    And I open the Verband "Emmental"
     Then the list shows exactly the venues of Verband "Emmental"
     And the list shows "Schwingkeller Escholzmatt"
 

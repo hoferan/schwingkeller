@@ -13,3 +13,4 @@ Feature: Links to a Verband
   Scenario: An old canton link opens its Verband
     When I follow a shared link to canton "FR"
     Then the list shows exactly the venues of Verband "Freiburg"
+    And only the Teilverband "SWSV" is open

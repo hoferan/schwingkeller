@@ -43,6 +43,25 @@ Then('the Teilverbände count these venues:', async ({ page }, table: DataTable)
   }
 });
 
+Then('every Teilverband is closed', async ({ page }) => {
+  for (const id of TEILVERBAND_IDS) {
+    await expect(page.getByTestId(`group-${id}`)).toHaveAttribute('aria-expanded', 'false');
+  }
+});
+
+Then('only the Teilverband {string} is open', async ({ page }, short: string) => {
+  const open = teilverbandId(short);
+  for (const id of TEILVERBAND_IDS) {
+    await expect(page.getByTestId(`group-${id}`)).toHaveAttribute('aria-expanded', String(id === open));
+  }
+});
+
+When('I open the Teilverband {string}', async ({ page }, short: string) => {
+  const header = page.getByTestId(`group-${teilverbandId(short)}`);
+  await header.click();
+  await expect(header).toHaveAttribute('aria-expanded', 'true');
+});
+
 When('I open the Verband {string}', async ({ page }, name: string) => {
   const header = page.getByTestId(`group-${verbandId(name)}`);
   await header.click();
