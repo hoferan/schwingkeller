@@ -12,7 +12,7 @@ const venue: Venue = {
 };
 
 // Stands in for Leaflet: divIcon hands back its options, and a cluster is its children's ids.
-const fakeL = { divIcon: (o: { html: string; iconSize: [number, number] }) => o };
+const fakeL = { divIcon: (o: { html: string; iconSize: [number, number]; tooltipAnchor?: [number, number] }) => o };
 const cluster = (ids: CantonalId[]) => ({
   getChildCount: () => ids.length,
   getAllChildMarkers: () => ids.map((associationId) => ({ options: { associationId } })),
@@ -189,5 +189,13 @@ describe('pin tooltip anchor', () => {
   });
   it("opens it above the teardrop's head", () => {
     expect(pinIcon(true, 'emmental').tooltipAnchor).toEqual([0, -40]);
+  });
+});
+
+describe('cluster tooltip anchor', () => {
+  it('opens the list just above the cluster, whatever its size', () => {
+    expect(clusterHtml(['emmental', 'freiburg']).tooltipAnchor).toEqual([0, -17]);
+    const fifty = clusterIcon(fakeL)(cluster(Array<CantonalId>(50).fill('emmental')));
+    expect(fifty.tooltipAnchor).toEqual([0, -23]);
   });
 });

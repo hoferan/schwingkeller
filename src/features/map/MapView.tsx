@@ -16,7 +16,7 @@ import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
 import { isFeatureOn } from '../../lib/features';
-import { canHover, escapeHtml } from './pinNames';
+import { canHover, clusterTipHtml, escapeHtml } from './pinNames';
 
 interface MapViewProps {
   venues: Venue[];
@@ -299,6 +299,17 @@ export function MapView({
     map.flyTo(ll ? [ll.lat, ll.lng] : map.getCenter(), Math.min(mx, map.getZoom() + 3), { duration: 0.6 });
   };
 
+  // A hovered cluster lists its venues, on devices that can hover. The list is built at each hover,
+  // so it follows the venues and the language.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onClusterOver = (e: any) => {
+    if (!canHover()) return;
+    const names = e.layer.getAllChildMarkers().map((c: L.Marker) => (c.options as PinOptions).venueName);
+    e.layer.unbindTooltip()
+      .bindTooltip(clusterTipHtml(names, tRef.current.moreVenues), { direction: 'top', className: 'pin-tip', opacity: 1 })
+      .openTooltip();
+  };
+
   const onMapClick = (e: L.LeafletMouseEvent) => {
     if (!placingRef.current) return;
     const lat = +e.latlng.lat.toFixed(5);
@@ -346,7 +357,12 @@ export function MapView({
     markerGroupRef.current = Lany.markerClusterGroup
       ? Lany.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50, spiderfyOnMaxZoom: true, zoomToBoundsOnClick: false, disableClusteringAtZoom: 16, removeOutsideVisibleBounds: false, animate: false, iconCreateFunction: clusterIcon(L) })
       : L.layerGroup();
-    if (markerGroupRef.current.on) markerGroupRef.current.on('clusterclick', onClusterClick);
+    if (markerGroupRef.current.on) {
+      markerGroupRef.current.on('clusterclick', onClusterClick);
+      markerGroupRef.current.on('clustermouseover', onClusterOver);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      markerGroupRef.current.on('clustermouseout', (e: any) => e.layer.closeTooltip());
+    }
     map.on('popupopen', onPopupOpen);
     map.on('zoomstart', () => { zoomingRef.current = true; });
     map.on('moveend', onMoveEnd);

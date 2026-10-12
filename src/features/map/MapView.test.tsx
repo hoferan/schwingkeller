@@ -587,3 +587,51 @@ describe('MapView pin names on hover', () => {
     expect(tooltip(container)).toBeNull();
   });
 });
+
+describe('MapView cluster list on hover', () => {
+  beforeEach(() => { vi.useFakeTimers(); setContainerSize(800, 600); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  const setHover = (hover: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(hover: hover)' && hover, addEventListener() {}, removeEventListener() {},
+    }));
+  // Seven venues within a few hundred metres: one cluster at the starting zoom 8.
+  const seven = ['1', '2', '3', '4', '5', '6', '7'].map((id, i) => venueAt(id, 'emmental', 46.82 + i * 0.001, 8.23));
+  // The cluster's icon is the one marker without a venue name.
+  const clusterOf = (container: HTMLElement) =>
+    container.querySelector<HTMLElement>('.leaflet-marker-icon:not([aria-label])')!;
+  const lines = (container: HTMLElement) =>
+    [...container.querySelectorAll('.leaflet-tooltip .pin-tip-list > div')].map((d) => d.textContent);
+
+  it('lists the venues of a hovered cluster', () => {
+    setHover(true);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(lines(container)).toEqual(['Keller 1', 'Keller 2', 'Keller 3', 'Keller 4', 'Keller 5', '+ 2 weitere']);
+  });
+
+  it('says the rest in the language the visitor switched to', () => {
+    setHover(true);
+    const { container, rerender } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    rerender(mapView(null, seven, null, null, 'fr'));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(lines(container).at(-1)).toBe('+ 2 autres');
+  });
+
+  it('shows no cluster list on a touch device', () => {
+    setHover(false);
+    const { container } = render(mapView(null, seven));
+    vi.advanceTimersByTime(200);
+    fireEvent.mouseOver(clusterOf(container));
+    expect(container.querySelector('.leaflet-tooltip')).toBeNull();
+  });
+});
