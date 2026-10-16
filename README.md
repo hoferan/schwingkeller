@@ -147,7 +147,7 @@ This brings up the **entire stack** with no `.env` setup and no Supabase CLI:
 - a one-shot init step that applies every migration in `supabase/migrations/` that hasn't run yet
   (tracked in `public.schema_migrations`) and, if the `venues` table is empty, runs
   `supabase/seed.sql` to add 29 example venues;
-- a one-shot init step that creates a local admin user;
+- a one-shot init step that creates the local test accounts, before the migrations run;
 - the Vite app (`web` service).
 
 Once everything is up:
@@ -159,10 +159,18 @@ Once everything is up:
 | Supabase Studio | <http://localhost:54323> |
 | Postgres | `localhost:54322` |
 
-Open <http://localhost:5173> and sign in with the pre-created local admin:
+Open <http://localhost:5173> and sign in with one of the local test accounts. They all use the
+password `schwingadmin`:
 
-- **Email:** `admin@schwingkeller.local`
-- **Password:** `schwingadmin`
+| Account | Profile |
+|---|---|
+| `admin@schwingkeller.local` | approved, scope ESV (super-admin) |
+| `bksv@schwingkeller.local` | approved, scope Teilverband BKSV |
+| `emmental@schwingkeller.local` | approved, scope Verband Emmental |
+| `pending@schwingkeller.local` | pending, requested Emmental |
+
+db-init sets these profiles from `supabase/local-accounts.sql` on every start. Sign-up is on in the
+local stack, so you can also register new accounts; they start pending.
 
 Use **Studio** at <http://localhost:54323> to inspect the database, auth users and storage.
 
