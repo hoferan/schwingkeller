@@ -54,8 +54,9 @@ describe('profiles', () => {
 
   it('shows a signed-in user their own row and no other', async () => {
     await signUpRequesting('emmental');
-    const { data } = await admin.auth.getUser();
-    const rows = await visibleProfiles(admin);
+    const applicant = await signUpRequesting('emmental');
+    const { data } = await applicant.auth.getUser();
+    const rows = await visibleProfiles(applicant);
     expect(rows.map((p) => p.id)).toEqual([data.user?.id]);
   });
 

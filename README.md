@@ -178,8 +178,8 @@ Use **Studio** at <http://localhost:54323> to inspect the database, auth users a
 > reuse the cached images and volumes, so they start quickly.
 
 The init steps are **idempotent**: re-running `docker compose up` will not re-seed the database or
-fail on the existing admin user. To start completely fresh — wiping the database volume so the
-schema, seed and admin are re-created — reset the stack:
+fail on the existing test accounts. To start completely fresh — wiping the database volume so the
+schema, seed and test accounts are re-created — reset the stack:
 
 ```bash
 docker compose down -v   # remove containers and named volumes

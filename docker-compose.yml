@@ -443,7 +443,7 @@ services:
             -d "{\"email\":\"$$email\",\"password\":\"schwingadmin\",\"email_confirm\":true,\"user_metadata\":$$meta}")
           if [ "$$code" = "200" ] || [ "$$code" = "201" ]; then
             echo "[admin-init] $$email created."
-          elif [ "$$code" = "422" ]; then
+          elif [ "$$code" = "422" ] && grep -q '"error_code":"email_exists"' /tmp/resp.json; then
             echo "[admin-init] $$email already exists — ok."
           else
             echo "[admin-init] unexpected status $$code for $$email" >&2
