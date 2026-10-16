@@ -52,6 +52,7 @@ import { syncVenuePhotos } from '../venues/api';
 import { forwardGeocode } from '../venues/geocoding';
 import { supabase } from '../../lib/supabase';
 import type { Venue } from '../venues/types';
+import { setFeature } from '../../test/features';
 
 const makeClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -202,7 +203,7 @@ describe('EditForm association and address', () => {
   const search = () => screen.getByRole('button', { name: STR.de.addressSearch });
 
   beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
-  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
+  afterEach(() => { vi.useRealTimers(); });
 
   it('offers Aussen as a checkbox under "Weitere Angaben", after the contact, and no Innen', () => {
     renderWith(base);
@@ -325,10 +326,10 @@ describe('EditForm association and address', () => {
   });
 
   it.each([
-    ['on', undefined],
-    ['off', 'production'],
-  ])('saves the chosen association with the flag %s', async (_label, env) => {
-    if (env) vi.stubEnv('VITE_APP_ENV', env);
+    ['on', true],
+    ['off', false],
+  ])('saves the chosen association with the flag %s', async (_label, on) => {
+    setFeature('verband', on);
     renderWith(null);
     expect(document.getElementById('venue-association')).not.toBeNull();
     fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });

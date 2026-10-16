@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 const { getSession, onAuthStateChange } = vi.hoisted(() => {
@@ -23,6 +23,7 @@ import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
 import { DetailModal } from './DetailModal';
 import { theme } from '../../theme';
+import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: 'v1',
@@ -114,7 +115,6 @@ describe('DetailModal association', () => {
   beforeEach(() => {
     getSession.mockResolvedValue({ data: { session: null } });
   });
-  afterEach(() => { vi.unstubAllEnvs(); });
 
   it('shows the association with the flag on', () => {
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
@@ -122,7 +122,7 @@ describe('DetailModal association', () => {
   });
 
   it('shows nothing with the flag off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
     expect(screen.queryByTestId('venue-association')).toBeNull();
   });
@@ -132,7 +132,6 @@ describe('DetailModal layout', () => {
   beforeEach(() => {
     getSession.mockResolvedValue({ data: { session: null } });
   });
-  afterEach(() => { vi.unstubAllEnvs(); });
 
   const withPhotos: Venue = { ...venue, photos: [{ id: 'p1', url: 'https://example.com/a.jpg', position: 0 }] };
 
