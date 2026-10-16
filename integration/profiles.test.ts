@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN, anonClient, signInAsAdmin } from '../test-support/local-stack';
+import { ACCOUNTS, ADMIN, anonClient, signInAsAdmin } from '../test-support/local-stack';
 
 type Profile = {
   id: string;
@@ -87,5 +87,18 @@ describe('profiles', () => {
       requested_association_id: stored,
       scope_association_id: null,
     });
+  });
+});
+
+describe('local test accounts', () => {
+  it.each([
+    ['esv', { status: 'approved', scope_association_id: 'esv', requested_association_id: null }],
+    ['bksv', { status: 'approved', scope_association_id: 'bksv', requested_association_id: null }],
+    ['emmental', { status: 'approved', scope_association_id: 'emmental', requested_association_id: null }],
+    ['pending', { status: 'pending', scope_association_id: null, requested_association_id: 'emmental' }],
+  ] as const)('signs in as %s with the expected profile', async (name, expected) => {
+    const account = ACCOUNTS[name];
+    const client = await signInAsAdmin(account.email, account.password);
+    expect(await ownProfile(client)).toMatchObject({ email: account.email, ...expected });
   });
 });

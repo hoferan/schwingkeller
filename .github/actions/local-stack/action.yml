@@ -1,7 +1,7 @@
 name: Local Supabase stack
 description: >-
   Starts the Compose backend, applies the migrations and the seed, creates the
-  local admin, and points Vite and the tests at the stack.
+  local test accounts, and points Vite and the tests at the stack.
 runs:
   using: composite
   steps:
@@ -12,7 +12,7 @@ runs:
       # along regardless as kong depends on it.
       shell: bash
       run: docker compose up -d --wait db kong auth rest storage imgproxy meta
-    - name: Apply migrations, seed venues, create the admin
+    - name: Create the test accounts, apply migrations, seed venues
       # Both are one-shot containers, so `up -d` returns before they finish.
       # Their exit codes are then read one at a time: `compose wait` over two
       # services reports a single code, and a silently failed admin-init
