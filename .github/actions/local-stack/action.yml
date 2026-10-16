@@ -1,7 +1,7 @@
 name: Local Supabase stack
 description: >-
   Starts the Compose backend, applies the migrations and the seed, creates the
-  local admin, and points Vite and the tests at the stack.
+  local test accounts, and points Vite and the tests at the stack.
 runs:
   using: composite
   steps:
@@ -12,23 +12,28 @@ runs:
       # along regardless as kong depends on it.
       shell: bash
       run: docker compose up -d --wait db kong auth rest storage imgproxy meta
-    - name: Apply migrations, seed venues, create the admin
-      # Both are one-shot containers, so `up -d` returns before they finish.
-      # Their exit codes are then read one at a time: `compose wait` over two
-      # services reports a single code, and a silently failed admin-init
-      # would otherwise reappear much later as an unexplained login failure.
+    - name: Create the test accounts, apply migrations, seed venues
+      # Both are one-shot containers, run in order: db-init sets the profiles
+      # of the accounts admin-init creates. Each exit code is read on its own,
+      # so a failed admin-init prints its log instead of dying inside `up -d`
+      # and showing up much later as an unexplained login failure.
       shell: bash
       run: |
-        docker compose up -d db-init admin-init
-        docker compose wait db-init admin-init
-        for service in db-init admin-init; do
-          code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq "$service")")
+        run_once() {
+          docker compose up -d "$@"
+          service=${@: -1}
+          id=$(docker compose ps -aq "$service")
+          # `compose wait` errors out when the container has already exited.
+          docker wait "$id" > /dev/null
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$id")
           if [ "$code" != "0" ]; then
             echo "$service exited with $code"
             docker compose logs --no-color "$service"
             exit 1
           fi
-        done
+        }
+        run_once admin-init
+        run_once --no-deps db-init
     - name: Point Vite and the tests at the local stack
       # Read from docker/supabase.env rather than copied here, so rotating
       # the demo key in that file cannot leave a job on a stale one.

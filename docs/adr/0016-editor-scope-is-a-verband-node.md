@@ -17,7 +17,10 @@ scoped editors to a canton with a separate super-admin role. Once venues belong 
 ## Decision drivers
 
 * The scope has to match how the Verbände divide responsibility, not the cantons.
-* Phase 1 hands out Teilverband scopes. Finer scopes later shouldn't need a schema or RLS change.
+* Editors work at three levels from the start: the ESV, a Teilverband, or a Kantonal- or
+  Gauverband. A new level later, such as clubs, shouldn't need a schema or RLS change.
+* The app should manage its own accounts. Apart from the first ESV account, editors approve each
+  other.
 * Nobody should be able to widen their own rights.
 * RLS stays the only security boundary.
 
@@ -36,9 +39,12 @@ Chosen option: one node of the tree per profile.
   recursive `association_is_within(node, scope)`.
 * Super-admin is scope `esv`. There's no role column, so there's no second concept to keep
   consistent with the scope.
-* Phase 1 grants one of the 5 Teilverbände. The admin panel applies that by default and the
-  database doesn't restrict it, so granting one of the 29 later is a different pick in the same
-  picker.
+* An admin grants any node. Applicants may request any node at sign-up, the ESV included; the
+  approver decides.
+* Account approval follows the same tree. An editor manages the accounts strictly below their node,
+  so a Teilverband editor approves the Verband editors in it and only the ESV approves Teilverband
+  and ESV editors. A Kantonal- or Gauverband editor approves nobody.
+* Inside their scope, editors at every level have the same rights over venues.
 * Status and scope change only through `security definer` RPCs that re-check the caller.
 * Canton scopes were turned down because a canton doesn't match a Verband. A separate role would
   say the same thing as the root scope in a second place. Several scopes per editor were left out
@@ -59,8 +65,11 @@ Chosen option: one node of the tree per profile.
 
 ### Confirmation
 
-Integration tests in `integration/` check that a `bksv` editor can write `emmental` and not
-`luzern`, can't move a venue out of scope, and that no RPC removes the last super-admin.
+Integration tests in `integration/` sign in as one local account per level. They check that a
+`bksv` editor can write `emmental` and not `luzern`, that an `emmental` editor can't write
+`oberland` in the same Teilverband, that nobody can move a venue out of scope, that a `bksv` editor
+can approve an Emmental applicant but can't grant `bksv`, and that no RPC removes the last
+super-admin.
 
 ## More information
 
@@ -70,5 +79,3 @@ Integration tests in `integration/` check that a `bksv` editor can write `emment
   [#27](https://github.com/hoferan/schwingkeller/issues/27) to
   [#31](https://github.com/hoferan/schwingkeller/issues/31), switch:
   [#73](https://github.com/hoferan/schwingkeller/issues/73)
-* Revisit if Teilverband editors should approve people inside their own scope. That needs a new RPC
-  rule, not a schema change.

@@ -24,14 +24,22 @@ export const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? 'http://localhost:5
 // from SUPABASE_URL checks it again here, at the point the value is actually read.
 assertLocalTargets({ supabaseURL: SUPABASE_URL });
 
-// The admin that docker-compose.yml's admin-init creates through the GoTrue admin API. These are
-// local-stack-only credentials, committed alongside the demo JWTs in docker/supabase.env for the
-// same reason: `docker compose up` has to work with no setup. They authenticate against nothing
-// but a disposable container on this machine.
-export const ADMIN = {
-  email: 'admin@schwingkeller.local',
-  password: 'schwingadmin',
+// The accounts that docker-compose.yml's admin-init creates through the GoTrue admin API, one per
+// level of the Verband tree plus one that waits for approval. db-init sets their profiles from
+// supabase/local-accounts.sql. These are local-stack-only credentials, committed alongside the demo
+// JWTs in docker/supabase.env for the same reason: `docker compose up` has to work with no setup.
+// They authenticate against nothing but a disposable container on this machine.
+const LOCAL_PASSWORD = 'schwingadmin';
+
+export const ACCOUNTS = {
+  esv: { email: 'admin@schwingkeller.local', password: LOCAL_PASSWORD },
+  bksv: { email: 'bksv@schwingkeller.local', password: LOCAL_PASSWORD },
+  emmental: { email: 'emmental@schwingkeller.local', password: LOCAL_PASSWORD },
+  pending: { email: 'pending@schwingkeller.local', password: LOCAL_PASSWORD },
 } as const;
+
+// The super-admin. Most tests sign in as this one.
+export const ADMIN = ACCOUNTS.esv;
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } };
 

@@ -3,8 +3,8 @@
 #   docker compose up
 #
 # Brings up a self-hosted Supabase backend (Postgres + Auth + REST + Storage +
-# Studio behind the Kong gateway), applies the venues schema + seed, creates an
-# admin user, and serves the Vite app — with no manual .env setup and no
+# Studio behind the Kong gateway), applies the venues schema + seed, creates the
+# local test accounts, and serves the Vite app — with no manual .env setup and no
 # Supabase CLI required.
 #
 # Adapted from the official Supabase self-hosting docker setup
@@ -142,7 +142,8 @@ services:
 
       GOTRUE_SITE_URL: http://localhost:5173
       GOTRUE_URI_ALLOW_LIST: http://localhost:5173
-      GOTRUE_DISABLE_SIGNUP: "true"
+      # Sign-up is on locally so the integration tests can exercise the profile trigger; production keeps it off until #73.
+      GOTRUE_DISABLE_SIGNUP: "false"
 
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
@@ -343,6 +344,9 @@ services:
       # Wait for Storage so storage.objects exists before we add policies on it.
       storage:
         condition: service_healthy
+      # The test accounts must exist before supabase/local-accounts.sql sets their profiles.
+      admin-init:
+        condition: service_completed_successfully
     volumes:
       - ./supabase:/supabase:ro
     environment:
@@ -400,13 +404,17 @@ services:
         else
           echo "[db-init] venues already has $$count row(s) — skipping seed"
         fi
+        echo "[db-init] setting the local test accounts' profiles"
+        psql -v ON_ERROR_STOP=1 -f /supabase/local-accounts.sql
         echo "[db-init] reloading PostgREST schema cache"
         psql -v ON_ERROR_STOP=1 -c "notify pgrst, 'reload schema';"
         echo "[db-init] done."
     restart: "no"
 
   # ---------------------------------------------------------------------------
-  # One-shot: create admin user via GoTrue admin API (idempotent)
+  # One-shot: create the local test accounts via the GoTrue admin API
+  # (idempotent). Runs before db-init, which sets their profiles from
+  # supabase/local-accounts.sql.
   # ---------------------------------------------------------------------------
   admin-init:
     container_name: schwingkeller-admin-init
@@ -419,24 +427,30 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "[admin-init] creating admin@schwingkeller.local (idempotent)"
-        code=$$(curl -s -o /tmp/resp.json -w "%{http_code}" \
-          -X POST "http://auth:9999/admin/users" \
-          -H "Authorization: Bearer $${SERVICE_ROLE_KEY}" \
-          -H "apikey: $${SERVICE_ROLE_KEY}" \
-          -H "Content-Type: application/json" \
-          -d '{"email":"admin@schwingkeller.local","password":"schwingadmin","email_confirm":true}')
-        echo "[admin-init] HTTP $$code"
-        cat /tmp/resp.json || true
-        echo ""
-        if [ "$$code" = "200" ] || [ "$$code" = "201" ]; then
-          echo "[admin-init] admin user created."
-        elif [ "$$code" = "422" ]; then
-          echo "[admin-init] admin user already exists — ok."
-        else
-          echo "[admin-init] unexpected status $$code" >&2
-          exit 1
-        fi
+        for spec in \
+          'admin@schwingkeller.local|{}' \
+          'bksv@schwingkeller.local|{}' \
+          'emmental@schwingkeller.local|{}' \
+          'pending@schwingkeller.local|{"association":"emmental"}'; do
+          email=$${spec%%|*}
+          meta=$${spec#*|}
+          echo "[admin-init] creating $$email (idempotent)"
+          code=$$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "http://auth:9999/admin/users" \
+            -H "Authorization: Bearer $${SERVICE_ROLE_KEY}" \
+            -H "apikey: $${SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$$email\",\"password\":\"schwingadmin\",\"email_confirm\":true,\"user_metadata\":$$meta}")
+          if [ "$$code" = "200" ] || [ "$$code" = "201" ]; then
+            echo "[admin-init] $$email created."
+          elif [ "$$code" = "422" ] && grep -q '"error_code":"email_exists"' /tmp/resp.json; then
+            echo "[admin-init] $$email already exists — ok."
+          else
+            echo "[admin-init] unexpected status $$code for $$email" >&2
+            cat /tmp/resp.json >&2 || true
+            exit 1
+          fi
+        done
     restart: "no"
 
   # ---------------------------------------------------------------------------
