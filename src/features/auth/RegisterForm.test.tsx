@@ -153,4 +153,22 @@ describe('RegisterForm', () => {
     await user.click(screen.getByRole('button', { name: t.backToLogin }));
     expect(onBack).toHaveBeenCalled();
   });
+
+  // Without an alert role a screen-reader user who submits hears nothing at all.
+  it('announces validation errors', async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await fill(user, { confirm: 'somethingelse' });
+    await submit(user);
+    expect(screen.getByRole('alert')).toHaveTextContent(t.registerErrMismatch);
+  });
+
+  // The submit button unmounts with the form, so focus would fall back to the page behind the modal.
+  it('moves focus to the close button once the email is sent', async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await fill(user);
+    await submit(user);
+    expect(await screen.findByRole('button', { name: t.close })).toHaveFocus();
+  });
 });

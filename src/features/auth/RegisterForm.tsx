@@ -67,7 +67,8 @@ export const RegisterForm = ({ onDone, onBack }: RegisterFormProps) => {
           {t.registerCheckEmail}
         </p>
         <div style={{ display: 'flex', marginTop: '18px' }}>
-          <button type="button" onClick={onDone} style={primaryButtonStyle}>{t.close}</button>
+          {/* The submit button is gone with the form, so focus moves here rather than to the page. */}
+          <button type="button" onClick={onDone} autoFocus style={primaryButtonStyle}>{t.close}</button>
         </div>
       </div>
     );
@@ -119,7 +120,9 @@ export const RegisterForm = ({ onDone, onBack }: RegisterFormProps) => {
           </optgroup>
         ))}
       </select>
-      {err && <div style={{ marginTop: '10px', color: theme.color.accent, fontSize: '12.5px' }}>{err}</div>}
+      {err && (
+        <div role="alert" style={{ marginTop: '10px', color: theme.color.accent, fontSize: '12.5px' }}>{err}</div>
+      )}
       <div style={{ marginTop: '10px', fontSize: '11.5px', color: theme.color.muted, fontStyle: 'italic' }}>
         {t.registerHint}
       </div>
