@@ -35,6 +35,7 @@ vi.mock('./features/geo/useGeolocation', () => ({
 vi.mock('./features/venues/useVenuePermalink', () => ({ useVenuePermalink: () => {} }));
 vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: string) => fallback }));
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
+vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
 vi.mock('./features/map/MapView', () => ({
   MapView: ({ initialFocusBounds }: { initialFocusBounds: unknown }) => (
     <div data-testid="mapview">

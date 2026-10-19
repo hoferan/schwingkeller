@@ -16,8 +16,6 @@ export interface AuthValue {
   isApproved: boolean;
   isSuperAdmin: boolean;
   canEditAssociation: (id: string | null) => boolean;
-  // Temporary: goes once callers read the scope instead.
-  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -43,7 +41,6 @@ export const buildAuthValue = (
     isApproved: scope !== null,
     isSuperAdmin: scope === 'esv',
     canEditAssociation: (id) => canWriteAssociation(associations, scope, id),
-    isAdmin: !!session,
   };
 };
 

@@ -76,11 +76,6 @@ describe('buildAuthValue', () => {
     const v = buildAuthValue(session, profile('approved', 'brand-new'), tree);
     expect(v.canEditAssociation('emmental')).toBe(false);
   });
-
-  it('keeps isAdmin as the signed-in flag for now', () => {
-    expect(buildAuthValue(session, null, tree).isAdmin).toBe(true);
-    expect(buildAuthValue(null, null, tree).isAdmin).toBe(false);
-  });
 });
 
 describe('AuthProvider', () => {

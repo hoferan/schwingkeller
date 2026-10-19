@@ -24,16 +24,16 @@ const langStyle = (active: boolean): React.CSSProperties => ({
 });
 
 export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
-  const { isAdmin, signOut } = useAuth();
+  const { session, isApproved, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
 
   return (
     <div
       data-testid="topbar"
       style={{
-        height: '60px', flex: 'none', background: isAdmin ? theme.color.accent : theme.color.bg,
+        height: '60px', flex: 'none', background: isApproved ? theme.color.accent : theme.color.bg,
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: '9px',
-        borderBottom: '2px solid ' + (isAdmin ? theme.color.ink : theme.color.accent),
+        borderBottom: '2px solid ' + (isApproved ? theme.color.ink : theme.color.accent),
         position: 'relative', zIndex: 1100,
       }}
     >
@@ -44,7 +44,7 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
         <div
           style={{
             fontFamily: theme.font.display, fontWeight: 700, letterSpacing: '0.04em',
-            textTransform: 'uppercase', color: isAdmin ? theme.color.accentInk : theme.color.accent,
+            textTransform: 'uppercase', color: isApproved ? theme.color.accentInk : theme.color.accent,
             fontSize: '15px', lineHeight: 1.1, whiteSpace: 'nowrap',
           }}
         >
@@ -53,7 +53,7 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
         {!isMobile && (
           <div
             style={{
-              fontSize: '10.5px', color: isAdmin ? theme.color.accentInk : theme.color.muted,
+              fontSize: '10.5px', color: isApproved ? theme.color.accentInk : theme.color.muted,
               lineHeight: 1.1, marginTop: '1px',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
@@ -79,15 +79,15 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
         ))}
       </div>
 
-      {isAdmin ? (
+      {session ? (
         <button
           onClick={signOut}
           type="button"
           title={t.logout}
           aria-label={t.logout}
           style={{
-            fontSize: '12.5px', fontWeight: 600, color: theme.color.accentInk, background: 'transparent',
-            border: '1.5px solid ' + theme.color.accentInk, borderRadius: theme.radius.pill, cursor: 'pointer', flex: 'none',
+            fontSize: '12.5px', fontWeight: 600, color: isApproved ? theme.color.accentInk : theme.color.accent, background: 'transparent',
+            border: '1.5px solid ' + (isApproved ? theme.color.accentInk : theme.color.accent), borderRadius: theme.radius.pill, cursor: 'pointer', flex: 'none',
             whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '6px', padding: isMobile ? '0' : '7px 13px', width: isMobile ? '38px' : 'auto',
             height: isMobile ? '38px' : 'auto',

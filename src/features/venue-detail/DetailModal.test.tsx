@@ -1,17 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
-const { getSession, onAuthStateChange } = vi.hoisted(() => {
-  return {
-    getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    onAuthStateChange: vi
-      .fn()
-      .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
-  };
-});
-vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession, onAuthStateChange } },
-}));
+// supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
+vi.mock('../../lib/supabase', () => ({ supabase: {} }));
+
 // The carousel measures the DOM, which jsdom can't; a stub is enough for the layout tests here.
 vi.mock('embla-carousel-react', () => ({
   default: () => [vi.fn(), { selectedScrollSnap: () => 0, on: vi.fn(), off: vi.fn() }],
@@ -66,9 +58,6 @@ const renderModal = (
   );
 
 describe('DetailModal', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
 
   it('renders venue details and hides admin actions when not admin', async () => {
     renderModal();
@@ -138,9 +127,6 @@ describe('DetailModal', () => {
 });
 
 describe('DetailModal association', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   it('shows the association with the flag on', () => {
@@ -156,9 +142,6 @@ describe('DetailModal association', () => {
 });
 
 describe('DetailModal layout', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   const withPhotos: Venue = { ...venue, photos: [{ id: 'p1', url: 'https://example.com/a.jpg', position: 0 }] };

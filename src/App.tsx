@@ -7,6 +7,7 @@ import { MapView } from './features/map/MapView';
 import { DetailModal } from './features/venue-detail/DetailModal';
 import { EditForm } from './features/venue-edit/EditForm';
 import { LoginModal } from './features/auth/LoginModal';
+import { StatusBanner } from './features/auth/StatusBanner';
 import { useVenues, useVenueMutations } from './features/venues/useVenues';
 import type { Venue } from './features/venues/types';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
@@ -270,6 +271,7 @@ function AppShell() {
       }}
     >
       <Topbar onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
+      <StatusBanner />
 
       <div style={mainStyle}>
         <Sidebar
