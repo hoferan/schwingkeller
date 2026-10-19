@@ -13,6 +13,7 @@ vi.mock('../lib/supabase', () => ({
   supabase: { auth: { getSession, onAuthStateChange } },
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { I18nContext } from '../i18n/useTranslation';
 import { STR } from '../i18n/translations';
@@ -21,11 +22,13 @@ import { Topbar } from './Topbar';
 
 const renderTopbar = () =>
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <Topbar onOpenLogin={() => {}} isMobile={false} />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </AuthProvider>
+    </QueryClientProvider>,
   );
 
 // jsdom's CSSOM may or may not preserve a color literally when read back via `.style.background` —

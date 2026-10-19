@@ -17,6 +17,7 @@ vi.mock('embla-carousel-react', () => ({
   default: () => [vi.fn(), { selectedScrollSnap: () => 0, on: vi.fn(), off: vi.fn() }],
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../auth/AuthProvider';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
@@ -44,6 +45,7 @@ const noop = () => {};
 
 const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>> = {}) =>
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <DetailModal
@@ -56,7 +58,8 @@ const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>
           {...overrides}
         />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </AuthProvider>
+    </QueryClientProvider>,
   );
 
 describe('DetailModal', () => {

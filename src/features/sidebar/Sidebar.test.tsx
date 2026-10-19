@@ -15,6 +15,7 @@ vi.mock('../../lib/supabase', () => ({
   supabase: { auth: { getSession, onAuthStateChange } },
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../auth/AuthProvider';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
@@ -101,11 +102,13 @@ const Harness = ({
 
 const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de') =>
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <AuthProvider>
       <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
         <Harness {...props} />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </AuthProvider>
+    </QueryClientProvider>,
   );
 
 const renderAdminSidebar = (props: HarnessProps = {}) => {
