@@ -67,6 +67,17 @@ describe('the venue-photos bucket by uploader', () => {
     const { data } = await admin.storage.from(PHOTO_BUCKET).list(INT_STORAGE_DIR, { search: path.split('/')[1] });
     return data?.length ?? 0;
   };
+  const bytesAsAdmin = async (path: string): Promise<Buffer> => {
+    const { data, error } = await admin.storage.from(PHOTO_BUCKET).download(path);
+    if (error) throw new Error(`downloading ${path} failed: ${error.message}`);
+    return Buffer.from(await data.arrayBuffer());
+  };
+  // storage-api answers a policy refusal with HTTP 400 and statusCode "403" in the body. Checking
+  // both keeps a bad request or a missing bucket from passing for a refusal.
+  const expectRlsRefusal = (error: Error | null) => {
+    expect(error?.message ?? '(no error)').toMatch(/row-level security/);
+    expect(error && 'statusCode' in error ? error.statusCode : '(no statusCode)').toBe('403');
+  };
 
   it('takes an upload from an emmental editor', async () => {
     const path = newPath();
@@ -79,7 +90,7 @@ describe('the venue-photos bucket by uploader', () => {
     const path = newPath();
     const { error } = await upload(pending, path);
     if (!error) created.push(path);
-    expect(error).not.toBeNull();
+    expectRlsRefusal(error);
   });
 
   it("keeps an emmental editor's file when a bksv editor deletes it", async () => {
@@ -95,8 +106,12 @@ describe('the venue-photos bucket by uploader', () => {
     const path = newPath();
     expect((await upload(emmental, path)).error).toBeNull();
     created.push(path);
-    const { error } = await upload(bksv, path, true);
-    expect(error).not.toBeNull();
+    const other = new Blob([PNG, Buffer.from('bksv')], { type: 'image/png' });
+    const { error } = await bksv.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, other, { contentType: 'image/png', upsert: true });
+    expectRlsRefusal(error);
+    expect(await bytesAsAdmin(path)).toEqual(PNG);
   });
 
   it('lets the uploader delete their own file', async () => {

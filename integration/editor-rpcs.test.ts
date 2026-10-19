@@ -325,8 +325,15 @@ describe('who may act', () => {
 
   it('refuses anyone acting on their own account', async () => {
     const bksvId = await idOf(bksv);
+    // The super-admin may grant any node, so only the self check stands between it and its own row.
     await expectUnchanged(adminId, async () => {
+      expectNotAuthorized(await admin.rpc('approve_editor', { target_id: adminId, scope: 'esv' }));
+      expectNotAuthorized(
+        await admin.rpc('set_editor_scope', { target_id: adminId, scope: 'bksv' }),
+      );
+      expectNotAuthorized(await admin.rpc('reject_editor', { target_id: adminId }));
       expectNotAuthorized(await admin.rpc('suspend_editor', { target_id: adminId }));
+      expectNotAuthorized(await admin.rpc('reactivate_editor', { target_id: adminId }));
     });
     await expectUnchanged(bksvId, async () => {
       expectNotAuthorized(
@@ -409,29 +416,38 @@ describe('the last super-admin', () => {
     expect(await isLast(second.id)).toBe(false);
   });
 
-  it('keeps one super-admin when two suspend each other at once', async () => {
+  // Only a smoke test: without a pg_sleep injected into suspend_editor the two calls rarely overlap,
+  // so a pass says little about the lock. The lock was checked by hand with such a pg_sleep.
+  it('keeps one super-admin when two suspend each other at once', async ({ onTestFinished }) => {
     const second = await approvedEditor(admin, 'esv');
-    try {
-      const results = await Promise.allSettled([
-        admin.rpc('suspend_editor', { target_id: second.id }),
-        second.client.rpc('suspend_editor', { target_id: adminId }),
-      ]);
-      const succeeded = results.filter((r) => r.status === 'fulfilled' && r.value.error === null);
-      expect(succeeded).toHaveLength(1);
-
-      // Each account can always read its own row.
-      const statuses = [
-        (await profileOf(admin, adminId)).status,
-        (await profileOf(second.client, second.id)).status,
-      ];
-      expect(statuses.filter((s) => s === 'approved')).toHaveLength(1);
-    } finally {
-      // Put the admin back first, then retire the second super-admin, whatever happened above.
+    // Puts the admin back first, then retires the second super-admin, whatever happens below. As a
+    // hook, its error is reported next to the test's own instead of replacing it.
+    onTestFinished(async () => {
       if ((await profileOf(admin, adminId)).status !== 'approved') {
         const { error } = await second.client.rpc('reactivate_editor', { target_id: adminId });
-        expect(error, 'reactivating the admin').toBeNull();
+        if (error) {
+          throw new Error(
+            `reactivating the local admin failed: ${error.message}. Restart db-init ` +
+              '(`docker compose up db-init`), whose local-accounts.sql approves the admin again; ' +
+              `the next run's global setup then suspends the leftover super-admin ${second.id}.`,
+          );
+        }
       }
       await retireSuperAdmin(second.id);
-    }
+    });
+
+    const results = await Promise.allSettled([
+      admin.rpc('suspend_editor', { target_id: second.id }),
+      second.client.rpc('suspend_editor', { target_id: adminId }),
+    ]);
+    const succeeded = results.filter((r) => r.status === 'fulfilled' && r.value.error === null);
+    expect(succeeded).toHaveLength(1);
+
+    // Each account can always read its own row.
+    const statuses = [
+      (await profileOf(admin, adminId)).status,
+      (await profileOf(second.client, second.id)).status,
+    ];
+    expect(statuses.filter((s) => s === 'approved')).toHaveLength(1);
   });
 });

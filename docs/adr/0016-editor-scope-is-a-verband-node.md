@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-06
+date: 2026-10-19
 decision-makers: André Hofer
 ---
 
@@ -79,10 +79,12 @@ Chosen option: one node of the tree per profile.
 Integration tests in `integration/` sign in as one local account per level. `editor-rpcs.test.ts`
 covers the RPCs: a `bksv` editor can approve an Emmental applicant but can't grant `bksv`, nobody
 manages their own account, and no RPC removes the last super-admin. The scope describes in
-`venues.test.ts`, `venue-photos.test.ts` and `profiles.test.ts` check that a `bksv` editor can write
-`emmental` and not `luzern`, that an `emmental` editor can't write `oberland` in the same
-Teilverband, and that nobody can move a venue out of scope. `storage.test.ts` checks that only the
-uploader or a super-admin can change or delete a file in `venue-photos`.
+`venues.test.ts` and `venue-photos.test.ts` check that a `bksv` editor can write `emmental` and not
+`luzern`, that an `emmental` editor can't write `oberland` in the same Teilverband, and that nobody
+can move a venue out of scope. `profiles.test.ts` checks that a `bksv` editor sees the profiles
+below BKSV. `storage.test.ts` checks that only the uploader or a super-admin can change or delete a
+file in `venue-photos`. Migration 0012 stops when a write policy that no migration defines sits on
+`venues`, `venue_photos` or `storage.objects`, because Postgres would OR it with the scoped ones.
 
 ## More information
 

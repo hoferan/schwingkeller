@@ -192,6 +192,7 @@ grant select, insert, update, delete on public.venue_photos to authenticated;
 -- Files are judged by uploader, not by Verband. The path carries no venue, and an upload happens
 -- before the venue is saved, so there is no Verband to check yet. Any approved account may
 -- upload; only the uploader or the super-admin may replace or delete a file.
+-- The grants on storage.objects aren't restated: storage-api owns the table and its grants.
 
 drop policy if exists "venue_photos_auth_write" on storage.objects;
 create policy "venue_photos_auth_write" on storage.objects
@@ -436,3 +437,38 @@ grant execute on function public.reject_editor(uuid) to authenticated;
 grant execute on function public.suspend_editor(uuid) to authenticated;
 grant execute on function public.reactivate_editor(uuid) to authenticated;
 grant execute on function public.request_review_again() to authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- No stray write policies
+-- ---------------------------------------------------------------------------------------------
+-- Postgres ORs permissive policies, so one extra write policy (production's dashboard was edited by
+-- hand before, see 0007) would undo the scoping above. Stop if any exists that no migration made.
+
+do $$
+declare
+  stray text;
+begin
+  select string_agg(format('%I.%I %I (%s)', p.schemaname, p.tablename, p.policyname, p.cmd), ', '
+                    order by p.schemaname, p.tablename, p.policyname)
+    into stray
+    from pg_policies p
+   where p.cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+     and (p.schemaname, p.tablename) in (('public', 'venues'), ('public', 'venue_photos'),
+                                         ('storage', 'objects'))
+     and (p.schemaname, p.tablename, p.policyname) not in (
+           ('public', 'venues', 'venues_auth_insert'),
+           ('public', 'venues', 'venues_auth_update'),
+           ('public', 'venues', 'venues_auth_delete'),
+           ('public', 'venue_photos', 'venue_photos_auth_insert'),
+           ('public', 'venue_photos', 'venue_photos_auth_update'),
+           ('public', 'venue_photos', 'venue_photos_auth_delete'),
+           ('storage', 'objects', 'venue_photos_auth_write'),
+           ('storage', 'objects', 'venue_photos_auth_update'),
+           ('storage', 'objects', 'venue_photos_auth_delete')
+         );
+  if stray is not null then
+    raise exception 'write policies that no migration defines: %', stray
+      using hint = 'Drop them, or define them in a migration and add them to this list.';
+  end if;
+end
+$$;

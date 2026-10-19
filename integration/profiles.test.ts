@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ACCOUNTS, ADMIN, anonClient, signInAsAdmin } from '../test-support/local-stack';
-import { type Profile, signInAs, signUpApplicant } from './support';
+import { type Profile, profileOf, signInAs, signUpApplicant } from './support';
 
 // Reads every profile the caller may see: their own, and the ones they manage.
 const visibleProfiles = async (client: SupabaseClient): Promise<Profile[]> => {
@@ -13,10 +13,7 @@ const visibleProfiles = async (client: SupabaseClient): Promise<Profile[]> => {
 const ownProfile = async (client: SupabaseClient): Promise<Profile> => {
   const { data, error } = await client.auth.getUser();
   if (error) throw new Error(`reading the signed-in user failed: ${error.message}`);
-  const rows = await visibleProfiles(client);
-  const own = rows.find((p) => p.id === data.user.id);
-  if (!own) throw new Error(`no profile for ${data.user.email}`);
-  return own;
+  return profileOf(client, data.user.id);
 };
 
 let admin: SupabaseClient;
