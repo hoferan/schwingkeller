@@ -82,7 +82,14 @@ describe('StatusBanner', () => {
     const client = new QueryClient();
     render(
       <QueryClientProvider client={client}>
-        <AuthContext.Provider value={{ ...value, signIn: async () => ({ error: null }), signOut: async () => {} }}>
+        <AuthContext.Provider
+          value={{
+            ...value,
+            signIn: async () => ({ error: null }),
+            signUp: async () => ({ error: null, confirmEmail: true }),
+            signOut: async () => {},
+          }}
+        >
           <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
             <StatusBanner />
           </I18nContext.Provider>

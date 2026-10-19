@@ -2,19 +2,15 @@ import { useState } from 'react';
 import { useAuth } from './useAuth';
 import { theme } from '../../theme';
 import { useTranslation } from '../../i18n/useTranslation';
+import { isFeatureOn } from '../../lib/features';
+import {
+  inputStyle, labelStyle, linkButtonStyle, primaryButtonStyle, secondaryButtonStyle,
+} from './formStyles';
+import { RegisterForm } from './RegisterForm';
 
 interface LoginModalProps {
   onClose: () => void;
 }
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid ' + theme.color.line, borderRadius: theme.radius.sm, padding: '11px 13px',
-  fontSize: '14px', color: theme.color.ink, background: theme.color.bg, outline: 'none',
-};
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em',
-  textTransform: 'uppercase', color: theme.color.muted, marginBottom: '6px',
-};
 
 export const LoginModal = ({ onClose }: LoginModalProps) => {
   const { signIn } = useAuth();
@@ -23,6 +19,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   const doLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -66,10 +63,16 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           }}
         >
           <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '16px', fontWeight: 700, color: theme.color.bg }}>
-            {t.loginTitle}
+            {mode === 'register' ? t.registerTitle : t.loginTitle}
           </span>
         </div>
-        <div style={{ padding: '18px 20px 20px' }}>
+        {/* The registration form is taller than a phone screen in landscape, so the body scrolls
+            below the header instead of pushing the modal off the screen. */}
+        <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>
+          {mode === 'register' ? (
+            <RegisterForm onDone={onClose} onBack={() => setMode('login')} />
+          ) : (
+          <>
           {/* htmlFor/id rather than bare labels: without the association the fields have no
               accessible name at all, and clicking a label does not focus its field. */}
           <label htmlFor="login-email" style={labelStyle}>{t.email}</label>
@@ -98,24 +101,27 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           <div style={{ display: 'flex', gap: '11px', marginTop: '18px' }}>
             <button
               onClick={onClose}
-              style={{
-                flex: 1, border: '1.5px solid ' + theme.color.line, background: 'transparent', color: theme.color.ink,
-                fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
-              }}
+              style={secondaryButtonStyle}
             >
               {t.cancel}
             </button>
             <button
               onClick={() => { void doLogin(); }}
               disabled={busy}
-              style={{
-                flex: 1, border: 'none', background: theme.color.accent, color: theme.color.accentInk,
-                fontWeight: 700, fontSize: '14px', padding: '12px', borderRadius: theme.radius.sm, cursor: 'pointer',
-              }}
+              style={primaryButtonStyle}
             >
               {t.login}
             </button>
           </div>
+          {isFeatureOn('editors') && (
+            <div style={{ marginTop: '14px', textAlign: 'center' }}>
+              <button type="button" onClick={() => setMode('register')} style={linkButtonStyle}>
+                {t.registerLink}
+              </button>
+            </div>
+          )}
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -47,5 +47,38 @@ describe('LoginModal', () => {
     await user.click(screen.getByText(t.password));
 
     expect(screen.getByLabelText(t.password)).toHaveFocus();
+  });
+
+  describe('registration', () => {
+    afterEach(() => { vi.unstubAllEnvs(); });
+
+    // VITE_APP_ENV is unset here, which reads as development, where the editors flag is on.
+    it('offers registration when the editors flag is on', async () => {
+      const user = userEvent.setup();
+      renderLogin();
+
+      await user.click(screen.getByRole('button', { name: t.registerLink }));
+
+      expect(screen.getByText(t.registerTitle)).toBeInTheDocument();
+      expect(screen.getByLabelText(t.passwordConfirm)).toBeInTheDocument();
+    });
+
+    it('offers no registration when the editors flag is off', () => {
+      vi.stubEnv('VITE_APP_ENV', 'production');
+      renderLogin();
+
+      expect(screen.queryByRole('button', { name: t.registerLink })).toBeNull();
+    });
+
+    it('goes back to sign-in', async () => {
+      const user = userEvent.setup();
+      renderLogin();
+
+      await user.click(screen.getByRole('button', { name: t.registerLink }));
+      await user.click(screen.getByRole('button', { name: t.backToLogin }));
+
+      expect(screen.getByText(t.loginTitle)).toBeInTheDocument();
+      expect(screen.queryByLabelText(t.passwordConfirm)).toBeNull();
+    });
   });
 });

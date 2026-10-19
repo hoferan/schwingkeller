@@ -3,15 +3,16 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 
-const { getSession, onAuthStateChange, signOutFn, single } = vi.hoisted(() => ({
+const { getSession, onAuthStateChange, signOutFn, signUpFn, single } = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
   signOutFn: vi.fn().mockResolvedValue({ error: null }),
+  signUpFn: vi.fn(),
   single: vi.fn(),
 }));
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: { getSession, onAuthStateChange, signOut: signOutFn },
+    auth: { getSession, onAuthStateChange, signOut: signOutFn, signUp: signUpFn },
     from: () => ({ select: () => ({ eq: () => ({ single }) }) }),
   },
 }));
@@ -145,5 +146,53 @@ describe('AuthProvider', () => {
     renderProvider();
     await waitFor(() => expect(screen.getByText('scope:emmental')).toBeInTheDocument());
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  describe('signUp', () => {
+    let signUp: ReturnType<typeof useAuth>['signUp'] | null = null;
+    const Grab = () => {
+      signUp = useAuth().signUp;
+      return null;
+    };
+    const renderGrab = () => {
+      render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <Grab />
+          </AuthProvider>
+        </QueryClientProvider>,
+      );
+      if (!signUp) throw new Error('signUp not exposed');
+      return signUp;
+    };
+
+    it('passes the Verband as user metadata', async () => {
+      signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
+      await renderGrab()('a@b.ch', 'longenough1', 'emmental');
+      expect(signUpFn).toHaveBeenCalledWith({
+        email: 'a@b.ch',
+        password: 'longenough1',
+        options: { data: { association: 'emmental' }, emailRedirectTo: window.location.origin },
+      });
+    });
+
+    it('asks for email confirmation when no session comes back', async () => {
+      signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
+      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
+      expect(result).toEqual({ error: null, confirmEmail: true });
+    });
+
+    it('signs in directly when a session comes back', async () => {
+      signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
+      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
+      expect(result).toEqual({ error: null, confirmEmail: false });
+    });
+
+    it('returns the Supabase error message', async () => {
+      const error = { message: 'User already registered' };
+      signUpFn.mockResolvedValue({ data: { session: null, user: null }, error });
+      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
+      expect(result).toEqual({ error: 'User already registered', confirmEmail: false });
+    });
   });
 });
