@@ -11,6 +11,7 @@ vi.mock('../../lib/supabase', () => ({
   supabase: { auth: { getSession, onAuthStateChange, signInWithPassword } },
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './AuthProvider';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
@@ -20,11 +21,13 @@ const t = STR.de;
 
 const renderLogin = (onClose = vi.fn()) =>
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <AuthProvider>
       <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
         <LoginModal onClose={onClose} />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </AuthProvider>
+    </QueryClientProvider>,
   );
 
 describe('LoginModal', () => {

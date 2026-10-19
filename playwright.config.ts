@@ -24,7 +24,7 @@ const VERBAND_ADMIN_STATE = 'e2e/.auth/admin-verband.json';
 // Feature files by role, in e2e/features/admin or e2e/features/visitor. A scenario runs against
 // both bundles unless a tag ties it to one view: @canton-view runs only with the verband flag off,
 // @verband-view only with it on. bddgen writes each project's tests to its own folder.
-const bddProject = (name: string, role: 'admin' | 'visitor', tags: string) => ({
+const bddProject = (name: string, role: 'admin' | 'visitor' | 'editor', tags: string) => ({
   name,
   testDir: defineBddConfig({
     outputDir: `.features-gen/${name}`,
@@ -89,6 +89,12 @@ export default defineConfig<SetupOptions>({
     },
     {
       ...bddProject('visitor-verband', 'visitor', 'not @canton-view'),
+      use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
+    },
+    // Editors sign in through the form in each scenario, since every scenario needs a different
+    // account: no saved session and no setup dependency. Only the bundle with the Verband view.
+    {
+      ...bddProject('editor-verband', 'editor', ''),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
     },
   ],

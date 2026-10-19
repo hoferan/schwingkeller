@@ -1,10 +1,22 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
+import { captureAndFormat } from '../../lib/sentry';
+import { buildTree, type AssociationTree } from '../associations/tree';
+import type { Profile } from './profile';
+import { canWriteAssociation } from './scope';
+import { useProfile } from './useProfile';
 
-interface AuthValue {
+export interface AuthValue {
   session: Session | null;
-  isAdmin: boolean;
+  // Null while signed out, loading or failed.
+  profile: Profile | null;
+  // The profile's scope node when the status is 'approved', else null.
+  scope: string | null;
+  isApproved: boolean;
+  isSuperAdmin: boolean;
+  canEditAssociation: (id: string | null) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -12,8 +24,36 @@ interface AuthValue {
 // eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext<AuthValue | null>(null);
 
+const tree = buildTree();
+
+// A missing session, a missing profile and a profile of another user all give no rights.
+// eslint-disable-next-line react-refresh/only-export-components
+export const buildAuthValue = (
+  session: Session | null,
+  profile: Profile | null,
+  associations: AssociationTree,
+): Omit<AuthValue, 'signIn' | 'signOut'> => {
+  const own = session && profile && profile.id === session.user.id ? profile : null;
+  const scope = own && own.status === 'approved' ? own.scope_association_id : null;
+  return {
+    session,
+    profile: own,
+    scope,
+    isApproved: scope !== null,
+    isSuperAdmin: scope === 'esv',
+    canEditAssociation: (id) => canWriteAssociation(associations, scope, id),
+  };
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
+  const queryClient = useQueryClient();
+  const { data: profile, error: profileError } = useProfile(session?.user.id ?? null);
+
+  // Without a profile an editor silently loses every control, so a failed fetch has to reach Sentry.
+  useEffect(() => {
+    if (profileError) captureAndFormat(profileError, 'profile fetch failed');
+  }, [profileError]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -27,11 +67,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   const signOut = async () => {
     await supabase.auth.signOut();
+    queryClient.removeQueries({ queryKey: ['profile'] });
   };
 
-  return (
-    <AuthContext.Provider value={{ session, isAdmin: !!session, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const base = useMemo(() => buildAuthValue(session, profile ?? null, tree), [session, profile]);
+
+  return <AuthContext.Provider value={{ ...base, signIn, signOut }}>{children}</AuthContext.Provider>;
 };

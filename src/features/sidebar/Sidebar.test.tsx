@@ -3,19 +3,12 @@ import { useState } from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-const { getSession, onAuthStateChange } = vi.hoisted(() => {
-  return {
-    getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    onAuthStateChange: vi
-      .fn()
-      .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
-  };
-});
-vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession, onAuthStateChange } },
-}));
 
-import { AuthProvider } from '../auth/AuthProvider';
+// supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
+vi.mock('../../lib/supabase', () => ({ supabase: {} }));
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
@@ -99,19 +92,18 @@ const Harness = ({
   );
 };
 
-const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de') =>
+const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de', as: TestAccount = 'signed-out') =>
   render(
-    <AuthProvider>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <TestAuthProvider as={as}>
       <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
         <Harness {...props} />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </TestAuthProvider>
+    </QueryClientProvider>,
   );
 
-const renderAdminSidebar = (props: HarnessProps = {}) => {
-  getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'admin' } } } });
-  return renderSidebar(props);
-};
+const renderAdminSidebar = (props: HarnessProps = {}) => renderSidebar(props, 'de', 'esv');
 
 describe('Sidebar', () => {
   // These tests describe the canton view, which is what production shows until the verband flag
@@ -169,11 +161,25 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('button', { name: STR.de.outdoor })).toBeNull();
   });
 
-  it('hides admin tools when not admin', async () => {
+  it('hides the add section without approval', async () => {
     renderSidebar();
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
     expect(screen.queryByTestId('admin-section')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: STR.de.add })).not.toBeInTheDocument();
+  });
+
+  it.each<[TestAccount, boolean]>([
+    ['esv', true],
+    ['bksv', true],
+    ['emmental', true],
+    ['pending', false],
+    ['suspended', false],
+    ['rejected', false],
+    ['signed-out', false],
+  ])('shows the add section for %s: %s', async (as, shown) => {
+    renderSidebar({}, 'de', as);
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    expect(!!screen.queryByTestId('admin-section')).toBe(shown);
   });
 
   it('renders the Verwaltung band above the search box when admin', async () => {

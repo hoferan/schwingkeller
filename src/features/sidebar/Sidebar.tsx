@@ -13,6 +13,7 @@ import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark } from '../associations/AssociationMark';
 import { AssociationGroups } from './AssociationGroups';
 import { CantonGroups } from './CantonGroups';
+import { canPrintCantonPoster } from './posterRights';
 import { CantonArms, VenueRow } from './VenueRow';
 import { useSidebarWidth } from './useSidebarWidth';
 
@@ -86,7 +87,7 @@ export const Sidebar = ({
   onGeneratePoster,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
-  const { isAdmin } = useAuth();
+  const { isApproved, isSuperAdmin, canEditAssociation } = useAuth();
   const verband = isFeatureOn('verband');
   const associations = useAssociations();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -363,6 +364,7 @@ export const Sidebar = ({
         right: 0,
         bottom: 0,
         height: dragHeight !== null ? `${dragHeight}px` : sidebarOpen ? '80vh' : `${PEEK_HEIGHT}px`,
+        maxHeight: '100%',
         zIndex: 1200,
         borderTop: '1px solid ' + theme.color.line,
         borderRadius: theme.radius.sm + ' ' + theme.radius.sm + ' 0 0',
@@ -490,7 +492,7 @@ export const Sidebar = ({
         </div>
       </div>
 
-      {isAdmin && (
+      {isApproved && (
         <div style={{ padding: '12px 15px 4px', flex: 'none' }} data-testid="admin-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span
@@ -642,7 +644,8 @@ export const Sidebar = ({
             onToggle={onToggleGroup}
             selectedId={selectedId}
             onSelect={onSelect}
-            isAdmin={isAdmin}
+            canPrintPoster={canEditAssociation}
+            reservePosterSpace={isApproved}
             onGeneratePoster={onGeneratePoster}
           />
         )}
@@ -650,7 +653,7 @@ export const Sidebar = ({
           <CantonGroups
             list={list}
             filtering={searching}
-            isAdmin={isAdmin}
+            canPrintPoster={(code) => canPrintCantonPoster(venues, code, canEditAssociation, isSuperAdmin)}
             expanded={expanded}
             onToggle={onToggleGroup}
             selectedId={selectedId}

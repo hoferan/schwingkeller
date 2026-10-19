@@ -48,10 +48,11 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { EditForm } from './EditForm';
 import { captureAndFormat } from '../../lib/sentry';
-import { syncVenuePhotos } from '../venues/api';
+import { syncVenuePhotos, VenueChangeRefusedError } from '../venues/api';
 import { forwardGeocode } from '../venues/geocoding';
 import { supabase } from '../../lib/supabase';
 import type { Venue } from '../venues/types';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 
 const makeClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -61,13 +62,19 @@ beforeEach(() => {
   uploadMock.mockResolvedValue({ error: null });
 });
 
-const renderForm = (onError = vi.fn(), client = makeClient()) => ({
+const renderForm = (
+  onError = vi.fn(),
+  client = makeClient(),
+  as: TestAccount = 'esv',
+  initial: Venue | null = null,
+) => ({
   client,
   ...render(
     <QueryClientProvider client={client}>
+      <TestAuthProvider as={as}>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <EditForm
-          initial={null}
+          initial={initial}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onStartPlacing={vi.fn()}
@@ -75,8 +82,46 @@ const renderForm = (onError = vi.fn(), client = makeClient()) => ({
           onError={onError}
         />
       </I18nContext.Provider>
+      </TestAuthProvider>
     </QueryClientProvider>,
   ),
+});
+
+describe('EditForm Verband dropdown by scope', () => {
+  const select = () => screen.getByLabelText(STR.de.association) as HTMLSelectElement;
+  const optionValues = () =>
+    Array.from(select().querySelectorAll('option')).map((o) => o.value).filter(Boolean);
+
+  it('offers a BKSV editor the six BKSV Gaue in one group, nothing preselected', () => {
+    renderForm(vi.fn(), makeClient(), 'bksv');
+    expect(optionValues().sort()).toEqual(
+      ['berner-jura', 'emmental', 'mittelland', 'oberaargau', 'oberland', 'seeland'],
+    );
+    expect(select().querySelectorAll('optgroup')).toHaveLength(1);
+    expect(select().value).toBe('');
+  });
+
+  it('offers an Emmental editor only Emmental, preselected', () => {
+    renderForm(vi.fn(), makeClient(), 'emmental');
+    expect(optionValues()).toEqual(['emmental']);
+    expect(select().value).toBe('emmental');
+  });
+
+  it('offers an ESV editor all 29 cantonal Verbaende, nothing preselected', () => {
+    renderForm(vi.fn(), makeClient(), 'esv');
+    expect(optionValues()).toHaveLength(29);
+    expect(select().value).toBe('');
+  });
+
+  it('keeps the own Verband selected when a BKSV editor edits an Emmental venue', () => {
+    const existing: Venue = {
+      id: 'v9', name: 'Emmentaler Keller', canton: 'BE', address: 'Dorf 1', lat: 46.9, lng: 7.8,
+      indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [],
+      association_id: 'emmental',
+    };
+    renderForm(vi.fn(), makeClient(), 'bksv', existing);
+    expect(select().value).toBe('emmental');
+  });
 });
 
 describe('EditForm onError prop', () => {
@@ -98,6 +143,19 @@ describe('EditForm onError prop', () => {
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.uploadError));
     expect(captureAndFormat).toHaveBeenCalled();
+  });
+
+  it('shows changeRefused and does not report to Sentry when the database refused the save', async () => {
+    const single = (supabase.from('venues') as unknown as { single: Mock }).single;
+    single.mockRejectedValueOnce(new VenueChangeRefusedError());
+    const onError = vi.fn();
+    renderForm(onError);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.changeRefused));
+    expect(captureAndFormat).not.toHaveBeenCalled();
   });
 
   it('calls syncVenuePhotos with the venue id and the current photo draft after save', async () => {
@@ -173,9 +231,11 @@ describe('EditForm association and address', () => {
 
   const form = (initial: Venue | null, pickedCoords: { lat: number; lng: number } | null = null, key = 1) => (
     <QueryClientProvider client={client}>
+      <TestAuthProvider as="esv">
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <EditForm key={key} initial={initial} onClose={vi.fn()} onSaved={vi.fn()} onStartPlacing={vi.fn()} pickedCoords={pickedCoords} />
       </I18nContext.Provider>
+      </TestAuthProvider>
     </QueryClientProvider>
   );
   let client = makeClient();

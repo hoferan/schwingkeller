@@ -19,7 +19,9 @@ interface AssociationGroupsProps {
   onToggle: (key: string) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  isAdmin: boolean;
+  canPrintPoster: (associationId: string) => boolean;
+  // Approved editors get a column for the poster button, filled or empty, so chevrons line up.
+  reservePosterSpace: boolean;
   onGeneratePoster: (target: PosterTarget) => void;
 }
 
@@ -28,6 +30,10 @@ const posterButtonStyle: CSSProperties = {
   color: theme.color.ink, cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
 };
+
+const PosterSpacer = () => (
+  <span aria-hidden="true" style={{ width: posterButtonStyle.width, flex: 'none' }} />
+);
 
 const headerStyle = (level: 1 | 2): CSSProperties => ({
   display: 'flex',
@@ -113,7 +119,8 @@ export const AssociationGroups = ({
   onToggle,
   selectedId,
   onSelect,
-  isAdmin,
+  canPrintPoster,
+  reservePosterSpace,
   onGeneratePoster,
 }: AssociationGroupsProps) => {
   const { t } = useTranslation();
@@ -140,8 +147,8 @@ export const AssociationGroups = ({
     <>
       {groups.map((regional) => (
         <div key={regional.id} style={{ borderBottom: '1px solid ' + theme.color.line }}>
-          {/* For admins the Verband rows end in a poster button, so the Teilverband row keeps the
-              same space free and its chevron lines up with theirs. */}
+          {/* Rows reserve the space of the poster button for approved editors, so the Teilverband
+              chevron lines up with the Verband chevrons. */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <GroupHeader
               id={regional.id}
@@ -152,7 +159,7 @@ export const AssociationGroups = ({
               name={associations.nameOf(regional.id)}
               count={regional.count}
             />
-            {isAdmin && <span aria-hidden="true" style={{ width: posterButtonStyle.width, flex: 'none' }} />}
+            {reservePosterSpace && <PosterSpacer />}
           </div>
           {isOpen(regional.id) && (
             <div style={{ paddingBottom: '6px' }}>
@@ -170,7 +177,7 @@ export const AssociationGroups = ({
                       name={associations.nameOf(a.id)}
                       count={a.count}
                     />
-                    {isAdmin && (
+                    {canPrintPoster(a.id) ? (
                       <button
                         type="button"
                         onClick={() => onGeneratePoster({ kind: 'association', id: a.id })}
@@ -181,6 +188,8 @@ export const AssociationGroups = ({
                       >
                         <Camera size={15} />
                       </button>
+                    ) : (
+                      reservePosterSpace && <PosterSpacer />
                     )}
                   </div>
                   {isOpen(a.id) &&

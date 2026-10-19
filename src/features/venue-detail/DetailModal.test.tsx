@@ -1,23 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
-const { getSession, onAuthStateChange } = vi.hoisted(() => {
-  return {
-    getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    onAuthStateChange: vi
-      .fn()
-      .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
-  };
-});
-vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession, onAuthStateChange } },
-}));
+// supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
+vi.mock('../../lib/supabase', () => ({ supabase: {} }));
+
 // The carousel measures the DOM, which jsdom can't; a stub is enough for the layout tests here.
 vi.mock('embla-carousel-react', () => ({
   default: () => [vi.fn(), { selectedScrollSnap: () => 0, on: vi.fn(), off: vi.fn() }],
 }));
 
-import { AuthProvider } from '../auth/AuthProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
@@ -42,9 +35,13 @@ const venue: Venue = {
 
 const noop = () => {};
 
-const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>> = {}) =>
+const renderModal = (
+  overrides: Partial<React.ComponentProps<typeof DetailModal>> = {},
+  as: TestAccount = 'signed-out',
+) =>
   render(
-    <AuthProvider>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <TestAuthProvider as={as}>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <DetailModal
           venue={venue}
@@ -56,13 +53,11 @@ const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>
           {...overrides}
         />
       </I18nContext.Provider>
-    </AuthProvider>,
+    </TestAuthProvider>
+    </QueryClientProvider>,
   );
 
 describe('DetailModal', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
 
   it('renders venue details and hides admin actions when not admin', async () => {
     renderModal();
@@ -84,9 +79,30 @@ describe('DetailModal', () => {
   });
 
   it('shows the edit button when admin is logged in', async () => {
-    getSession.mockResolvedValue({ data: { session: { user: { id: 'admin' } } } });
-    renderModal();
+    renderModal({}, 'esv');
     expect(await screen.findByText(STR.de.edit)).toBeInTheDocument();
+  });
+
+  describe('edit and delete by Verband scope', () => {
+    const venueIn = (association_id: Venue['association_id']): Venue => ({ ...venue, association_id });
+    const cases: [TestAccount, string, boolean][] = [
+      ['bksv', 'emmental', true],
+      ['bksv', 'oberland', true],
+      ['bksv', 'luzern', false],
+      ['emmental', 'emmental', true],
+      ['emmental', 'oberland', false],
+      ['emmental', 'luzern', false],
+      ['esv', 'emmental', true],
+      ['esv', 'oberland', true],
+      ['esv', 'luzern', true],
+      ['pending', 'emmental', false],
+      ['pending', 'luzern', false],
+    ];
+    it.each(cases)('%s on a %s venue: controls shown = %s', (as, assoc, shown) => {
+      renderModal({ venue: venueIn(assoc as Venue['association_id']) }, as);
+      expect(!!screen.queryByText(STR.de.edit)).toBe(shown);
+      expect(!!screen.queryByText(STR.de.delete)).toBe(shown);
+    });
   });
 
   it('calls onShare when the Share button is clicked, not onNavigate', async () => {
@@ -111,9 +127,6 @@ describe('DetailModal', () => {
 });
 
 describe('DetailModal association', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   it('shows the association with the flag on', () => {
@@ -129,9 +142,6 @@ describe('DetailModal association', () => {
 });
 
 describe('DetailModal layout', () => {
-  beforeEach(() => {
-    getSession.mockResolvedValue({ data: { session: null } });
-  });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   const withPhotos: Venue = { ...venue, photos: [{ id: 'p1', url: 'https://example.com/a.jpg', position: 0 }] };

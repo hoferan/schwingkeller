@@ -5,12 +5,14 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
 import { forwardGeocode } from '../venues/geocoding';
 import { useVenueMutations } from '../venues/useVenues';
+import { VenueChangeRefusedError } from '../venues/api';
 import type { Venue, VenueInput } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
 import { theme } from '../../theme';
 import { captureAndFormat } from '../../lib/sentry';
 import { PhotoGalleryEditor } from './PhotoGalleryEditor';
 import { useAssociations } from '../associations/useAssociations';
+import { useAuth } from '../auth/useAuth';
 
 interface EditFormProps {
   initial: Venue | null;
@@ -61,9 +63,24 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   const { t } = useTranslation();
   const { create, update, syncPhotos } = useVenueMutations();
   const associations = useAssociations();
+  const { canEditAssociation } = useAuth();
 
-  const [draft, setDraft] = useState<Draft>(() =>
-    initial ? { ...initial, cantonAuto: false } : blankDraft());
+  // The Verbände this editor may pick, grouped by regional Verband. Empty groups are dropped.
+  const groups = associations
+    .childrenOf('esv')
+    .map((regional) => ({
+      regional,
+      options: associations.childrenOf(regional.id).filter((a) => canEditAssociation(a.id)),
+    }))
+    .filter((g) => g.options.length > 0);
+
+  const [draft, setDraft] = useState<Draft>(() => {
+    if (initial) return { ...initial, cantonAuto: false };
+    const blank = blankDraft();
+    // An editor with a single choice doesn't have to make it.
+    const all = groups.flatMap((g) => g.options);
+    return all.length === 1 ? { ...blank, association_id: all[0].id as CantonalId } : blank;
+  });
 
   // The editor's own actions are the only thing that changes the form: typing touches the address
   // alone, the search button geocodes on request, and a map pick moves the pin.
@@ -147,7 +164,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       await syncPhotos.mutateAsync({ venueId: saved.id, original: initial?.photos ?? [], draft: draft.photos });
       onSaved(saved, andNew);
     } catch (err) {
-      onError?.(captureAndFormat(err, t.saveError));
+      onError?.(err instanceof VenueChangeRefusedError ? t.changeRefused : captureAndFormat(err, t.saveError));
     }
   };
 
@@ -311,9 +328,9 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
           style={{ ...inputStyle, border: '1px solid ' + (associationMissing ? theme.color.accent : theme.color.line) }}
         >
           <option value="" disabled>{t.associationPlaceholder}</option>
-          {associations.childrenOf('esv').map((regional) => (
+          {groups.map(({ regional, options }) => (
             <optgroup key={regional.id} label={associations.nameOf(regional.id)}>
-              {associations.childrenOf(regional.id).map((a) => (
+              {options.map((a) => (
                 <option key={a.id} value={a.id}>{associations.nameOf(a.id)}</option>
               ))}
             </optgroup>
