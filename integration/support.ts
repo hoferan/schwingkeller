@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import { expect } from 'vitest';
 import { ACCOUNTS, anonClient, signInAsAdmin } from '../test-support/local-stack';
 
 // Everything the integration tests create carries these, so a sweep can find what a crashed run
@@ -89,4 +90,22 @@ export const profileOf = async (reader: SupabaseClient, id: string): Promise<Pro
   if (error) throw new Error(`reading profile ${id} failed: ${error.message}`);
   if (!data) throw new Error(`profile ${id} is not visible to this reader`);
   return data;
+};
+
+// A throwaway applicant that the approver approves at once with this scope.
+export const approvedEditor = async (
+  approver: SupabaseClient,
+  scope: string,
+): Promise<{ client: SupabaseClient; id: string }> => {
+  const applicant = await signUpApplicant(scope);
+  const { error } = await approver.rpc('approve_editor', { target_id: applicant.id, scope });
+  if (error) throw new Error(`approving an applicant as ${scope} failed: ${error.message}`);
+  return applicant;
+};
+
+// The refusal every editor RPC gives a caller who doesn't manage the target. Checks the code, so a
+// missing function (PGRST202) doesn't pass for a refusal.
+export const expectNotAuthorized = (result: { error: PostgrestError | null }): void => {
+  expect(result.error?.code ?? '(no error)', result.error?.message).toBe('42501');
+  expect(result.error?.message).toBe('not authorized');
 };
