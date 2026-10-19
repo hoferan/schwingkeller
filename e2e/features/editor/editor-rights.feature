@@ -26,6 +26,11 @@ Feature: What each editor level may edit
     When I open the Teilverband "BKSV"
     Then Verband "Emmental" offers a poster
 
+  Scenario: A Teilverband editor gets no poster for a Verband of another Teilverband
+    Given I am signed in as the "bksv" editor
+    When I open the Teilverband "ISV"
+    Then Verband "Luzern" doesn't offer a poster
+
   Scenario: A Verband editor edits its own venues
     Given I am signed in as the "emmental" editor
     When I open "Schwingkeller Emmental" from the list

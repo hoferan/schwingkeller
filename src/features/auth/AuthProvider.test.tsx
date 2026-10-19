@@ -16,6 +16,9 @@ vi.mock('../../lib/supabase', () => ({
   },
 }));
 
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock('@sentry/react', () => ({ captureException }));
+
 import { buildTree } from '../associations/tree';
 import { AuthProvider, buildAuthValue } from './AuthProvider';
 import { useAuth } from './useAuth';
@@ -83,6 +86,7 @@ describe('AuthProvider', () => {
     getSession.mockReset().mockResolvedValue({ data: { session } });
     onAuthStateChange.mockReset().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
     single.mockReset().mockResolvedValue({ data: profile('approved', 'emmental'), error: null });
+    captureException.mockReset();
   });
 
   const Probe = () => {
@@ -122,5 +126,24 @@ describe('AuthProvider', () => {
     });
     expect(signOutFn).toHaveBeenCalled();
     expect(client.getQueryCache().findAll({ queryKey: ['profile'] })).toHaveLength(0);
+  });
+
+  it('reports a failed profile fetch to Sentry once', async () => {
+    const failure = new Error('profile fetch failed');
+    single.mockResolvedValue({ data: null, error: failure });
+    const client = renderProvider();
+    await waitFor(() => expect(captureException).toHaveBeenCalledTimes(1));
+    expect(captureException).toHaveBeenCalledWith(expect.anything());
+    // A re-render without a new failure sends nothing more.
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['unrelated'] });
+    });
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports nothing when the profile loads', async () => {
+    renderProvider();
+    await waitFor(() => expect(screen.getByText('scope:emmental')).toBeInTheDocument());
+    expect(captureException).not.toHaveBeenCalled();
   });
 });

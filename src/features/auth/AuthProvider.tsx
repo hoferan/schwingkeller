@@ -2,6 +2,7 @@ import { createContext, useEffect, useMemo, useState, type ReactNode } from 'rea
 import { useQueryClient } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
+import { captureAndFormat } from '../../lib/sentry';
 import { buildTree, type AssociationTree } from '../associations/tree';
 import type { Profile } from './profile';
 import { canWriteAssociation } from './scope';
@@ -47,7 +48,12 @@ export const buildAuthValue = (
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const queryClient = useQueryClient();
-  const { data: profile } = useProfile(session?.user.id ?? null);
+  const { data: profile, error: profileError } = useProfile(session?.user.id ?? null);
+
+  // Without a profile an editor silently loses every control, so a failed fetch has to reach Sentry.
+  useEffect(() => {
+    if (profileError) captureAndFormat(profileError, 'profile fetch failed');
+  }, [profileError]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));

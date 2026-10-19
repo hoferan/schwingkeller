@@ -17,7 +17,11 @@ export const StatusBanner = () => {
       ? t.statusPending
       : profile.status === 'suspended'
         ? t.statusSuspended
-        : t.statusRejected;
+        : profile.status === 'rejected'
+          ? t.statusRejected
+          : null;
+  // An approved profile without a scope has nothing to explain.
+  if (message === null) return null;
   const canRequestReview = profile.status === 'suspended' || profile.status === 'rejected';
 
   return (

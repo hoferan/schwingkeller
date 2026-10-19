@@ -38,8 +38,8 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
       }}
     >
       {/* Wordmark: always visible, matching the AFLS reference. Tagline stays mobile-hidden to save
-          vertical space. Admin mode inverts the whole header to solid red as the visibility signal
-          (issue #8) instead of overlaying a pill that clutters the bar at narrow widths. */}
+          vertical space. For approved editors the whole header inverts to solid red as the visibility
+          signal (issue #8) instead of overlaying a pill that clutters the bar at narrow widths. */}
       <div style={{ minWidth: 0 }}>
         <div
           style={{

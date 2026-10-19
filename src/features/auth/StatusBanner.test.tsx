@@ -10,6 +10,9 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { StatusBanner } from './StatusBanner';
 import { TestAuthProvider, type TestAccount } from './testing';
+import { AuthContext, buildAuthValue } from './AuthProvider';
+import { buildTree } from '../associations/tree';
+import type { Session } from '@supabase/supabase-js';
 
 const renderBanner = (as: TestAccount) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -70,5 +73,22 @@ describe('StatusBanner', () => {
     await userEvent.click(screen.getByRole('button', { name: STR.de.requestReview }));
     expect(await screen.findByText(STR.de.requestReviewFailed)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(STR.de.statusRejected);
+  });
+
+  it('renders nothing for an approved profile without a scope', () => {
+    const session = { user: { id: 'u1' } } as unknown as Session;
+    const profile = { id: 'u1', status: 'approved' as const, scope_association_id: null, requested_association_id: null };
+    const value = buildAuthValue(session, profile, buildTree());
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <AuthContext.Provider value={{ ...value, signIn: async () => ({ error: null }), signOut: async () => {} }}>
+          <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+            <StatusBanner />
+          </I18nContext.Provider>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

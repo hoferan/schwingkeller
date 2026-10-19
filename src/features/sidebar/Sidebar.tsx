@@ -364,6 +364,7 @@ export const Sidebar = ({
         right: 0,
         bottom: 0,
         height: dragHeight !== null ? `${dragHeight}px` : sidebarOpen ? '80vh' : `${PEEK_HEIGHT}px`,
+        maxHeight: '100%',
         zIndex: 1200,
         borderTop: '1px solid ' + theme.color.line,
         borderRadius: theme.radius.sm + ' ' + theme.radius.sm + ' 0 0',
