@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useAuth } from './useAuth';
 import { theme } from '../../theme';
 import { useTranslation } from '../../i18n/useTranslation';
-import { inputStyle, labelStyle, primaryButtonStyle, secondaryButtonStyle } from './formStyles';
+import { isFeatureOn } from '../../lib/features';
+import {
+  inputStyle, labelStyle, linkButtonStyle, primaryButtonStyle, secondaryButtonStyle,
+} from './formStyles';
+import { RegisterForm } from './RegisterForm';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -15,6 +19,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   const doLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -58,10 +63,16 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           }}
         >
           <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '16px', fontWeight: 700, color: theme.color.bg }}>
-            {t.loginTitle}
+            {mode === 'register' ? t.registerTitle : t.loginTitle}
           </span>
         </div>
-        <div style={{ padding: '18px 20px 20px' }}>
+        {/* The registration form is taller than a phone screen in landscape, so the body scrolls
+            below the header instead of pushing the modal off the screen. */}
+        <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>
+          {mode === 'register' ? (
+            <RegisterForm onDone={onClose} onBack={() => setMode('login')} />
+          ) : (
+          <>
           {/* htmlFor/id rather than bare labels: without the association the fields have no
               accessible name at all, and clicking a label does not focus its field. */}
           <label htmlFor="login-email" style={labelStyle}>{t.email}</label>
@@ -102,6 +113,15 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
               {t.login}
             </button>
           </div>
+          {isFeatureOn('editors') && (
+            <div style={{ marginTop: '14px', textAlign: 'center' }}>
+              <button type="button" onClick={() => setMode('register')} style={linkButtonStyle}>
+                {t.registerLink}
+              </button>
+            </div>
+          )}
+          </>
+          )}
         </div>
       </div>
     </div>
