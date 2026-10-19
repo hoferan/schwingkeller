@@ -44,7 +44,7 @@ const tag: React.CSSProperties = {
 };
 
 export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDelete }: DetailModalProps) => {
-  const { isAdmin } = useAuth();
+  const { canEditAssociation } = useAuth();
   const { t } = useTranslation();
   const associations = useAssociations();
   const association = isFeatureOn('verband') ? venue.association_id : null;
@@ -187,7 +187,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
             {t.share} <Share2 size={15} />
           </button>
         </div>
-        {isAdmin && (
+        {canEditAssociation(venue.association_id) && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
             <button
               onClick={onEdit}

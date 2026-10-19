@@ -16,7 +16,7 @@ vi.mock('../../lib/supabase', () => ({
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '../auth/AuthProvider';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
@@ -100,21 +100,18 @@ const Harness = ({
   );
 };
 
-const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de') =>
+const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de', as: TestAccount = 'signed-out') =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <AuthProvider>
+    <TestAuthProvider as={as}>
       <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
         <Harness {...props} />
       </I18nContext.Provider>
-    </AuthProvider>
+    </TestAuthProvider>
     </QueryClientProvider>,
   );
 
-const renderAdminSidebar = (props: HarnessProps = {}) => {
-  getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'admin' } } } });
-  return renderSidebar(props);
-};
+const renderAdminSidebar = (props: HarnessProps = {}) => renderSidebar(props, 'de', 'esv');
 
 describe('Sidebar', () => {
   // These tests describe the canton view, which is what production shows until the verband flag
@@ -177,6 +174,20 @@ describe('Sidebar', () => {
     await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
     expect(screen.queryByTestId('admin-section')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: STR.de.add })).not.toBeInTheDocument();
+  });
+
+  it.each<[TestAccount, boolean]>([
+    ['esv', true],
+    ['bksv', true],
+    ['emmental', true],
+    ['pending', false],
+    ['suspended', false],
+    ['rejected', false],
+    ['signed-out', false],
+  ])('shows the add section for %s: %s', async (as, shown) => {
+    renderSidebar({}, 'de', as);
+    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    expect(!!screen.queryByTestId('admin-section')).toBe(shown);
   });
 
   it('renders the Verwaltung band above the search box when admin', async () => {

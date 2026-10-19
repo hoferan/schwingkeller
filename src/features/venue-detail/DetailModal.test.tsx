@@ -18,7 +18,7 @@ vi.mock('embla-carousel-react', () => ({
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '../auth/AuthProvider';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
@@ -43,10 +43,13 @@ const venue: Venue = {
 
 const noop = () => {};
 
-const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>> = {}) =>
+const renderModal = (
+  overrides: Partial<React.ComponentProps<typeof DetailModal>> = {},
+  as: TestAccount = 'signed-out',
+) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <AuthProvider>
+    <TestAuthProvider as={as}>
       <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
         <DetailModal
           venue={venue}
@@ -58,7 +61,7 @@ const renderModal = (overrides: Partial<React.ComponentProps<typeof DetailModal>
           {...overrides}
         />
       </I18nContext.Provider>
-    </AuthProvider>
+    </TestAuthProvider>
     </QueryClientProvider>,
   );
 
@@ -87,9 +90,30 @@ describe('DetailModal', () => {
   });
 
   it('shows the edit button when admin is logged in', async () => {
-    getSession.mockResolvedValue({ data: { session: { user: { id: 'admin' } } } });
-    renderModal();
+    renderModal({}, 'esv');
     expect(await screen.findByText(STR.de.edit)).toBeInTheDocument();
+  });
+
+  describe('edit and delete by Verband scope', () => {
+    const venueIn = (association_id: Venue['association_id']): Venue => ({ ...venue, association_id });
+    const cases: [TestAccount, string, boolean][] = [
+      ['bksv', 'emmental', true],
+      ['bksv', 'oberland', true],
+      ['bksv', 'luzern', false],
+      ['emmental', 'emmental', true],
+      ['emmental', 'oberland', false],
+      ['emmental', 'luzern', false],
+      ['esv', 'emmental', true],
+      ['esv', 'oberland', true],
+      ['esv', 'luzern', true],
+      ['pending', 'emmental', false],
+      ['pending', 'luzern', false],
+    ];
+    it.each(cases)('%s on a %s venue: controls shown = %s', (as, assoc, shown) => {
+      renderModal({ venue: venueIn(assoc as Venue['association_id']) }, as);
+      expect(!!screen.queryByText(STR.de.edit)).toBe(shown);
+      expect(!!screen.queryByText(STR.de.delete)).toBe(shown);
+    });
   });
 
   it('calls onShare when the Share button is clicked, not onNavigate', async () => {

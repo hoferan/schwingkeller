@@ -86,7 +86,7 @@ export const Sidebar = ({
   onGeneratePoster,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isApproved } = useAuth();
   const verband = isFeatureOn('verband');
   const associations = useAssociations();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -490,7 +490,7 @@ export const Sidebar = ({
         </div>
       </div>
 
-      {isAdmin && (
+      {isApproved && (
         <div style={{ padding: '12px 15px 4px', flex: 'none' }} data-testid="admin-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span
