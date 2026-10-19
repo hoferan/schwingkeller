@@ -46,10 +46,21 @@ Chosen option: one node of the tree per profile.
   and ESV editors. A Kantonal- or Gauverband editor approves nobody.
 * Inside their scope, editors at every level have the same rights over venues.
 * Status and scope change only through `security definer` RPCs that re-check the caller.
+* Nobody manages their own account, super-admins included. Rejecting answers an application and
+  works on `pending` only; an approved editor is suspended instead. Transitions keep the scope, and
+  only approving and setting the scope write it, so a suspended editor stays with their approver.
+  `set_editor_scope` and `suspend_editor` lock the approved ESV profiles, so two super-admins who
+  suspend each other at the same moment can't leave none.
+* Photo rows carry the Verband scope of their venue. In the `venue-photos` bucket any approved
+  editor may upload, and only the uploader or a super-admin may change or delete a file. Uploads
+  happen before the venue is saved, so a file has no Verband yet.
 * Canton scopes were turned down because a canton doesn't match a Verband. A separate role would
   say the same thing as the root scope in a second place. Several scopes per editor were left out
   because nobody is expected to look after two Teilverbände, and a parent node already covers more
   than one Verband.
+* For the bucket, a path per Verband was turned down because the form would need the Verband before
+  the upload, and a path per venue because the venue may not exist yet. Checking the status alone
+  would let any approved editor overwrite another Verband's files through the API.
 
 ### Consequences
 
@@ -65,11 +76,13 @@ Chosen option: one node of the tree per profile.
 
 ### Confirmation
 
-Integration tests in `integration/` sign in as one local account per level. They check that a
-`bksv` editor can write `emmental` and not `luzern`, that an `emmental` editor can't write
-`oberland` in the same Teilverband, that nobody can move a venue out of scope, that a `bksv` editor
-can approve an Emmental applicant but can't grant `bksv`, and that no RPC removes the last
-super-admin.
+Integration tests in `integration/` sign in as one local account per level. `editor-rpcs.test.ts`
+covers the RPCs: a `bksv` editor can approve an Emmental applicant but can't grant `bksv`, nobody
+manages their own account, and no RPC removes the last super-admin. The scope describes in
+`venues.test.ts`, `venue-photos.test.ts` and `profiles.test.ts` check that a `bksv` editor can write
+`emmental` and not `luzern`, that an `emmental` editor can't write `oberland` in the same
+Teilverband, and that nobody can move a venue out of scope. `storage.test.ts` checks that only the
+uploader or a super-admin can change or delete a file in `venue-photos`.
 
 ## More information
 
@@ -79,3 +92,5 @@ super-admin.
   [#27](https://github.com/hoferan/schwingkeller/issues/27) to
   [#31](https://github.com/hoferan/schwingkeller/issues/31), switch:
   [#73](https://github.com/hoferan/schwingkeller/issues/73)
+* Nothing calls the RPCs before the admin panel, so the Vitest coverage of the RPC calls moves to
+  [#30](https://github.com/hoferan/schwingkeller/issues/30).
