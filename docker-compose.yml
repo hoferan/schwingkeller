@@ -144,6 +144,8 @@ services:
       GOTRUE_URI_ALLOW_LIST: http://localhost:5173
       # Sign-up is on locally so the integration tests can exercise the profile trigger; production keeps it off until #73.
       GOTRUE_DISABLE_SIGNUP: "false"
+      # Production's minimum. Email confirmation stays off locally (autoconfirm below), so tests need no mailbox.
+      GOTRUE_PASSWORD_MIN_LENGTH: "10"
 
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
