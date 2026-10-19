@@ -4,9 +4,20 @@ import { verbandId } from '../associations';
 
 const t = STR.de;
 
+type AccountName = keyof typeof ACCOUNTS;
+
+// What the profile says about each local account. The record is exhaustive, so a new account in
+// test-support/local-stack.ts doesn't compile until it is listed here.
+const STATUS: Record<AccountName, 'approved' | 'pending'> = {
+  esv: 'approved',
+  bksv: 'approved',
+  emmental: 'approved',
+  pending: 'pending',
+};
+
 Given('I am signed in as the {string} editor', async ({ page }, name: string) => {
-  const account = ACCOUNTS[name as keyof typeof ACCOUNTS];
-  if (!account) throw new Error(`no local account "${name}"`);
+  if (!(name in ACCOUNTS)) throw new Error(`no local account "${name}"`);
+  const account = ACCOUNTS[name as AccountName];
   await page.goto('/');
   await page.getByRole('button', { name: t.login }).click();
   await page.getByLabel(t.email).fill(account.email);
@@ -14,9 +25,14 @@ Given('I am signed in as the {string} editor', async ({ page }, name: string) =>
   await password.fill(account.password);
   await password.press('Enter');
   await expect(page.getByRole('button', { name: t.logout })).toBeVisible();
-  // The profile loads after the session. An approved editor's add button is the sign that it has
-  // arrived, so a "doesn't offer editing" check can't pass just because rights haven't loaded yet.
-  if (name !== 'pending') await expect(page.getByRole('button', { name: t.add })).toBeVisible();
+  // The profile loads after the session. Both waits show that it has arrived, so a "doesn't offer
+  // editing" check can't pass just because rights haven't loaded yet: an approved editor gets the
+  // add button, an account waiting for approval gets the banner.
+  if (STATUS[name as AccountName] === 'approved') {
+    await expect(page.getByRole('button', { name: t.add })).toBeVisible();
+  } else {
+    await expect(page.getByRole('status')).toContainText(t.statusPending);
+  }
 });
 
 Then('the details offer editing', async ({ page }) => {
