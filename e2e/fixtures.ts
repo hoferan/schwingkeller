@@ -4,10 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { TILE_URLS } from '../src/features/map/tileSources';
-import { ADMIN, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
+import { ACCOUNTS, ADMIN, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
 import { E2E_PREFIX } from './db';
 
-export { ADMIN };
+export { ACCOUNTS, ADMIN };
 
 export const STORAGE_STATE = 'e2e/.auth/admin.json';
 
