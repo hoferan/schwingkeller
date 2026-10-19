@@ -31,7 +31,7 @@ export const RegisterForm = ({ onDone, onBack }: RegisterFormProps) => {
 
   const validate = (): string | null => {
     if (!email.trim() || !password) return t.loginErr;
-    if (password.length < MIN_PASSWORD_LENGTH) return t.registerErrShort;
+    if (password.length < MIN_PASSWORD_LENGTH) return t.registerErrShort.replace('{n}', String(MIN_PASSWORD_LENGTH));
     if (password !== confirm) return t.registerErrMismatch;
     if (!association) return t.registerErrAssociation;
     return null;

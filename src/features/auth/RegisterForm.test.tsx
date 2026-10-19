@@ -67,7 +67,7 @@ describe('RegisterForm', () => {
     const { signUp } = renderForm();
     await fill(user, { password: 'short12' });
     await submit(user);
-    expect(screen.getByText(t.registerErrShort)).toBeInTheDocument();
+    expect(screen.getByText(t.registerErrShort.replace('{n}', '10'))).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
   });
 

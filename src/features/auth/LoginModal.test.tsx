@@ -80,5 +80,22 @@ describe('LoginModal', () => {
       expect(screen.getByText(t.loginTitle)).toBeInTheDocument();
       expect(screen.queryByLabelText(t.passwordConfirm)).toBeNull();
     });
+
+    // A sign-in error left over from before the detour would read as if coming back had failed.
+    it('drops a failed sign-in error after a trip to registration and back', async () => {
+      signInWithPassword.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } });
+      const user = userEvent.setup();
+      renderLogin();
+
+      await user.type(screen.getByLabelText(t.email), 'a@example.com');
+      await user.type(screen.getByLabelText(t.password), 'wrong-password');
+      await user.click(screen.getByRole('button', { name: t.login }));
+      expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: t.registerLink }));
+      await user.click(screen.getByRole('button', { name: t.backToLogin }));
+
+      expect(screen.queryByText('Invalid login credentials')).toBeNull();
+    });
   });
 });

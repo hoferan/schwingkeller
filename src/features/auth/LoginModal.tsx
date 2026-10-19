@@ -21,6 +21,12 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
+  // A sign-in error belongs to the attempt that caused it, so it goes when the form does.
+  const switchMode = (next: 'login' | 'register') => {
+    setErr('');
+    setMode(next);
+  };
+
   const doLogin = async () => {
     if (!email.trim() || !password.trim()) {
       setErr(t.loginErr);
@@ -70,7 +76,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
             below the header instead of pushing the modal off the screen. */}
         <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>
           {mode === 'register' ? (
-            <RegisterForm onDone={onClose} onBack={() => setMode('login')} />
+            <RegisterForm onDone={onClose} onBack={() => switchMode('login')} />
           ) : (
           <>
           {/* htmlFor/id rather than bare labels: without the association the fields have no
@@ -115,7 +121,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           </div>
           {isFeatureOn('editors') && (
             <div style={{ marginTop: '14px', textAlign: 'center' }}>
-              <button type="button" onClick={() => setMode('register')} style={linkButtonStyle}>
+              <button type="button" onClick={() => switchMode('register')} style={linkButtonStyle}>
                 {t.registerLink}
               </button>
             </div>

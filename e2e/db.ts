@@ -11,3 +11,8 @@ export const WRITE_CANTON = 'GR';
 
 // The association those venues get: Graubünden's own.
 export const WRITE_ASSOCIATION = 'graubuenden';
+
+// Every account the registration scenario signs up has an address of this shape, so the sweep in
+// global-setup.ts can find the ones a crashed run left behind. example.com takes no mail.
+export const APPLICANT_PREFIX = 'e2e-';
+export const APPLICANT_DOMAIN = '@example.com';
