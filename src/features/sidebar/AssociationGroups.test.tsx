@@ -29,12 +29,14 @@ interface HarnessProps {
   list?: Venue[];
   filtering?: boolean;
   expandedInit?: Record<string, boolean>;
-  isAdmin?: boolean;
+  canPrintPoster?: (associationId: string) => boolean;
+  reservePosterSpace?: boolean;
   onGeneratePoster?: (target: PosterTarget) => void;
 }
 
 const Harness = ({
-  list = venues, filtering = false, expandedInit = ALL_OPEN, isAdmin = false, onGeneratePoster = () => {},
+  list = venues, filtering = false, expandedInit = ALL_OPEN,
+  canPrintPoster = () => false, reservePosterSpace = false, onGeneratePoster = () => {},
 }: HarnessProps) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(expandedInit);
   return (
@@ -45,7 +47,8 @@ const Harness = ({
       onToggle={(key) => setExpanded((e) => ({ ...e, [key]: !e[key] }))}
       selectedId={null}
       onSelect={() => {}}
-      isAdmin={isAdmin}
+      canPrintPoster={canPrintPoster}
+      reservePosterSpace={reservePosterSpace}
       onGeneratePoster={onGeneratePoster}
     />
   );
@@ -57,6 +60,8 @@ const renderGroups = (props: HarnessProps = {}) =>
       <Harness {...props} />
     </I18nContext.Provider>,
   );
+
+const ALL_RIGHTS = { canPrintPoster: () => true, reservePosterSpace: true };
 
 const REGIONAL = ['bksv', 'isv', 'nosv', 'nwsv', 'swsv'];
 
@@ -151,14 +156,14 @@ describe('AssociationGroups', () => {
   });
 
   it('shows admins a poster button on every Verband row and none on Teilverband rows', () => {
-    renderGroups({ isAdmin: true });
+    renderGroups({ ...ALL_RIGHTS });
     expect(screen.getAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(29);
     expect(screen.getByTestId('generate-poster-freiburg')).toHaveAccessibleName(STR.de.generatePoster);
     expect(screen.queryByTestId('generate-poster-swsv')).toBeNull();
   });
 
   it('lines the Teilverband chevrons up with the Verband chevrons for admins', () => {
-    renderGroups({ isAdmin: true });
+    renderGroups({ ...ALL_RIGHTS });
     const spacer = screen.getByTestId('group-swsv').nextElementSibling;
     expect(spacer).toHaveAttribute('aria-hidden', 'true');
     expect(spacer).toHaveStyle({ width: '26px' });
@@ -175,10 +180,32 @@ describe('AssociationGroups', () => {
     expect(screen.queryAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(0);
   });
 
+  it('shows an editor a poster button only on Verbände they may print, with a spacer on the others', () => {
+    renderGroups({ canPrintPoster: (id) => id === 'emmental', reservePosterSpace: true });
+    expect(screen.getByTestId('generate-poster-emmental')).toBeInTheDocument();
+    expect(screen.queryByTestId('generate-poster-oberland')).toBeNull();
+    expect(screen.getAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(1);
+    const oberland = screen.getByTestId('group-oberland').nextElementSibling;
+    expect(oberland).toHaveAttribute('aria-hidden', 'true');
+    expect(oberland).toHaveStyle({ width: '26px' });
+    // Every Verband row ends in an element of the button's width, so the chevrons line up.
+    screen.getAllByTestId(/^group-(?!count)/).forEach((header) => {
+      if (REGIONAL.includes(header.dataset.testid!.replace('group-', ''))) return;
+      expect(header.nextElementSibling).toHaveStyle({ width: '26px' });
+    });
+  });
+
+  it('reserves no space and shows no button without rights', () => {
+    renderGroups({ canPrintPoster: () => false, reservePosterSpace: false });
+    expect(screen.queryAllByRole('button', { name: STR.de.generatePoster })).toHaveLength(0);
+    expect(screen.getByTestId('group-oberland').nextElementSibling).toBeNull();
+    expect(screen.getByTestId('group-bksv').nextElementSibling).toBeNull();
+  });
+
   it('asks for the Verband poster without toggling the row', async () => {
     const user = userEvent.setup();
     const onGeneratePoster = vi.fn();
-    renderGroups({ isAdmin: true, onGeneratePoster });
+    renderGroups({ ...ALL_RIGHTS, onGeneratePoster });
     await user.click(screen.getByTestId('generate-poster-freiburg'));
     expect(onGeneratePoster).toHaveBeenCalledTimes(1);
     expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
@@ -189,7 +216,7 @@ describe('AssociationGroups', () => {
   it('opens the poster from the keyboard without toggling the row', async () => {
     const user = userEvent.setup();
     const onGeneratePoster = vi.fn();
-    renderGroups({ isAdmin: true, onGeneratePoster });
+    renderGroups({ ...ALL_RIGHTS, onGeneratePoster });
     screen.getByTestId('generate-poster-freiburg').focus();
     await user.keyboard('{Enter}');
     expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
@@ -199,14 +226,14 @@ describe('AssociationGroups', () => {
   it('asks for the poster while filtering, with the groups forced open', async () => {
     const user = userEvent.setup();
     const onGeneratePoster = vi.fn();
-    renderGroups({ isAdmin: true, filtering: true, onGeneratePoster });
+    renderGroups({ ...ALL_RIGHTS, filtering: true, onGeneratePoster });
     await user.click(screen.getByTestId('generate-poster-freiburg'));
     expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
     expect(screen.getByText('Halle Düdingen')).toBeInTheDocument();
   });
 
   it('nests no button inside another button', () => {
-    const { container } = renderGroups({ isAdmin: true });
+    const { container } = renderGroups({ ...ALL_RIGHTS });
     expect(container.querySelectorAll('button button')).toHaveLength(0);
   });
 

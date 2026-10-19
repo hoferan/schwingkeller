@@ -9,7 +9,7 @@ import { CantonArms, RowChevron, VenueRow } from './VenueRow';
 interface CantonGroupsProps {
   list: Venue[];
   filtering: boolean;
-  isAdmin: boolean;
+  canPrintPoster: (cantonCode: string) => boolean;
   expanded: Record<string, boolean>;
   onToggle: (key: string) => void;
   selectedId: string | null;
@@ -21,7 +21,7 @@ interface CantonGroupsProps {
 export const CantonGroups = ({
   list,
   filtering,
-  isAdmin,
+  canPrintPoster,
   expanded,
   onToggle,
   selectedId,
@@ -71,7 +71,7 @@ export const CantonGroups = ({
               >
                 {group.count}
               </span>
-              {isAdmin && (
+              {canPrintPoster(group.code) && (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onGeneratePoster({ kind: 'canton', code: group.code }); }}

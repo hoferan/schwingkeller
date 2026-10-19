@@ -13,6 +13,7 @@ import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark } from '../associations/AssociationMark';
 import { AssociationGroups } from './AssociationGroups';
 import { CantonGroups } from './CantonGroups';
+import { canPrintCantonPoster } from './posterRights';
 import { CantonArms, VenueRow } from './VenueRow';
 import { useSidebarWidth } from './useSidebarWidth';
 
@@ -86,7 +87,7 @@ export const Sidebar = ({
   onGeneratePoster,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
-  const { isAdmin, isApproved } = useAuth();
+  const { isApproved, isSuperAdmin, canEditAssociation } = useAuth();
   const verband = isFeatureOn('verband');
   const associations = useAssociations();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -642,7 +643,8 @@ export const Sidebar = ({
             onToggle={onToggleGroup}
             selectedId={selectedId}
             onSelect={onSelect}
-            isAdmin={isAdmin}
+            canPrintPoster={canEditAssociation}
+            reservePosterSpace={isApproved}
             onGeneratePoster={onGeneratePoster}
           />
         )}
@@ -650,7 +652,7 @@ export const Sidebar = ({
           <CantonGroups
             list={list}
             filtering={searching}
-            isAdmin={isAdmin}
+            canPrintPoster={(code) => canPrintCantonPoster(venues, code, canEditAssociation, isSuperAdmin)}
             expanded={expanded}
             onToggle={onToggleGroup}
             selectedId={selectedId}
