@@ -119,7 +119,9 @@ describe('deleting your own account', () => {
   });
 
   it('refuses the last super-admin, who can still sign in', async () => {
-    // If another super-admin were around, the call below would delete the shared admin.
+    // If another super-admin were around, the call below would delete the shared admin. For the same
+    // reason this file must not run beside other writers against the stack, which holds only while
+    // vitest.integration.config.ts keeps fileParallelism: false.
     if (!(await isLast(adminId))) {
       throw new Error('the local admin is not the last super-admin; refusing to run this test');
     }

@@ -13,7 +13,9 @@
 --
 -- It locks the approved super-admins first, in a statement of its own, as set_editor_scope and
 -- suspend_editor in 0012 do. When two super-admins delete each other at once, the second call waits,
--- then finds its caller gone and is refused, so one super-admin remains.
+-- then finds its caller gone and is refused, so one super-admin remains. Two concurrent self-deletes by
+-- the last two super-admins serialize on the same lock, and the second is refused as the last
+-- super-admin.
 --
 -- A caller who may not delete the target gets 'not authorized' whether or not the id exists, so ids
 -- can't be probed. So does a caller whose own account is already gone but whose token is still valid.

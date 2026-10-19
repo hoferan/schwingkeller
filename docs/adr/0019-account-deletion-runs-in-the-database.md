@@ -48,7 +48,10 @@ super-admins deleting each other could both succeed.
   migration runs.
 * Bad, because a deleted editor's photo files stay in the `venue-photos` bucket, owned by nobody.
   Only super-admins can remove them
-  ([#26](https://github.com/hoferan/schwingkeller/issues/26)).
+  ([#26](https://github.com/hoferan/schwingkeller/issues/26)). Until its token expires (one hour by
+  default), a deleted editor can still replace or delete those files, because PostgREST and Storage
+  don't check that the user exists and the 0012 bucket rule tests `owner_id = auth.uid()`. Every other
+  call is refused, since the profile is gone.
 
 ### Confirmation
 
