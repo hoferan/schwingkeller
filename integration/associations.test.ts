@@ -176,9 +176,11 @@ describe('a venue association', () => {
     expect(await associationOf(venue.id)).toBe('emmental');
   });
 
+  // The write policy runs before the foreign key and finds no node to be within, so even the
+  // super-admin is refused an unknown id by RLS.
   it('must exist', async () => {
     const { error } = await admin.from('venues').insert({ ...newVenueRow('unknown'), association_id: 'nowhere' });
-    expect(error?.message ?? '(no error)').toMatch(/violates foreign key constraint "venues_association_id_fkey"/);
+    expect(error?.message ?? '(no error)').toMatch(/row-level security policy for table "venues"/);
   });
 
   it('is readable for anonymous visitors', async () => {
