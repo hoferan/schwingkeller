@@ -4,8 +4,8 @@
 --
 -- The policies read `profiles` live, not the JWT, so suspending an account takes effect at once.
 --
--- This file grows in sections: helper functions, venue policies, then (later in the same change)
--- photo and storage policies, the profiles policy and the account RPCs.
+-- The file holds the scope helpers, the venue and photo-row policies and the policies on the
+-- venue-photos bucket.
 --
 -- Safe to run twice.
 
@@ -130,3 +130,81 @@ create policy "venues_auth_delete" on public.venues
 -- Unchanged from 0010, restated so this migration declares what it relies on.
 grant select on public.venues to anon;
 grant select, insert, update, delete on public.venues to authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Venue photo rows
+-- ---------------------------------------------------------------------------------------------
+-- A photo row follows its venue: whoever may write the venue's Verband may write its photos.
+-- Insert and update check the new row, so a photo can't be moved onto a venue out of scope.
+
+drop policy if exists "venue_photos_auth_insert" on public.venue_photos;
+create policy "venue_photos_auth_insert" on public.venue_photos
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.venues v
+       where v.id = venue_id and public.can_write_association(v.association_id)
+    )
+  );
+
+drop policy if exists "venue_photos_auth_update" on public.venue_photos;
+create policy "venue_photos_auth_update" on public.venue_photos
+  for update to authenticated
+  using (
+    exists (
+      select 1 from public.venues v
+       where v.id = venue_id and public.can_write_association(v.association_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.venues v
+       where v.id = venue_id and public.can_write_association(v.association_id)
+    )
+  );
+
+drop policy if exists "venue_photos_auth_delete" on public.venue_photos;
+create policy "venue_photos_auth_delete" on public.venue_photos
+  for delete to authenticated
+  using (
+    exists (
+      select 1 from public.venues v
+       where v.id = venue_id and public.can_write_association(v.association_id)
+    )
+  );
+
+-- Unchanged from 0006, restated so this migration declares what it relies on.
+grant select on public.venue_photos to anon;
+grant select, insert, update, delete on public.venue_photos to authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- The venue-photos bucket
+-- ---------------------------------------------------------------------------------------------
+-- Files are judged by uploader, not by Verband. The path carries no venue, and an upload happens
+-- before the venue is saved, so there is no Verband to check yet. Any approved account may
+-- upload; only the uploader or the super-admin may replace or delete a file.
+
+drop policy if exists "venue_photos_auth_write" on storage.objects;
+create policy "venue_photos_auth_write" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'venue-photos' and (select public.current_scope()) is not null);
+
+drop policy if exists "venue_photos_auth_update" on storage.objects;
+create policy "venue_photos_auth_update" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'venue-photos'
+    and (owner_id = (select auth.uid())::text or (select public.is_super_admin()))
+  )
+  with check (
+    bucket_id = 'venue-photos'
+    and (owner_id = (select auth.uid())::text or (select public.is_super_admin()))
+  );
+
+drop policy if exists "venue_photos_auth_delete" on storage.objects;
+create policy "venue_photos_auth_delete" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'venue-photos'
+    and (owner_id = (select auth.uid())::text or (select public.is_super_admin()))
+  );

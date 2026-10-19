@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ADMIN, anonClient, signInAsAdmin } from '../test-support/local-stack';
-import { INT_STORAGE_DIR, PHOTO_BUCKET } from './support';
+import { INT_STORAGE_DIR, PHOTO_BUCKET, signInAs } from './support';
 
 // A 1x1 transparent PNG.
 const PNG = Buffer.from(
@@ -48,5 +48,72 @@ describe('the venue-photos bucket', () => {
     expect(error).toBeNull();
     const { data } = await admin.storage.from(PHOTO_BUCKET).list(INT_STORAGE_DIR, { search: path.split('/')[1] });
     expect(data).toHaveLength(0);
+  });
+});
+
+describe('the venue-photos bucket by uploader', () => {
+  let bksv: SupabaseClient;
+  let emmental: SupabaseClient;
+  let pending: SupabaseClient;
+
+  beforeAll(async () => {
+    [bksv, emmental, pending] = await Promise.all([signInAs('bksv'), signInAs('emmental'), signInAs('pending')]);
+  });
+
+  const newPath = () => `${INT_STORAGE_DIR}/${crypto.randomUUID()}.png`;
+  const upload = (client: SupabaseClient, path: string, upsert = false) =>
+    client.storage.from(PHOTO_BUCKET).upload(path, pngBlob(), { contentType: 'image/png', upsert });
+  const countAsAdmin = async (path: string) => {
+    const { data } = await admin.storage.from(PHOTO_BUCKET).list(INT_STORAGE_DIR, { search: path.split('/')[1] });
+    return data?.length ?? 0;
+  };
+
+  it('takes an upload from an emmental editor', async () => {
+    const path = newPath();
+    const { error } = await upload(emmental, path);
+    created.push(path);
+    expect(error).toBeNull();
+  });
+
+  it('refuses an upload from the pending account', async () => {
+    const path = newPath();
+    const { error } = await upload(pending, path);
+    if (!error) created.push(path);
+    expect(error).not.toBeNull();
+  });
+
+  it("keeps an emmental editor's file when a bksv editor deletes it", async () => {
+    const path = newPath();
+    expect((await upload(emmental, path)).error).toBeNull();
+    created.push(path);
+    const { error } = await bksv.storage.from(PHOTO_BUCKET).remove([path]);
+    expect(error).toBeNull();
+    expect(await countAsAdmin(path)).toBe(1);
+  });
+
+  it("refuses a bksv editor overwriting an emmental editor's file", async () => {
+    const path = newPath();
+    expect((await upload(emmental, path)).error).toBeNull();
+    created.push(path);
+    const { error } = await upload(bksv, path, true);
+    expect(error).not.toBeNull();
+  });
+
+  it('lets the uploader delete their own file', async () => {
+    const path = newPath();
+    expect((await upload(emmental, path)).error).toBeNull();
+    created.push(path);
+    const { error } = await emmental.storage.from(PHOTO_BUCKET).remove([path]);
+    expect(error).toBeNull();
+    expect(await countAsAdmin(path)).toBe(0);
+  });
+
+  it("lets the super-admin delete an editor's file", async () => {
+    const path = newPath();
+    expect((await upload(emmental, path)).error).toBeNull();
+    created.push(path);
+    const { error } = await admin.storage.from(PHOTO_BUCKET).remove([path]);
+    expect(error).toBeNull();
+    expect(await countAsAdmin(path)).toBe(0);
   });
 });
