@@ -79,6 +79,19 @@ export const deleteVenuesNamed = async (client: SupabaseClient, prefix: string):
   return data?.length ?? 0;
 };
 
+// Deletes every account whose email matches the LIKE pattern, through delete_account(target_id).
+// The client has to be the super-admin: its profiles policy lets it read every other account and
+// delete_account lets it remove them, with no service-role key involved.
+export const deleteAccountsMatching = async (client: SupabaseClient, pattern: string): Promise<number> => {
+  const { data, error } = await client.from('profiles').select('id').like('email', pattern);
+  if (error) throw new Error(`listing accounts like "${pattern}" failed: ${error.message}`);
+  for (const { id } of data ?? []) {
+    const { error: deleteError } = await client.rpc('delete_account', { target_id: id });
+    if (deleteError) throw new Error(`deleting account ${id} failed: ${deleteError.message}`);
+  }
+  return data?.length ?? 0;
+};
+
 export const countVenuesNamed = async (client: SupabaseClient, prefix: string): Promise<number> => {
   const { count, error } = await client
     .from('venues')
