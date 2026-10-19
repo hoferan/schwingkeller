@@ -66,22 +66,26 @@ export type Profile = {
   scope_association_id: string | null;
 };
 
+export type Applicant = { client: SupabaseClient; id: string; email: string; password: string };
+
 // Local sign-up is on and autoconfirmed, so signUp returns a live session. These users stay in the
-// local database: nothing can delete them without the service-role key. CI starts from scratch.
+// local database unless a test deletes them through delete_account. CI starts from scratch.
 export const signUpApplicant = async (
   requested: string,
-): Promise<{ client: SupabaseClient; id: string }> => {
+  email = `int-${crypto.randomUUID()}@schwingkeller.local`,
+): Promise<Applicant> => {
   const client = anonClient();
+  const password = 'int-password';
   const { data, error } = await client.auth.signUp({
-    email: `int-${crypto.randomUUID()}@schwingkeller.local`,
-    password: 'int-password',
+    email,
+    password,
     options: { data: { association: requested } },
   });
   if (error) throw new Error(`sign-up failed: ${error.message}`);
   if (!data.session || !data.user) {
     throw new Error('sign-up returned no session; is GOTRUE_MAILER_AUTOCONFIRM on?');
   }
-  return { client, id: data.user.id };
+  return { client, id: data.user.id, email, password };
 };
 
 // Reads one profile row. Throws when the reader can't see it.
@@ -96,7 +100,7 @@ export const profileOf = async (reader: SupabaseClient, id: string): Promise<Pro
 export const approvedEditor = async (
   approver: SupabaseClient,
   scope: string,
-): Promise<{ client: SupabaseClient; id: string }> => {
+): Promise<Applicant> => {
   const applicant = await signUpApplicant(scope);
   const { error } = await approver.rpc('approve_editor', { target_id: applicant.id, scope });
   if (error) throw new Error(`approving an applicant as ${scope} failed: ${error.message}`);
