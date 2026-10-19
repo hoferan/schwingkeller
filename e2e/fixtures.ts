@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { TILE_URLS } from '../src/features/map/tileSources';
-import { ACCOUNTS, ADMIN, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
+import { ACCOUNTS, ADMIN, anonClient, deleteVenuesNamed, signInAsAdmin } from '../test-support/local-stack';
 import { E2E_PREFIX } from './db';
 
 export { ACCOUNTS, ADMIN };
@@ -77,8 +77,11 @@ export const setupTest = playwrightTest.extend<SetupOptions>({
   page: stubbedPage,
 });
 
+// An account the registration scenario signs up through the form.
+export interface Applicant { email: string; password: string }
+
 export const test = bddTest.extend<
-  { venuePrefix: string; posterDownload: { current?: Download }; mapZoom: { before?: number }; hoveredCluster: { count?: number } },
+  { venuePrefix: string; applicant: Applicant; posterDownload: { current?: Download }; mapZoom: { before?: number }; hoveredCluster: { count?: number } },
   { adminDb: SupabaseClient }
 >({
   page: stubbedPage,
@@ -94,6 +97,21 @@ export const test = bddTest.extend<
     const prefix = `${E2E_PREFIX} w${testInfo.workerIndex}-${testInfo.testId.slice(0, 8)} `;
     await use(prefix);
     await deleteVenuesNamed(adminDb, prefix);
+  },
+
+  // A fresh address per test, so parallel runs never collide. The account is deleted afterwards
+  // through delete_account, signed in as itself; if the scenario failed before signing up, the
+  // sign-in fails and there is nothing to delete.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  applicant: async ({}, use, testInfo) => {
+    const id = `${Date.now()}-w${testInfo.workerIndex}-${testInfo.testId.slice(0, 8)}`;
+    const applicant = { email: `e2e-${id}@example.com`, password: 'e2e-applicant-pw' };
+    await use(applicant);
+    const client = anonClient();
+    const { error } = await client.auth.signInWithPassword(applicant);
+    if (error) return;
+    const { error: deleteError } = await client.rpc('delete_account');
+    if (deleteError) throw new Error(`could not delete ${applicant.email}: ${deleteError.message}`);
   },
 
   // The download step hands its file to the steps that check it.
