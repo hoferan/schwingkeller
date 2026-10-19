@@ -10,6 +10,7 @@ import { LoginModal } from './features/auth/LoginModal';
 import { StatusBanner } from './features/auth/StatusBanner';
 import { useVenues, useVenueMutations } from './features/venues/useVenues';
 import type { Venue } from './features/venues/types';
+import { VenueChangeRefusedError } from './features/venues/api';
 import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTranslation';
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
@@ -228,7 +229,10 @@ function AppShell() {
       setSelectedId(null);
     } catch (err) {
       // Failure: keep the venue selected/open; only report and close the dialog.
-      showFlash('err', captureAndFormat(err, t.deleteError));
+      showFlash(
+        'err',
+        err instanceof VenueChangeRefusedError ? t.changeRefused : captureAndFormat(err, t.deleteError),
+      );
     } finally {
       setConfirmId(null);
     }

@@ -48,7 +48,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { EditForm } from './EditForm';
 import { captureAndFormat } from '../../lib/sentry';
-import { syncVenuePhotos } from '../venues/api';
+import { syncVenuePhotos, VenueChangeRefusedError } from '../venues/api';
 import { forwardGeocode } from '../venues/geocoding';
 import { supabase } from '../../lib/supabase';
 import type { Venue } from '../venues/types';
@@ -143,6 +143,19 @@ describe('EditForm onError prop', () => {
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.uploadError));
     expect(captureAndFormat).toHaveBeenCalled();
+  });
+
+  it('shows changeRefused and does not report to Sentry when the database refused the save', async () => {
+    const single = (supabase.from('venues') as unknown as { single: Mock }).single;
+    single.mockRejectedValueOnce(new VenueChangeRefusedError());
+    const onError = vi.fn();
+    renderForm(onError);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.changeRefused));
+    expect(captureAndFormat).not.toHaveBeenCalled();
   });
 
   it('calls syncVenuePhotos with the venue id and the current photo draft after save', async () => {

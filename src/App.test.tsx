@@ -24,21 +24,27 @@ vi.mock('./lib/supabase', () => ({
     },
   },
 }));
-const mocked = vi.hoisted(() => ({ venues: null as Venue[] | null, loaded: true }));
+const mocked = vi.hoisted(() => ({
+  venues: null as Venue[] | null,
+  loaded: true,
+  remove: vi.fn<(id: string) => Promise<void>>(),
+  capture: vi.fn((_e: unknown, fallback: string) => fallback),
+}));
 vi.mock('./features/venues/useVenues', () => ({
   useVenues: () => ({ data: mocked.loaded ? (mocked.venues ?? [venue]) : undefined, isSuccess: mocked.loaded }),
-  useVenueMutations: () => ({}),
+  useVenueMutations: () => ({ remove: { mutateAsync: mocked.remove } }),
 }));
 vi.mock('./features/geo/useGeolocation', () => ({
   useGeolocation: () => ({ status: 'idle', position: null, request: vi.fn(), supported: false }),
 }));
 vi.mock('./features/venues/useVenuePermalink', () => ({ useVenuePermalink: () => {} }));
-vi.mock('./lib/sentry', () => ({ captureAndFormat: (_e: unknown, fallback: string) => fallback }));
+vi.mock('./lib/sentry', () => ({ captureAndFormat: mocked.capture }));
 vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
 vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
 vi.mock('./features/map/MapView', () => ({
-  MapView: ({ initialFocusBounds }: { initialFocusBounds: unknown }) => (
+  MapView: ({ initialFocusBounds, onOpenDetail }: { initialFocusBounds: unknown; onOpenDetail: (id: string) => void }) => (
     <div data-testid="mapview">
+      <button onClick={() => onOpenDetail('1')}>open-detail</button>
       <span data-testid="focus-bounds">{JSON.stringify(initialFocusBounds ?? null)}</span>
     </div>
   ),
@@ -57,6 +63,9 @@ vi.mock('./features/sidebar/Sidebar', () => ({
     </div>
   ),
 }));
+vi.mock('./features/venue-detail/DetailModal', () => ({
+  DetailModal: ({ onDelete }: { onDelete: () => void }) => <button onClick={onDelete}>ask-delete</button>,
+}));
 vi.mock('./features/venues/PosterEditorModal', () => ({
   PosterEditorModal: ({ subject, onSave, onError, onClose }: {
     subject: { id: string; venues: unknown[] };
@@ -73,6 +82,7 @@ vi.mock('./features/venues/PosterEditorModal', () => ({
 }));
 
 import App from './App';
+import { VenueChangeRefusedError } from './features/venues/api';
 
 describe('App — sidebar default state', () => {
   afterEach(() => { vi.unstubAllEnvs(); });
@@ -312,5 +322,31 @@ describe('App — poster editor wiring', () => {
     await user.click(await screen.findByText('ed-close'));
 
     await waitFor(() => expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument());
+  });
+});
+
+describe('App — delete', () => {
+  beforeEach(() => { localStorage.clear(); mocked.loaded = true; mocked.remove.mockReset(); mocked.capture.mockClear(); });
+
+  const deleteVenue = async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByText('open-detail'));
+    await user.click(await screen.findByText('ask-delete'));
+    await user.click(await screen.findByText(STR.de.confirmDelete));
+  };
+
+  it('tells the user the change was not allowed, without a Sentry report, when the delete was refused', async () => {
+    mocked.remove.mockRejectedValueOnce(new VenueChangeRefusedError());
+    await deleteVenue();
+    expect(await screen.findByText(STR.de.changeRefused)).toBeInTheDocument();
+    expect(mocked.capture).not.toHaveBeenCalled();
+  });
+
+  it('still reports other delete errors', async () => {
+    mocked.remove.mockRejectedValueOnce(new Error('boom'));
+    await deleteVenue();
+    expect(await screen.findByText(STR.de.deleteError)).toBeInTheDocument();
+    expect(mocked.capture).toHaveBeenCalled();
   });
 });

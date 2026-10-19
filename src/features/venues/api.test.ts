@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 vi.mock('./imageCompression', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./imageCompression')>();
@@ -22,6 +22,7 @@ vi.mock('../../lib/supabase', () => ({ supabase: { from, rpc } }));
 import {
   listVenues, insertVenuePhoto, deleteVenuePhoto,
   updateVenuePhotoPosition, syncVenuePhotos, uploadPhoto,
+  updateVenue, removeVenue, VenueChangeRefusedError,
 } from './api';
 import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
 import { supabase } from '../../lib/supabase';
@@ -61,6 +62,39 @@ describe('listVenues', () => {
     order.mockResolvedValue({ data: null, error: raw });
     const err = await listVenues().catch((e: unknown) => e);
     expect((err as Error).cause).toBe(raw);
+  });
+});
+
+describe('removeVenue', () => {
+  it('asks for the deleted ids and resolves when one row was deleted', async () => {
+    (select as Mock).mockResolvedValueOnce({ data: [{ id: 'v1' }], error: null });
+    await expect(removeVenue('v1')).resolves.toBeUndefined();
+    expect(eq).toHaveBeenCalledWith('id', 'v1');
+    expect(select).toHaveBeenCalledWith('id');
+  });
+
+  it('throws VenueChangeRefusedError when RLS filtered the delete to zero rows', async () => {
+    (select as Mock).mockResolvedValueOnce({ data: [], error: null });
+    await expect(removeVenue('v1')).rejects.toBeInstanceOf(VenueChangeRefusedError);
+  });
+
+  it('keeps the generic error for a database error', async () => {
+    (select as Mock).mockResolvedValueOnce({ data: null, error: { message: 'boom', code: '42501' } });
+    await expect(removeVenue('v1')).rejects.toThrow('[42501] boom');
+  });
+});
+
+describe('updateVenue', () => {
+  it('throws VenueChangeRefusedError when .single() found no row (PGRST116)', async () => {
+    single.mockResolvedValueOnce({ data: null, error: { message: 'no rows', code: 'PGRST116' } });
+    await expect(updateVenue('v1', { name: 'X' })).rejects.toBeInstanceOf(VenueChangeRefusedError);
+  });
+
+  it('keeps the generic error for other codes', async () => {
+    single.mockResolvedValueOnce({ data: null, error: { message: 'boom', code: '23505' } });
+    const err = await updateVenue('v1', { name: 'X' }).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(VenueChangeRefusedError);
+    expect((err as Error).message).toBe('[23505] boom');
   });
 });
 

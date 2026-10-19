@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { CANTONS } from '../../data/cantons';
 import { forwardGeocode } from '../venues/geocoding';
 import { useVenueMutations } from '../venues/useVenues';
+import { VenueChangeRefusedError } from '../venues/api';
 import type { Venue, VenueInput } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
 import { theme } from '../../theme';
@@ -163,7 +164,7 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       await syncPhotos.mutateAsync({ venueId: saved.id, original: initial?.photos ?? [], draft: draft.photos });
       onSaved(saved, andNew);
     } catch (err) {
-      onError?.(captureAndFormat(err, t.saveError));
+      onError?.(err instanceof VenueChangeRefusedError ? t.changeRefused : captureAndFormat(err, t.saveError));
     }
   };
 

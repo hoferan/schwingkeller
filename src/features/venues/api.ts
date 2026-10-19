@@ -11,6 +11,15 @@ const toError = (e: { message: string; code?: string; hint?: string; details?: s
   return err;
 };
 
+// RLS turns an update or delete outside the editor's scope into zero affected rows, not an error.
+// The venue calls report that as this error, so the UI can tell it from a failure worth logging.
+export class VenueChangeRefusedError extends Error {
+  constructor() {
+    super('The database refused the venue change');
+    this.name = 'VenueChangeRefusedError';
+  }
+}
+
 interface VenueRow {
   id: string;
   name: string;
@@ -49,13 +58,16 @@ export const createVenue = async (input: VenueInput): Promise<Venue> => {
 
 export const updateVenue = async (id: string, input: Partial<VenueInput>): Promise<Venue> => {
   const { data, error } = await supabase.from('venues').update(input).eq('id', id).select().single();
+  // .single() on zero rows answers PGRST116.
+  if (error?.code === 'PGRST116') throw new VenueChangeRefusedError();
   if (error) throw toError(error);
   return { ...(data as Omit<Venue, 'photos'>), photos: [] };
 };
 
 export const removeVenue = async (id: string): Promise<void> => {
-  const { error } = await supabase.from('venues').delete().eq('id', id);
+  const { data, error } = await supabase.from('venues').delete().eq('id', id).select('id');
   if (error) throw toError(error);
+  if (!data?.length) throw new VenueChangeRefusedError();
 };
 
 export const insertVenuePhoto = async (venueId: string, url: string, position: number): Promise<VenuePhoto> => {
