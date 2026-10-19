@@ -73,3 +73,4 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0016](0016-editor-scope-is-a-verband-node.md) | An editor's scope is one node of the Verband tree | proposed |
 | [0017](0017-feature-flags-from-one-registry.md) | Feature flags as one table in code, with a value per environment | proposed |
 | [0018](0018-remove-the-import-and-replace-venues.md) | Remove the import and drop `replace_venues` | accepted |
+| [0019](0019-account-deletion-runs-in-the-database.md) | Account deletion runs in the database | accepted |
