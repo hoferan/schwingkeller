@@ -36,7 +36,12 @@ export const TestAuthProvider = ({ as, children }: { as: TestAccount; children: 
         : buildAuthValue(session, profileFor(as), tree);
   return (
     <AuthContext.Provider
-      value={{ ...value, signIn: async () => ({ error: null }), signOut: async () => {} }}
+      value={{
+        ...value,
+        signIn: async () => ({ error: null }),
+        signUp: async () => ({ error: null, confirmEmail: true }),
+        signOut: async () => {},
+      }}
     >
       {children}
     </AuthContext.Provider>

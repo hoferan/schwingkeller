@@ -18,6 +18,12 @@ export interface AuthValue {
   isSuperAdmin: boolean;
   canEditAssociation: (id: string | null) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  // confirmEmail is true when Supabase sent a confirmation email instead of signing the user in.
+  signUp: (
+    email: string,
+    password: string,
+    associationId: string,
+  ) => Promise<{ error: string | null; confirmEmail: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -32,7 +38,7 @@ export const buildAuthValue = (
   session: Session | null,
   profile: Profile | null,
   associations: AssociationTree,
-): Omit<AuthValue, 'signIn' | 'signOut'> => {
+): Omit<AuthValue, 'signIn' | 'signUp' | 'signOut'> => {
   const own = session && profile && profile.id === session.user.id ? profile : null;
   const scope = own && own.status === 'approved' ? own.scope_association_id : null;
   return {
@@ -65,6 +71,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error ? error.message : null };
   };
+  // The trigger on auth.users turns the association into the profile's requested Verband.
+  const signUp: AuthValue['signUp'] = async (email, password, associationId) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { association: associationId }, emailRedirectTo: window.location.origin },
+    });
+    if (error) return { error: error.message, confirmEmail: false };
+    return { error: null, confirmEmail: data.session === null };
+  };
   const signOut = async () => {
     await supabase.auth.signOut();
     queryClient.removeQueries({ queryKey: ['profile'] });
@@ -72,5 +88,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const base = useMemo(() => buildAuthValue(session, profile ?? null, tree), [session, profile]);
 
-  return <AuthContext.Provider value={{ ...base, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ ...base, signIn, signUp, signOut }}>{children}</AuthContext.Provider>;
 };
