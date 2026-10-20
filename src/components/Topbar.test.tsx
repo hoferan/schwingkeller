@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
 vi.mock('../lib/supabase', () => ({ supabase: {} }));
 
@@ -9,13 +10,16 @@ import { STR } from '../i18n/translations';
 import { theme } from '../theme';
 import { Topbar } from './Topbar';
 
+// Approved editors above Verband level get the account list entry, which asks for its count.
 const renderTopbar = (as: TestAccount) =>
   render(
-    <TestAuthProvider as={as}>
-      <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
-        <Topbar onOpenLogin={() => {}} isMobile={false} />
-      </I18nContext.Provider>
-    </TestAuthProvider>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <TestAuthProvider as={as}>
+        <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+          <Topbar onOpenLogin={() => {}} onOpenAccounts={() => {}} isMobile={false} />
+        </I18nContext.Provider>
+      </TestAuthProvider>
+    </QueryClientProvider>,
   );
 
 // jsdom's CSSOM may or may not preserve a color literally when read back via `.style.background` —

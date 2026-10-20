@@ -8,6 +8,8 @@ import { DetailModal } from './features/venue-detail/DetailModal';
 import { EditForm } from './features/venue-edit/EditForm';
 import { LoginModal } from './features/auth/LoginModal';
 import { StatusBanner } from './features/auth/StatusBanner';
+import { useAuth } from './features/auth/useAuth';
+import { AccountsPanel } from './features/admin/AccountsPanel';
 import { useVenues, useVenueMutations } from './features/venues/useVenues';
 import type { Venue } from './features/venues/types';
 import { VenueChangeRefusedError } from './features/venues/api';
@@ -90,6 +92,9 @@ function AppShell() {
   const [baseKind, setBaseKind] = useState<'map' | 'sat'>('map');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  // The account list. It renders only while the rights last, so signing out closes it.
+  const [showAccounts, setShowAccounts] = useState(false);
+  const { canManageAccounts } = useAuth();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(() =>
     isFeatureOn('verband') ? 'association' : 'canton',
@@ -274,7 +279,7 @@ function AppShell() {
         overflow: 'hidden', fontFamily: theme.font.body,
       }}
     >
-      <Topbar onOpenLogin={() => setShowLogin(true)} isMobile={isMobile} />
+      <Topbar onOpenLogin={() => setShowLogin(true)} onOpenAccounts={() => setShowAccounts(true)} isMobile={isMobile} />
       <StatusBanner />
 
       <div style={mainStyle}>
@@ -381,6 +386,10 @@ function AppShell() {
             {t.cancel}
           </button>
         </div>
+      )}
+
+      {showAccounts && canManageAccounts && (
+        <AccountsPanel onClose={() => setShowAccounts(false)} isMobile={isMobile} />
       )}
 
       {/* Delete confirm */}

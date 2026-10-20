@@ -29,6 +29,7 @@ const mocked = vi.hoisted(() => ({
   loaded: true,
   remove: vi.fn<(id: string) => Promise<void>>(),
   capture: vi.fn((_e: unknown, fallback: string) => fallback),
+  canManageAccounts: false,
 }));
 vi.mock('./features/venues/useVenues', () => ({
   useVenues: () => ({ data: mocked.loaded ? (mocked.venues ?? [venue]) : undefined, isSuccess: mocked.loaded }),
@@ -39,7 +40,13 @@ vi.mock('./features/geo/useGeolocation', () => ({
 }));
 vi.mock('./features/venues/useVenuePermalink', () => ({ useVenuePermalink: () => {} }));
 vi.mock('./lib/sentry', () => ({ captureAndFormat: mocked.capture }));
-vi.mock('./components/Topbar', () => ({ Topbar: () => <div data-testid="topbar" /> }));
+vi.mock('./components/Topbar', () => ({
+  Topbar: ({ onOpenAccounts }: { onOpenAccounts: () => void }) => (
+    <div data-testid="topbar"><button onClick={onOpenAccounts}>open-accounts</button></div>
+  ),
+}));
+vi.mock('./features/auth/useAuth', () => ({ useAuth: () => ({ canManageAccounts: mocked.canManageAccounts }) }));
+vi.mock('./features/admin/AccountsPanel', () => ({ AccountsPanel: () => <div data-testid="accounts-panel" /> }));
 vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
 vi.mock('./features/map/MapView', () => ({
   MapView: ({ initialFocusBounds, onOpenDetail }: { initialFocusBounds: unknown; onOpenDetail: (id: string) => void }) => (
@@ -348,5 +355,25 @@ describe('App — delete', () => {
     await deleteVenue();
     expect(await screen.findByText(STR.de.deleteError)).toBeInTheDocument();
     expect(mocked.capture).toHaveBeenCalled();
+  });
+});
+
+describe('App — account list', () => {
+  beforeEach(() => { mocked.canManageAccounts = true; });
+  afterEach(() => { mocked.canManageAccounts = false; });
+
+  it('opens the account list from the top bar', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    expect(screen.getByTestId('accounts-panel')).toBeInTheDocument();
+  });
+
+  // Signing out with the list open must not leave it on screen.
+  it('drops the account list once the rights are gone', async () => {
+    const { rerender } = render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    mocked.canManageAccounts = false;
+    rerender(<App />);
+    expect(screen.queryByTestId('accounts-panel')).toBeNull();
   });
 });
