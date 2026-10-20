@@ -16,6 +16,9 @@ export interface AuthValue {
   scope: string | null;
   isApproved: boolean;
   isSuperAdmin: boolean;
+  // True when the scope has nodes below it (the ESV and the Teilverbände): those accounts get the
+  // account list. RLS decides which rows it shows.
+  canManageAccounts: boolean;
   canEditAssociation: (id: string | null) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   // confirmEmail is true when Supabase sent a confirmation email instead of signing the user in.
@@ -47,6 +50,7 @@ export const buildAuthValue = (
     scope,
     isApproved: scope !== null,
     isSuperAdmin: scope === 'esv',
+    canManageAccounts: scope !== null && associations.childrenOf(scope).length > 0,
     canEditAssociation: (id) => canWriteAssociation(associations, scope, id),
   };
 };

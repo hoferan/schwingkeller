@@ -79,6 +79,18 @@ describe('buildAuthValue', () => {
   it('does not throw for a scope node the tree does not know', () => {
     const v = buildAuthValue(session, profile('approved', 'brand-new'), tree);
     expect(v.canEditAssociation('emmental')).toBe(false);
+    expect(v.canManageAccounts).toBe(false);
+  });
+
+  // Managing accounts needs nodes below the scope: the ESV and the Teilverbände have some.
+  it.each([
+    ['approved', 'esv', true],
+    ['approved', 'bksv', true],
+    ['approved', 'emmental', false],
+    ['pending', 'esv', false],
+    ['suspended', 'bksv', false],
+  ] as const)('a %s %s account manages accounts: %s', (status, scope, expected) => {
+    expect(buildAuthValue(session, profile(status, scope), tree).canManageAccounts).toBe(expected);
   });
 });
 
