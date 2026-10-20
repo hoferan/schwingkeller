@@ -42,6 +42,14 @@ describe('translations', () => {
       expect(STR[lang].posterToggleLabels).toBeTruthy();
     }
   });
+  // The account list fills these placeholders in; a translation that drops one shows a gap.
+  it('keeps the account list placeholders in every language', () => {
+    for (const lang of LANGS) {
+      expect(STR[lang].accountsPendingCount).toContain('{n}');
+      expect(STR[lang].scopeBelow).toContain('{n}');
+      expect(STR[lang].accountsPrevious).toContain('{scope}');
+    }
+  });
   // The form fills in the minimum from MIN_PASSWORD_LENGTH, so the number lives in one place.
   it('leaves the minimum password length to the form', () => {
     for (const lang of LANGS) {

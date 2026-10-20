@@ -1,4 +1,5 @@
 import { Lock, Unlock } from 'lucide-react';
+import { AccountsEntry } from '../features/admin/AccountsEntry';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
 import { LANGS, type Lang } from '../i18n/translations';
@@ -6,6 +7,7 @@ import { theme } from '../theme';
 
 interface TopbarProps {
   onOpenLogin: () => void;
+  onOpenAccounts: () => void;
   isMobile: boolean;
 }
 
@@ -23,7 +25,7 @@ const langStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: theme.radius.pill,
 });
 
-export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
+export const Topbar = ({ onOpenLogin, onOpenAccounts, isMobile }: TopbarProps) => {
   const { session, isApproved, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
 
@@ -78,6 +80,8 @@ export const Topbar = ({ onOpenLogin, isMobile }: TopbarProps) => {
           </button>
         ))}
       </div>
+
+      <AccountsEntry onOpen={onOpenAccounts} isMobile={isMobile} inverted={isApproved} />
 
       {session ? (
         <button

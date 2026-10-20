@@ -9,7 +9,7 @@ export interface Profile {
   requested_association_id: string | null;
 }
 
-const toError = (e: { message: string; code?: string; hint?: string; details?: string }): Error => {
+export const toError = (e: { message: string; code?: string; hint?: string; details?: string }): Error => {
   const err = new Error(e.code ? `[${e.code}] ${e.message}` : e.message);
   err.cause = e;
   return err;

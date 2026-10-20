@@ -23,4 +23,16 @@ describe('Modal', () => {
     // The card itself doesn't scroll, so its scrollbar can't run past the header and footer.
     expect(scroller?.parentElement).toHaveStyle({ overflow: 'hidden' });
   });
+
+  // A long list on a phone needs the whole screen, edge to edge.
+  it('fills the screen when asked to', () => {
+    render(
+      <Modal onClose={vi.fn()} header={<div>Title</div>} fullScreen>
+        <p>Body</p>
+      </Modal>,
+    );
+    const card = screen.getByText('Body').closest('.sk-scroll')?.parentElement;
+    expect(card).toHaveStyle({ width: '100%', borderRadius: '0px' });
+    expect(card?.parentElement).toHaveStyle({ padding: '0px' });
+  });
 });

@@ -79,6 +79,18 @@ describe('buildAuthValue', () => {
   it('does not throw for a scope node the tree does not know', () => {
     const v = buildAuthValue(session, profile('approved', 'brand-new'), tree);
     expect(v.canEditAssociation('emmental')).toBe(false);
+    expect(v.canManageAccounts).toBe(false);
+  });
+
+  // Managing accounts needs nodes below the scope: the ESV and the Teilverbände have some.
+  it.each([
+    ['approved', 'esv', true],
+    ['approved', 'bksv', true],
+    ['approved', 'emmental', false],
+    ['pending', 'esv', false],
+    ['suspended', 'bksv', false],
+  ] as const)('a %s %s account manages accounts: %s', (status, scope, expected) => {
+    expect(buildAuthValue(session, profile(status, scope), tree).canManageAccounts).toBe(expected);
   });
 });
 
@@ -127,6 +139,17 @@ describe('AuthProvider', () => {
     });
     expect(signOutFn).toHaveBeenCalled();
     expect(client.getQueryCache().findAll({ queryKey: ['profile'] })).toHaveLength(0);
+  });
+
+  // The next account to sign in on this tab must not see the account list of the last one.
+  it('drops the cached account list on sign-out', async () => {
+    const client = renderProvider();
+    await waitFor(() => expect(screen.getByText('scope:emmental')).toBeInTheDocument());
+    client.setQueryData(['accounts', 'pending-count'], 3);
+    await act(async () => {
+      screen.getByText('out').click();
+    });
+    expect(client.getQueryCache().findAll({ queryKey: ['accounts'] })).toHaveLength(0);
   });
 
   it('reports a failed profile fetch to Sentry once', async () => {
