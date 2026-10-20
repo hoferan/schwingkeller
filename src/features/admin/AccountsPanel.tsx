@@ -83,7 +83,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
 
   return (
     <>
-      <Modal onClose={onClose} width={960} zIndex={1400} header={header}>
+      <Modal onClose={onClose} width={960} zIndex={1400} header={header} fullScreen={isMobile}>
         {error && (
           <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
             {t[error]}

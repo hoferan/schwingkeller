@@ -85,7 +85,7 @@ export const AccountList = ({ accounts, isMobile, ownId, rejectingId, onApprove,
               <div style={{ color: theme.color.muted, marginTop: '4px', lineHeight: 1.5 }}>
                 {f.status} · {f.since}
                 <br />
-                {t.accountsRequested}: {f.requested}
+                {t.accountsRequestedShort}: {f.requested}
                 {f.scope !== '' && (
                   <>
                     <br />

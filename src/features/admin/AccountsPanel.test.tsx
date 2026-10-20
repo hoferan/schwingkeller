@@ -98,6 +98,26 @@ describe('AccountsPanel', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
+  it('takes the whole screen on phones', async () => {
+    renderPanel(true);
+    const card = (await row('gau@example.ch')).closest('.sk-scroll')?.parentElement;
+    expect(card).toHaveStyle({ width: '100%', borderRadius: '0px' });
+  });
+
+  it('stays a floating box on wider screens', async () => {
+    renderPanel(false);
+    const card = (await row('gau@example.ch')).closest('.sk-scroll')?.parentElement;
+    expect(card).toHaveStyle({ width: '960px' });
+  });
+
+  // "Gewünschter Verband: Verband Emmental" would name the level twice.
+  it('labels the requested Verband briefly on a card', async () => {
+    renderPanel(true);
+    const r = await row('gau@example.ch');
+    expect(r).toHaveTextContent(`${t.accountsRequestedShort}: Verband Emmental`);
+    expect(r).not.toHaveTextContent(t.accountsRequested);
+  });
+
   it('describes a pending account', async () => {
     renderPanel();
     const r = await row('gau@example.ch');
