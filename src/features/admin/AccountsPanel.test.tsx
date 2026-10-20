@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 // Each from() call gets its own builder, so the list query and the approved-scopes query can be
 // told apart. `lists` records the status filter of every list query, null for "all".
 const { from, rpc, state } = vi.hoisted(() => {
-  const state: { rows: unknown[]; lists: (string | null)[] } = { rows: [], lists: [] };
+  const state: { rows: unknown[]; lists: (string | null)[]; listError: unknown } = { rows: [], lists: [], listError: null };
   const from = vi.fn(() => {
     let columns = '';
     let status: string | null = null;
@@ -22,7 +22,7 @@ const { from, rpc, state } = vi.hoisted(() => {
     builder.then = (resolve: (v: unknown) => unknown) => {
       if (columns === 'scope_association_id') return resolve({ data: [], error: null });
       state.lists.push(status);
-      return resolve({ data: state.rows, error: null });
+      return resolve(state.listError ? { data: null, error: state.listError } : { data: state.rows, error: null });
     };
     return builder;
   });
@@ -68,6 +68,7 @@ const row = (email: string) => screen.findByTestId(`account-${email}`);
 beforeEach(() => {
   state.rows = [account({})];
   state.lists = [];
+  state.listError = null;
   rpc.mockReset().mockResolvedValue({ error: null });
 });
 
@@ -146,6 +147,22 @@ describe('AccountsPanel', () => {
     state.rows = [];
     renderPanel();
     expect(await screen.findByText(t.accountsEmpty)).toBeInTheDocument();
+  });
+
+  // A blank panel would look like one still loading.
+  it('says so when the list can’t be loaded', async () => {
+    state.listError = { message: 'JWT expired' };
+    renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.accountsLoadFailed);
+  });
+
+  // Reject runs without confirmation because it can be undone here.
+  it('offers to approve a rejected account, but not to reject it again', async () => {
+    state.rows = [account({ status: 'rejected' })];
+    renderPanel();
+    const r = await row('gau@example.ch');
+    expect(within(r).getByRole('button', { name: t.approve })).toBeInTheDocument();
+    expect(within(r).queryByRole('button', { name: t.reject })).toBeNull();
   });
 
   it('opens the approval for a pending account', async () => {

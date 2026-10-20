@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
+import { captureAndFormat } from '../../lib/sentry';
 import { theme } from '../../theme';
 import { inputStyle, labelStyle } from '../auth/formStyles';
 import { useAuth } from '../auth/useAuth';
@@ -29,6 +30,10 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
   const [error, setError] = useState<AdminErrorKey | null>(null);
   const accounts = useAccounts(filter);
   const reject = useRejectEditor();
+
+  useEffect(() => {
+    if (accounts.error) captureAndFormat(accounts.error, 'account list fetch failed');
+  }, [accounts.error]);
 
   const onReject = (account: Account) => {
     setError(null);
@@ -82,6 +87,11 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
         {error && (
           <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
             {t[error]}
+          </div>
+        )}
+        {accounts.isError && (
+          <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
+            {t.accountsLoadFailed}
           </div>
         )}
         {accounts.data && accounts.data.length === 0 && (

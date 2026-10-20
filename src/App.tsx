@@ -95,6 +95,12 @@ function AppShell() {
   // The account list. It renders only while the rights last, so signing out closes it.
   const [showAccounts, setShowAccounts] = useState(false);
   const { canManageAccounts } = useAuth();
+  // Losing the rights closes the list for good, so the next admin on this tab opens it themselves.
+  const [hadAccountRights, setHadAccountRights] = useState(canManageAccounts);
+  if (hadAccountRights !== canManageAccounts) {
+    setHadAccountRights(canManageAccounts);
+    if (!canManageAccounts) setShowAccounts(false);
+  }
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(() =>
     isFeatureOn('verband') ? 'association' : 'canton',

@@ -87,7 +87,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   const signOut = async () => {
     await supabase.auth.signOut();
+    // The account list too, so the next account on this tab never sees the last one's rows.
     queryClient.removeQueries({ queryKey: ['profile'] });
+    queryClient.removeQueries({ queryKey: ['accounts'] });
   };
 
   const base = useMemo(() => buildAuthValue(session, profile ?? null, tree), [session, profile]);

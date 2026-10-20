@@ -141,6 +141,17 @@ describe('AuthProvider', () => {
     expect(client.getQueryCache().findAll({ queryKey: ['profile'] })).toHaveLength(0);
   });
 
+  // The next account to sign in on this tab must not see the account list of the last one.
+  it('drops the cached account list on sign-out', async () => {
+    const client = renderProvider();
+    await waitFor(() => expect(screen.getByText('scope:emmental')).toBeInTheDocument());
+    client.setQueryData(['accounts', 'pending-count'], 3);
+    await act(async () => {
+      screen.getByText('out').click();
+    });
+    expect(client.getQueryCache().findAll({ queryKey: ['accounts'] })).toHaveLength(0);
+  });
+
   it('reports a failed profile fetch to Sentry once', async () => {
     const failure = new Error('profile fetch failed');
     single.mockResolvedValue({ data: null, error: failure });

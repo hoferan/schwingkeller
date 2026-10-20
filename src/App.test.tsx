@@ -376,4 +376,15 @@ describe('App — account list', () => {
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
   });
+
+  // The next admin to sign in on this tab opens the list themselves.
+  it('keeps the account list closed when the rights come back', async () => {
+    const { rerender } = render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    mocked.canManageAccounts = false;
+    rerender(<App />);
+    mocked.canManageAccounts = true;
+    rerender(<App />);
+    expect(screen.queryByTestId('accounts-panel')).toBeNull();
+  });
 });

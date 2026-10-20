@@ -54,14 +54,18 @@ export const AccountList = ({ accounts, isMobile, ownId, rejectingId, onApprove,
 
   const actions = (account: Account) => {
     if (account.id === ownId) return <span style={{ color: theme.color.muted, fontSize: '13px' }}>{t.accountsYou}</span>;
-    if (account.status !== 'pending') return null;
+    // A rejection runs without confirmation because it can be undone here: approve_editor accepts
+    // rejected accounts too.
+    if (account.status !== 'pending' && account.status !== 'rejected') return null;
     const busy = rejectingId === account.id;
     return (
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         <button type="button" onClick={() => onApprove(account)} style={actionStyle(true, false)}>{t.approve}</button>
-        <button type="button" onClick={() => onReject(account)} disabled={busy} style={actionStyle(false, busy)}>
-          {t.reject}
-        </button>
+        {account.status === 'pending' && (
+          <button type="button" onClick={() => onReject(account)} disabled={busy} style={actionStyle(false, busy)}>
+            {t.reject}
+          </button>
+        )}
       </div>
     );
   };
