@@ -7,7 +7,6 @@ import { inputStyle, labelStyle, primaryButtonStyle, secondaryButtonStyle } from
 import { useAuth } from '../auth/useAuth';
 import type { Account } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
-import { scopeLabel } from './scopeLabel';
 import { defaultScopeFor, grantableScopes, type ScopeOption } from './scopeOptions';
 import { useApprovedScopes, useApproveEditor } from './useAccounts';
 
@@ -50,7 +49,7 @@ export const ApproveDialog = ({ account, onClose, onError }: ApproveDialogProps)
 
   return (
     <Modal onClose={onClose} width={400} zIndex={1500}>
-      <div style={{ padding: '22px' }}>
+      <div data-testid="approve-dialog" style={{ padding: '22px' }}>
         <div
           style={{
             fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
@@ -80,7 +79,7 @@ export const ApproveDialog = ({ account, onClose, onError }: ApproveDialogProps)
             disabled={scope === '' || approve.isPending}
             style={{ ...primaryButtonStyle, opacity: scope === '' || approve.isPending ? 0.5 : 1 }}
           >
-            {scope === '' ? t.approve : t.approveAs.replace('{scope}', scopeLabel(a, t, scope))}
+            {t.approve}
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { X } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -11,6 +11,12 @@ import type { Account, AccountFilter } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
 import { ApproveDialog } from './ApproveDialog';
 import { useAccounts, useRejectEditor } from './useAccounts';
+
+// Read by screen readers, not shown: on a phone the select's value says what it filters.
+const visuallyHidden: CSSProperties = {
+  position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0,
+};
 
 const FILTERS = [
   ['pending', 'accountStatusPending'],
@@ -40,23 +46,24 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
     reject.mutate(account.id, { onError: (err) => setError(adminErrorKey(err)) });
   };
 
+  // One row on a phone: title, filter, close. It stays put while the list scrolls under it.
   const header = (
     <div
       style={{
-        display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '16px 18px',
-        borderBottom: '1px solid ' + theme.color.line, flexWrap: 'wrap',
+        display: 'flex', alignItems: isMobile ? 'center' : 'flex-end', gap: '12px',
+        padding: isMobile ? '10px 12px 10px 16px' : '16px 18px', borderBottom: '1px solid ' + theme.color.line,
       }}
     >
       <div
         style={{
           fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
-          color: theme.color.ink, flex: 1, alignSelf: 'center',
+          color: theme.color.ink, flex: 1, minWidth: 0, alignSelf: 'center',
         }}
       >
         {t.accountsTitle}
       </div>
       <div>
-        <label htmlFor="accounts-filter" style={labelStyle}>{t.accountsFilter}</label>
+        <label htmlFor="accounts-filter" style={isMobile ? visuallyHidden : labelStyle}>{t.accountsFilter}</label>
         <select
           id="accounts-filter"
           value={filter}

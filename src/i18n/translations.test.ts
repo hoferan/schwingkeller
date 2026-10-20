@@ -48,7 +48,6 @@ describe('translations', () => {
       expect(STR[lang].accountsPendingCount).toContain('{n}');
       expect(STR[lang].scopeBelow).toContain('{n}');
       expect(STR[lang].accountsPrevious).toContain('{scope}');
-      expect(STR[lang].approveAs).toContain('{scope}');
     }
   });
   // The form fills in the minimum from MIN_PASSWORD_LENGTH, so the number lives in one place.

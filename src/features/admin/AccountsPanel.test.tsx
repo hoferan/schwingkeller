@@ -104,6 +104,20 @@ describe('AccountsPanel', () => {
     expect(card).toHaveStyle({ width: '100%', borderRadius: '0px' });
   });
 
+  // The select's value says what it filters, so phones skip the visible label. Screen readers keep it.
+  it('hides the filter label on phones, but not from screen readers', async () => {
+    renderPanel(true);
+    await row('gau@example.ch');
+    expect(screen.getByLabelText(t.accountsFilter)).toBeInTheDocument();
+    expect(screen.getByText(t.accountsFilter)).toHaveStyle({ position: 'absolute', width: '1px', height: '1px' });
+  });
+
+  it('shows the filter label on wider screens', async () => {
+    renderPanel(false);
+    await row('gau@example.ch');
+    expect(screen.getByText(t.accountsFilter, { selector: 'label' })).not.toHaveStyle({ position: 'absolute' });
+  });
+
   it('stays a floating box on wider screens', async () => {
     renderPanel(false);
     const card = (await row('gau@example.ch')).closest('.sk-scroll')?.parentElement;

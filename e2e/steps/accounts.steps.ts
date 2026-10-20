@@ -29,7 +29,8 @@ When('I open the account list', async ({ page }) => {
 When('I approve the applicant as {string}', async ({ page, applicant }, name: string) => {
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.approve }).click();
   await page.getByLabel(t.accountsScope).selectOption(verbandId(name));
-  await page.getByRole('button', { name: t.approveAs.replace('{scope}', '') }).click();
+  // The row has an approve button too, so look inside the dialog.
+  await page.getByTestId('approve-dialog').getByRole('button', { name: t.approve }).click();
   await expect(page.getByTestId(`account-${applicant.email}`)).toHaveCount(0);
 });
 

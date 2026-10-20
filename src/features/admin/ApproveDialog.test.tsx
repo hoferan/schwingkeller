@@ -62,7 +62,8 @@ describe('ApproveDialog', () => {
     const values = within(scopeSelect()).getAllByRole('option').map((o) => (o as HTMLOptionElement).value);
     expect(values.filter(Boolean)).toEqual(['berner-jura', 'emmental', 'mittelland', 'oberaargau', 'oberland', 'seeland']);
     await waitFor(() => expect(within(scopeSelect()).getByRole('option', { name: /^Emmental · 1$/ })).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Freigeben als Verband Emmental' })).toBeEnabled();
+    // The select above shows the scope, so the button stays short enough for one line on a phone.
+    expect(screen.getByRole('button', { name: t.approve })).toBeEnabled();
   });
 
   it('shows the counts below a Teilverband for a super-admin', async () => {
@@ -76,7 +77,7 @@ describe('ApproveDialog', () => {
   it('lets a super-admin approve with another scope', async () => {
     const { onClose } = renderDialog('esv');
     await userEvent.selectOptions(scopeSelect(), 'bksv');
-    await userEvent.click(screen.getByRole('button', { name: 'Freigeben als Teilverband BKSV' }));
+    await userEvent.click(screen.getByRole('button', { name: t.approve }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(rpc).toHaveBeenCalledWith('approve_editor', { target_id: 'u2', scope: 'bksv' });
   });
@@ -86,13 +87,13 @@ describe('ApproveDialog', () => {
     expect(scopeSelect().value).toBe('');
     expect(screen.getByRole('button', { name: t.approve })).toBeDisabled();
     await userEvent.selectOptions(scopeSelect(), 'seeland');
-    expect(screen.getByRole('button', { name: 'Freigeben als Verband Seeland' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: t.approve })).toBeEnabled();
   });
 
   it('can’t be sent twice while the approval runs', async () => {
     rpc.mockReturnValue(new Promise(() => {}));
     renderDialog('bksv');
-    const confirm = screen.getByRole('button', { name: 'Freigeben als Verband Emmental' });
+    const confirm = screen.getByRole('button', { name: t.approve });
     await userEvent.click(confirm);
     expect(confirm).toBeDisabled();
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -101,7 +102,7 @@ describe('ApproveDialog', () => {
   it('reports an account someone else changed first, and closes', async () => {
     rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot approve an account that is approved' } });
     const { onClose, onError } = renderDialog('bksv');
-    await userEvent.click(screen.getByRole('button', { name: 'Freigeben als Verband Emmental' }));
+    await userEvent.click(screen.getByRole('button', { name: t.approve }));
     await waitFor(() => expect(onError).toHaveBeenCalledWith('adminErrStale'));
     expect(onClose).toHaveBeenCalled();
   });
