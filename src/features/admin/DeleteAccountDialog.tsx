@@ -16,17 +16,9 @@ interface DeleteAccountDialogProps {
 // confirmation in App.tsx.
 export const DeleteAccountDialog = ({ account, onClose, onError }: DeleteAccountDialogProps) => {
   const { t } = useTranslation();
-  const remove = useDeleteAccount();
+  const remove = useDeleteAccount({ onError: (err) => onError(adminErrorKey(err)) });
 
-  const confirm = () => {
-    remove.mutate(account.id, {
-      onSuccess: onClose,
-      onError: (err) => {
-        onError(adminErrorKey(err));
-        onClose();
-      },
-    });
-  };
+  const confirm = () => remove.mutate(account.id, { onSettled: onClose });
 
   return (
     <Modal onClose={onClose} width={340} zIndex={1500}>

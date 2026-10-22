@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMutationState } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -11,7 +12,7 @@ import type { Account, AccountFilter } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { ScopeDialog } from './ScopeDialog';
-import { useAccounts, useReactivateEditor, useRejectEditor, useSuspendEditor } from './useAccounts';
+import { rowActionKey, useAccounts, useReactivateEditor, useRejectEditor, useSuspendEditor } from './useAccounts';
 
 // Read by screen readers, not shown: on a phone the select's value says what it filters.
 const visuallyHidden: CSSProperties = {
@@ -36,11 +37,16 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
   const [dialog, setDialog] = useState<{ kind: 'approve' | 'change' | 'delete'; account: Account } | null>(null);
   const [error, setError] = useState<AdminErrorKey | null>(null);
   const accounts = useAccounts(filter);
-  const reject = useRejectEditor();
-  const suspend = useSuspendEditor();
-  const reactivate = useReactivateEditor();
-  // The row whose action is running. Only one runs at a time, since its buttons wait meanwhile.
-  const busyId = [reject, suspend, reactivate].find((m) => m.isPending)?.variables ?? null;
+  const onError = (err: unknown) => setError(adminErrorKey(err));
+  const reject = useRejectEditor({ onError });
+  const suspend = useSuspendEditor({ onError });
+  const reactivate = useReactivateEditor({ onError });
+  // Every row with an action running, the delete dialog's included. Their buttons wait meanwhile.
+  const pending = useMutationState({
+    filters: { mutationKey: rowActionKey, status: 'pending' },
+    select: (m) => m.state.variables as string,
+  });
+  const busyIds = useMemo(() => new Set(pending), [pending]);
 
   useEffect(() => {
     if (accounts.error) captureAndFormat(accounts.error, 'account list fetch failed');
@@ -48,7 +54,6 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
 
   const onAction = (action: AccountAction, account: Account) => {
     setError(null);
-    const onError = (err: unknown) => setError(adminErrorKey(err));
     switch (action) {
       case 'approve':
         return setDialog({ kind: 'approve', account });
@@ -57,11 +62,11 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
       case 'delete':
         return setDialog({ kind: 'delete', account });
       case 'reject':
-        return reject.mutate(account.id, { onError });
+        return reject.mutate(account.id);
       case 'suspend':
-        return suspend.mutate(account.id, { onError });
+        return suspend.mutate(account.id);
       case 'reactivate':
-        return reactivate.mutate(account.id, { onError });
+        return reactivate.mutate(account.id);
     }
   };
 
@@ -128,7 +133,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
             accounts={accounts.data}
             isMobile={isMobile}
             ownId={session?.user.id ?? null}
-            busyId={busyId}
+            busyIds={busyIds}
             canDelete={isSuperAdmin}
             onAction={onAction}
           />

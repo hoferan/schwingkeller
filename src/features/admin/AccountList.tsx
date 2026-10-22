@@ -12,8 +12,8 @@ interface AccountListProps {
   isMobile: boolean;
   // The caller's own account: shown, but without actions.
   ownId: string | null;
-  // The account with an action running. Its buttons wait, so nothing is sent twice.
-  busyId: string | null;
+  // The accounts with an action running. Their buttons wait, so nothing is sent twice.
+  busyIds: ReadonlySet<string>;
   // Only a super-admin may delete someone else's account.
   canDelete: boolean;
   onAction: (action: AccountAction, account: Account) => void;
@@ -49,7 +49,7 @@ const actionStyle = (kind: 'primary' | 'plain' | 'danger', busy: boolean): CSSPr
   cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
 });
 
-export const AccountList = ({ accounts, isMobile, ownId, busyId, canDelete, onAction }: AccountListProps) => {
+export const AccountList = ({ accounts, isMobile, ownId, busyIds, canDelete, onAction }: AccountListProps) => {
   const { t, lang } = useTranslation();
   const a = useAssociations();
   const date = new Intl.DateTimeFormat(`${lang}-CH`, { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -76,7 +76,7 @@ export const AccountList = ({ accounts, isMobile, ownId, busyId, canDelete, onAc
 
   const actions = (account: Account) => {
     if (account.id === ownId) return <span style={{ color: theme.color.muted, fontSize: '13px' }}>{t.accountsYou}</span>;
-    const busy = busyId === account.id;
+    const busy = busyIds.has(account.id);
     const offered = canDelete ? [...ACTIONS[account.status], 'delete' as const] : ACTIONS[account.status];
     return (
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

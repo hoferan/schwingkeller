@@ -278,4 +278,35 @@ describe('AccountsPanel', () => {
     expect(screen.getByTestId('delete-account-dialog')).toHaveTextContent('gau@example.ch');
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  // One mutation serves every row, and TanStack Query only calls back the latest mutate() call.
+  describe('acting on two rows at once', () => {
+    const twoEditors = () => [
+      account({ status: 'approved', scope_association_id: 'emmental' }),
+      account({ id: 'u3', email: 'other@example.ch', status: 'approved', scope_association_id: 'seeland' }),
+    ];
+
+    it('keeps both rows busy while their actions run', async () => {
+      rpc.mockReturnValue(new Promise(() => {}));
+      state.rows = twoEditors();
+      renderPanel();
+      await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.suspend }));
+      await userEvent.click(within(await row('other@example.ch')).getByRole('button', { name: t.suspend }));
+      expect(within(await row('gau@example.ch')).getByRole('button', { name: t.suspend })).toBeDisabled();
+      expect(within(await row('other@example.ch')).getByRole('button', { name: t.suspend })).toBeDisabled();
+    });
+
+    it('still explains a refusal of the first one', async () => {
+      let refuseFirst: (v: unknown) => void = () => {};
+      rpc
+        .mockReturnValueOnce(new Promise((resolve) => { refuseFirst = resolve; }))
+        .mockReturnValueOnce(new Promise(() => {}));
+      state.rows = twoEditors();
+      renderPanel(false, 'esv');
+      await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.suspend }));
+      await userEvent.click(within(await row('other@example.ch')).getByRole('button', { name: t.suspend }));
+      refuseFirst({ error: { code: 'P0001', message: 'cannot remove the last super-admin' } });
+      expect(await screen.findByRole('alert')).toHaveTextContent(t.adminErrLastSuperAdmin);
+    });
+  });
 });

@@ -16,6 +16,14 @@ import {
 // picker counts together.
 export const accountsKey = ['accounts'] as const;
 
+// The actions a row runs on an account id: reject, suspend, reactivate and delete. The panel reads
+// every pending one under this key, so each targeted row stays busy until its own call returns.
+export const rowActionKey = [...accountsKey, 'row-action'] as const;
+
+// Hook-level, because TanStack Query calls a mutate()-level onError for the latest call only, and
+// the same mutation serves every row.
+type RowActionOptions = { onError?: (err: unknown) => void };
+
 export const useAccounts = (filter: AccountFilter) =>
   useQuery({ queryKey: [...accountsKey, 'list', filter], queryFn: () => fetchAccounts(filter) });
 
@@ -34,10 +42,12 @@ export const useApproveEditor = () => {
   });
 };
 
-export const useRejectEditor = () => {
+export const useRejectEditor = ({ onError }: RowActionOptions = {}) => {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: rowActionKey,
     mutationFn: rejectEditor,
+    onError,
     onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };
@@ -50,26 +60,32 @@ export const useSetEditorScope = () => {
   });
 };
 
-export const useSuspendEditor = () => {
+export const useSuspendEditor = ({ onError }: RowActionOptions = {}) => {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: rowActionKey,
     mutationFn: suspendEditor,
+    onError,
     onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };
 
-export const useReactivateEditor = () => {
+export const useReactivateEditor = ({ onError }: RowActionOptions = {}) => {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: rowActionKey,
     mutationFn: reactivateEditor,
+    onError,
     onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };
 
-export const useDeleteAccount = () => {
+export const useDeleteAccount = ({ onError }: RowActionOptions = {}) => {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: rowActionKey,
     mutationFn: deleteAccount,
+    onError,
     onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };
