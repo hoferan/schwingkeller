@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveEditor,
+  deleteAccount,
   fetchAccounts,
   fetchApprovedScopes,
   fetchPendingCount,
+  reactivateEditor,
   rejectEditor,
+  setEditorScope,
+  suspendEditor,
   type AccountFilter,
 } from './accounts';
 
@@ -34,6 +38,38 @@ export const useRejectEditor = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: rejectEditor,
+    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
+  });
+};
+
+export const useSetEditorScope = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ targetId, scope }: { targetId: string; scope: string }) => setEditorScope(targetId, scope),
+    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
+  });
+};
+
+export const useSuspendEditor = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: suspendEditor,
+    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
+  });
+};
+
+export const useReactivateEditor = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: reactivateEditor,
+    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
+  });
+};
+
+export const useDeleteAccount = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: deleteAccount,
     onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
   });
 };

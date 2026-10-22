@@ -14,6 +14,8 @@ describe('adminErrorKey', () => {
     ['[P0001] cannot reject an account that is rejected', 'adminErrStale'],
     ['[P0001] cannot remove the last super-admin', 'adminErrLastSuperAdmin'],
     ['[P0001] cannot delete the last super-admin', 'adminErrLastSuperAdmin'],
+    ['[P0001] cannot suspend an account that is suspended', 'adminErrStale'],
+    ['[P0002] account not found', 'adminErrStale'],
   ] as const)('maps "%s" to %s without reporting it', (message, key) => {
     expect(adminErrorKey(new Error(message))).toBe(key);
     expect(captureException).not.toHaveBeenCalled();

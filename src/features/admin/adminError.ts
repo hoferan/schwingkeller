@@ -8,6 +8,8 @@ export type AdminErrorKey = 'adminErrNotAuthorized' | 'adminErrStale' | 'adminEr
 export const adminErrorKey = (err: unknown): AdminErrorKey => {
   if (err instanceof Error) {
     if (extractCode(err) === '42501') return 'adminErrNotAuthorized';
+    // delete_account's "account not found": someone else deleted the account first.
+    if (extractCode(err) === 'P0002') return 'adminErrStale';
     const message = err.message.replace(/^\[\w+\] /, '');
     if (message.includes('last super-admin')) return 'adminErrLastSuperAdmin';
     if (/^cannot .+ an account that is /.test(message)) return 'adminErrStale';

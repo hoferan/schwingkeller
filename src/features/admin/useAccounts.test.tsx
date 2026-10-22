@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: { rpc } }));
 
-import { useApproveEditor, useRejectEditor } from './useAccounts';
+import { useApproveEditor, useDeleteAccount, useRejectEditor } from './useAccounts';
 
 const setup = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -37,6 +37,14 @@ describe('admin mutations', () => {
     const { result } = renderHook(() => useApproveEditor(), { wrapper });
     result.current.mutate({ targetId: 'u1', scope: 'emmental' });
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['accounts'] });
+  });
+
+  it('refetch the account queries after a deletion', async () => {
+    const { invalidate, wrapper } = setup();
+    const { result } = renderHook(() => useDeleteAccount(), { wrapper });
+    result.current.mutate('u1');
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['accounts'] });
   });
 });
