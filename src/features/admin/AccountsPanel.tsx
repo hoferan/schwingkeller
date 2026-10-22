@@ -70,56 +70,65 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
     }
   };
 
-  // One row on a phone: title, filter, close. It stays put while the list scrolls under it.
+  // One row on a phone: title, filter, close. It stays put while the list scrolls under it, and so
+  // does a refusal, which may be for a row far down the list.
   const header = (
-    <div
-      style={{
-        display: 'flex', alignItems: isMobile ? 'center' : 'flex-end', gap: '12px',
-        padding: isMobile ? '10px 12px 10px 16px' : '16px 18px', borderBottom: '1px solid ' + theme.color.line,
-      }}
-    >
+    <>
       <div
         style={{
-          fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
-          color: theme.color.ink, flex: 1, minWidth: 0, alignSelf: 'center',
+          display: 'flex', alignItems: isMobile ? 'center' : 'flex-end', gap: '12px',
+          padding: isMobile ? '10px 12px 10px 16px' : '16px 18px', borderBottom: '1px solid ' + theme.color.line,
         }}
       >
-        {t.accountsTitle}
-      </div>
-      <div>
-        <label htmlFor="accounts-filter" style={isMobile ? visuallyHidden : labelStyle}>{t.accountsFilter}</label>
-        <select
-          id="accounts-filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as AccountFilter)}
-          style={{ ...inputStyle, width: 'auto', padding: '8px 11px' }}
+        <div
+          style={{
+            fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
+            color: theme.color.ink, flex: 1, minWidth: 0, alignSelf: 'center',
+          }}
         >
-          {FILTERS.map(([value, key]) => <option key={value} value={value}>{t[key]}</option>)}
-        </select>
+          {t.accountsTitle}
+        </div>
+        <div>
+          <label htmlFor="accounts-filter" style={isMobile ? visuallyHidden : labelStyle}>{t.accountsFilter}</label>
+          <select
+            id="accounts-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as AccountFilter)}
+            style={{ ...inputStyle, width: 'auto', padding: '8px 11px' }}
+          >
+            {FILTERS.map(([value, key]) => <option key={value} value={value}>{t[key]}</option>)}
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t.close}
+          title={t.close}
+          style={{
+            border: 'none', background: 'transparent', color: theme.color.muted, cursor: 'pointer', padding: '6px',
+            alignSelf: 'center', display: 'flex',
+          }}
+        >
+          <X size={20} />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={t.close}
-        title={t.close}
-        style={{
-          border: 'none', background: 'transparent', color: theme.color.muted, cursor: 'pointer', padding: '6px',
-          alignSelf: 'center', display: 'flex',
-        }}
-      >
-        <X size={20} />
-      </button>
-    </div>
+      {error && (
+        <div
+          role="alert"
+          style={{
+            padding: '12px 18px', color: theme.color.accent, fontSize: '13px',
+            borderBottom: '1px solid ' + theme.color.line,
+          }}
+        >
+          {t[error]}
+        </div>
+      )}
+    </>
   );
 
   return (
     <>
       <Modal onClose={onClose} width={960} zIndex={1400} header={header} fullScreen={isMobile}>
-        {error && (
-          <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
-            {t[error]}
-          </div>
-        )}
         {accounts.isError && (
           <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
             {t.accountsLoadFailed}

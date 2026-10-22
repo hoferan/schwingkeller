@@ -309,4 +309,14 @@ describe('AccountsPanel', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent(t.adminErrLastSuperAdmin);
     });
   });
+
+  // A refusal for a row far down a long list would otherwise show above the visible part.
+  it('shows a refusal outside the scrolling list', async () => {
+    rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot reject an account that is approved' } });
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.reject }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(t.adminErrStale);
+    expect(alert.closest('.sk-scroll')).toBeNull();
+  });
 });
