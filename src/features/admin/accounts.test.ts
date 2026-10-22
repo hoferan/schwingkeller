@@ -20,7 +20,17 @@ const { from, rpc, calls, state } = vi.hoisted(() => {
 });
 vi.mock('../../lib/supabase', () => ({ supabase: { from, rpc } }));
 
-import { approveEditor, fetchAccounts, fetchApprovedScopes, fetchPendingCount, rejectEditor } from './accounts';
+import {
+  approveEditor,
+  deleteAccount,
+  fetchAccounts,
+  fetchApprovedScopes,
+  fetchPendingCount,
+  reactivateEditor,
+  rejectEditor,
+  setEditorScope,
+  suspendEditor,
+} from './accounts';
 
 const COLUMNS = 'id,email,status,requested_association_id,scope_association_id,created_at';
 
@@ -100,5 +110,25 @@ describe('editor RPCs', () => {
   it('throws the RPC error with its code', async () => {
     rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot reject an account that is approved' } });
     await expect(rejectEditor('u1')).rejects.toThrow('[P0001] cannot reject an account that is approved');
+  });
+
+  it.each([
+    ['set_editor_scope', () => setEditorScope('u2', 'bksv'), { target_id: 'u2', scope: 'bksv' }],
+    ['suspend_editor', () => suspendEditor('u2'), { target_id: 'u2' }],
+    ['reactivate_editor', () => reactivateEditor('u2'), { target_id: 'u2' }],
+    ['delete_account', () => deleteAccount('u2'), { target_id: 'u2' }],
+  ] as const)('calls %s', async (name, call, args) => {
+    await call();
+    expect(rpc).toHaveBeenCalledWith(name, args);
+  });
+
+  it.each([
+    () => setEditorScope('u2', 'bksv'),
+    () => suspendEditor('u2'),
+    () => reactivateEditor('u2'),
+    () => deleteAccount('u2'),
+  ])('throws what the RPC refuses', async (call) => {
+    rpc.mockResolvedValue({ error: { code: 'P0001', message: 'boom' } });
+    await expect(call()).rejects.toThrow('[P0001] boom');
   });
 });

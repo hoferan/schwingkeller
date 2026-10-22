@@ -57,3 +57,25 @@ export const rejectEditor = async (targetId: string): Promise<void> => {
   const { error } = await supabase.rpc('reject_editor', { target_id: targetId });
   if (error) throw toError(error);
 };
+
+export const setEditorScope = async (targetId: string, scope: string): Promise<void> => {
+  const { error } = await supabase.rpc('set_editor_scope', { target_id: targetId, scope });
+  if (error) throw toError(error);
+};
+
+export const suspendEditor = async (targetId: string): Promise<void> => {
+  const { error } = await supabase.rpc('suspend_editor', { target_id: targetId });
+  if (error) throw toError(error);
+};
+
+export const reactivateEditor = async (targetId: string): Promise<void> => {
+  const { error } = await supabase.rpc('reactivate_editor', { target_id: targetId });
+  if (error) throw toError(error);
+};
+
+// Deletes the account and its sign-in for good (supabase/migrations/0013_delete_account.sql). Only
+// a super-admin may delete someone else's.
+export const deleteAccount = async (targetId: string): Promise<void> => {
+  const { error } = await supabase.rpc('delete_account', { target_id: targetId });
+  if (error) throw toError(error);
+};
