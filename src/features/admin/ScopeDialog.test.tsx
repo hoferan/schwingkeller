@@ -117,6 +117,12 @@ describe('ScopeDialog', () => {
       expect(screen.queryByRole('button', { name: t.approve })).toBeNull();
     });
 
+    it('preselects nothing when the current scope is not one the caller may grant', () => {
+      renderDialog('bksv', account({ status: 'approved', scope_association_id: 'luzern' }), 'change');
+      expect(scopeSelect().value).toBe('');
+      expect(screen.getByRole('button', { name: t.save })).toBeDisabled();
+    });
+
     it('keeps the button disabled until another scope is picked', async () => {
       renderDialog('bksv', editor, 'change');
       const confirm = screen.getByRole('button', { name: t.save });

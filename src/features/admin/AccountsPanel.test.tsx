@@ -319,4 +319,21 @@ describe('AccountsPanel', () => {
     expect(alert).toHaveTextContent(t.adminErrStale);
     expect(alert.closest('.sk-scroll')).toBeNull();
   });
+
+  it('closes the scope change on cancel', async () => {
+    state.rows = [account({ status: 'approved', scope_association_id: 'emmental' })];
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.changeScope }));
+    await userEvent.click(within(screen.getByTestId('scope-dialog')).getByRole('button', { name: t.cancel }));
+    expect(screen.queryByTestId('scope-dialog')).toBeNull();
+  });
+
+  it('closes the delete confirmation on cancel', async () => {
+    state.rows = [account({ status: 'approved', scope_association_id: 'emmental' })];
+    renderPanel(false, 'esv');
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.delete }));
+    await userEvent.click(within(screen.getByTestId('delete-account-dialog')).getByRole('button', { name: t.cancel }));
+    expect(screen.queryByTestId('delete-account-dialog')).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });
