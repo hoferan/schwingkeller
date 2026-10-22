@@ -270,4 +270,12 @@ describe('AccountsPanel', () => {
     const dialog = screen.getByTestId('scope-dialog');
     expect((within(dialog).getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
   });
+
+  it('asks before deleting an account', async () => {
+    state.rows = [account({ status: 'approved', scope_association_id: 'emmental' })];
+    renderPanel(false, 'esv');
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.delete }));
+    expect(screen.getByTestId('delete-account-dialog')).toHaveTextContent('gau@example.ch');
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

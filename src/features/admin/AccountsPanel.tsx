@@ -9,6 +9,7 @@ import { useAuth } from '../auth/useAuth';
 import { AccountList, type AccountAction } from './AccountList';
 import type { Account, AccountFilter } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
+import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { ScopeDialog } from './ScopeDialog';
 import { useAccounts, useReactivateEditor, useRejectEditor, useSuspendEditor } from './useAccounts';
 
@@ -135,6 +136,9 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
       </Modal>
       {dialog && dialog.kind !== 'delete' && (
         <ScopeDialog account={dialog.account} mode={dialog.kind} onClose={() => setDialog(null)} onError={setError} />
+      )}
+      {dialog?.kind === 'delete' && (
+        <DeleteAccountDialog account={dialog.account} onClose={() => setDialog(null)} onError={setError} />
       )}
     </>
   );
