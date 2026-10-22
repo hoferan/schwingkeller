@@ -5,16 +5,28 @@ import { useAssociations } from '../associations/useAssociations';
 import type { Account } from './accounts';
 import { scopeLabel } from './scopeLabel';
 
+export type AccountAction = 'approve' | 'reject' | 'changeScope' | 'suspend' | 'reactivate' | 'delete';
+
 interface AccountListProps {
   accounts: Account[];
   isMobile: boolean;
   // The caller's own account: shown, but without actions.
   ownId: string | null;
-  // The account whose rejection is running, so its button can't be pressed twice.
-  rejectingId: string | null;
-  onApprove: (account: Account) => void;
-  onReject: (account: Account) => void;
+  // The account with an action running. Its buttons wait, so nothing is sent twice.
+  busyId: string | null;
+  // Only a super-admin may delete someone else's account.
+  canDelete: boolean;
+  onAction: (action: AccountAction, account: Account) => void;
 }
+
+// What each status offers. Reject and suspend run without confirmation, because both can be undone
+// here: approve_editor accepts rejected accounts, and reactivate_editor suspended ones.
+const ACTIONS: Record<Account['status'], AccountAction[]> = {
+  pending: ['approve', 'reject'],
+  rejected: ['approve'],
+  approved: ['changeScope', 'suspend'],
+  suspended: ['reactivate'],
+};
 
 const STATUS_KEY = {
   pending: 'accountStatusPending',
@@ -28,15 +40,16 @@ const head: CSSProperties = {
   ...cell, textAlign: 'left', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
   color: theme.color.muted,
 };
-const actionStyle = (primary: boolean, busy: boolean): CSSProperties => ({
-  border: primary ? 'none' : '1.5px solid ' + theme.color.line,
-  background: primary ? theme.color.accent : 'transparent',
-  color: primary ? theme.color.accentInk : theme.color.ink,
+// Delete gets the red outline of the venue delete button.
+const actionStyle = (kind: 'primary' | 'plain' | 'danger', busy: boolean): CSSProperties => ({
+  border: kind === 'primary' ? 'none' : '1.5px solid ' + (kind === 'danger' ? theme.color.accent : theme.color.line),
+  background: kind === 'primary' ? theme.color.accent : 'transparent',
+  color: kind === 'primary' ? theme.color.accentInk : kind === 'danger' ? theme.color.accent : theme.color.ink,
   fontWeight: 600, fontSize: '13px', padding: '7px 12px', borderRadius: theme.radius.sm,
   cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
 });
 
-export const AccountList = ({ accounts, isMobile, ownId, rejectingId, onApprove, onReject }: AccountListProps) => {
+export const AccountList = ({ accounts, isMobile, ownId, busyId, canDelete, onAction }: AccountListProps) => {
   const { t, lang } = useTranslation();
   const a = useAssociations();
   const date = new Intl.DateTimeFormat(`${lang}-CH`, { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -52,20 +65,32 @@ export const AccountList = ({ accounts, isMobile, ownId, rejectingId, onApprove,
     };
   };
 
+  const LABEL: Record<AccountAction, string> = {
+    approve: t.approve,
+    reject: t.reject,
+    changeScope: t.changeScope,
+    suspend: t.suspend,
+    reactivate: t.reactivate,
+    delete: t.delete,
+  };
+
   const actions = (account: Account) => {
     if (account.id === ownId) return <span style={{ color: theme.color.muted, fontSize: '13px' }}>{t.accountsYou}</span>;
-    // A rejection runs without confirmation because it can be undone here: approve_editor accepts
-    // rejected accounts too.
-    if (account.status !== 'pending' && account.status !== 'rejected') return null;
-    const busy = rejectingId === account.id;
+    const busy = busyId === account.id;
+    const offered = canDelete ? [...ACTIONS[account.status], 'delete' as const] : ACTIONS[account.status];
     return (
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => onApprove(account)} style={actionStyle(true, false)}>{t.approve}</button>
-        {account.status === 'pending' && (
-          <button type="button" onClick={() => onReject(account)} disabled={busy} style={actionStyle(false, busy)}>
-            {t.reject}
+        {offered.map((action, i) => (
+          <button
+            key={action}
+            type="button"
+            onClick={() => onAction(action, account)}
+            disabled={busy}
+            style={actionStyle(action === 'delete' ? 'danger' : i === 0 ? 'primary' : 'plain', busy)}
+          >
+            {LABEL[action]}
           </button>
-        )}
+        ))}
       </div>
     );
   };

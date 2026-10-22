@@ -34,7 +34,7 @@ vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
-import { TestAuthProvider } from '../auth/testing';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import type { Account } from './accounts';
 import { AccountsPanel } from './AccountsPanel';
 
@@ -50,11 +50,11 @@ const account = (over: Partial<Account>): Account => ({
   ...over,
 });
 
-const renderPanel = (isMobile = false) => {
+const renderPanel = (isMobile = false, as: TestAccount = 'bksv') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <TestAuthProvider as="bksv">
+      <TestAuthProvider as={as}>
         <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
           <AccountsPanel onClose={vi.fn()} isMobile={isMobile} />
         </I18nContext.Provider>
@@ -203,5 +203,71 @@ describe('AccountsPanel', () => {
     renderPanel();
     await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.approve }));
     expect(screen.getByText(t.approveTitle)).toBeInTheDocument();
+  });
+
+  const buttons = async (email = 'gau@example.ch') =>
+    within(await row(email)).getAllByRole('button').map((b) => b.textContent);
+
+  const BY_STATUS = [
+    ['pending', [t.approve, t.reject]],
+    ['rejected', [t.approve]],
+    ['approved', [t.changeScope, t.suspend]],
+    ['suspended', [t.reactivate]],
+  ] as const;
+
+  it.each(BY_STATUS)('offers a Teilverband editor no delete on a %s account', async (status, expected) => {
+    state.rows = [account({ status, scope_association_id: status === 'pending' ? null : 'emmental' })];
+    renderPanel();
+    expect(await buttons()).toEqual(expected);
+  });
+
+  it.each(BY_STATUS)('offers a super-admin delete on a %s account too', async (status, expected) => {
+    state.rows = [account({ status, scope_association_id: status === 'pending' ? null : 'emmental' })];
+    renderPanel(false, 'esv');
+    expect(await buttons()).toEqual([...expected, t.delete]);
+  });
+
+  it('suspends an approved account, and blocks the row meanwhile', async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    state.rows = [account({ status: 'approved', scope_association_id: 'emmental' })];
+    renderPanel();
+    const r = await row('gau@example.ch');
+    await userEvent.click(within(r).getByRole('button', { name: t.suspend }));
+    expect(rpc).toHaveBeenCalledWith('suspend_editor', { target_id: 'u2' });
+    for (const b of within(r).getAllByRole('button')) expect(b).toBeDisabled();
+  });
+
+  it('leaves other rows usable while one is busy', async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    state.rows = [
+      account({ status: 'approved', scope_association_id: 'emmental' }),
+      account({ id: 'u3', email: 'other@example.ch', status: 'approved', scope_association_id: 'seeland' }),
+    ];
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.suspend }));
+    expect(within(await row('other@example.ch')).getByRole('button', { name: t.suspend })).toBeEnabled();
+  });
+
+  it('reactivates a suspended account', async () => {
+    state.rows = [account({ status: 'suspended', scope_association_id: 'emmental' })];
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.reactivate }));
+    expect(rpc).toHaveBeenCalledWith('reactivate_editor', { target_id: 'u2' });
+  });
+
+  it('explains a refused suspension of the last super-admin', async () => {
+    rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot remove the last super-admin' } });
+    state.rows = [account({ status: 'approved', scope_association_id: 'esv' })];
+    renderPanel(false, 'esv');
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.suspend }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.adminErrLastSuperAdmin);
+  });
+
+  it('opens the scope change for an approved account', async () => {
+    state.rows = [account({ status: 'approved', scope_association_id: 'emmental' })];
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.changeScope }));
+    const dialog = screen.getByTestId('scope-dialog');
+    expect((within(dialog).getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
   });
 });

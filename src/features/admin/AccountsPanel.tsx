@@ -6,11 +6,11 @@ import { captureAndFormat } from '../../lib/sentry';
 import { theme } from '../../theme';
 import { inputStyle, labelStyle } from '../auth/formStyles';
 import { useAuth } from '../auth/useAuth';
-import { AccountList } from './AccountList';
+import { AccountList, type AccountAction } from './AccountList';
 import type { Account, AccountFilter } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
 import { ScopeDialog } from './ScopeDialog';
-import { useAccounts, useRejectEditor } from './useAccounts';
+import { useAccounts, useReactivateEditor, useRejectEditor, useSuspendEditor } from './useAccounts';
 
 // Read by screen readers, not shown: on a phone the select's value says what it filters.
 const visuallyHidden: CSSProperties = {
@@ -30,20 +30,38 @@ const FILTERS = [
 // the accounts below their node for a Teilverband editor, and their own row in both cases.
 export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) => {
   const { t } = useTranslation();
-  const { session } = useAuth();
+  const { session, isSuperAdmin } = useAuth();
   const [filter, setFilter] = useState<AccountFilter>('pending');
-  const [approving, setApproving] = useState<Account | null>(null);
+  const [dialog, setDialog] = useState<{ kind: 'approve' | 'change' | 'delete'; account: Account } | null>(null);
   const [error, setError] = useState<AdminErrorKey | null>(null);
   const accounts = useAccounts(filter);
   const reject = useRejectEditor();
+  const suspend = useSuspendEditor();
+  const reactivate = useReactivateEditor();
+  // The row whose action is running. Only one runs at a time, since its buttons wait meanwhile.
+  const busyId = [reject, suspend, reactivate].find((m) => m.isPending)?.variables ?? null;
 
   useEffect(() => {
     if (accounts.error) captureAndFormat(accounts.error, 'account list fetch failed');
   }, [accounts.error]);
 
-  const onReject = (account: Account) => {
+  const onAction = (action: AccountAction, account: Account) => {
     setError(null);
-    reject.mutate(account.id, { onError: (err) => setError(adminErrorKey(err)) });
+    const onError = (err: unknown) => setError(adminErrorKey(err));
+    switch (action) {
+      case 'approve':
+        return setDialog({ kind: 'approve', account });
+      case 'changeScope':
+        return setDialog({ kind: 'change', account });
+      case 'delete':
+        return setDialog({ kind: 'delete', account });
+      case 'reject':
+        return reject.mutate(account.id, { onError });
+      case 'suspend':
+        return suspend.mutate(account.id, { onError });
+      case 'reactivate':
+        return reactivate.mutate(account.id, { onError });
+    }
   };
 
   // One row on a phone: title, filter, close. It stays put while the list scrolls under it.
@@ -109,16 +127,15 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
             accounts={accounts.data}
             isMobile={isMobile}
             ownId={session?.user.id ?? null}
-            rejectingId={reject.isPending ? (reject.variables ?? null) : null}
-            onApprove={(account) => {
-              setError(null);
-              setApproving(account);
-            }}
-            onReject={onReject}
+            busyId={busyId}
+            canDelete={isSuperAdmin}
+            onAction={onAction}
           />
         )}
       </Modal>
-      {approving && <ScopeDialog account={approving} mode="approve" onClose={() => setApproving(null)} onError={setError} />}
+      {dialog && dialog.kind !== 'delete' && (
+        <ScopeDialog account={dialog.account} mode={dialog.kind} onClose={() => setDialog(null)} onError={setError} />
+      )}
     </>
   );
 };
