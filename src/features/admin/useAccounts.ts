@@ -33,59 +33,28 @@ export const usePendingCount = () =>
 export const useApprovedScopes = () =>
   useQuery({ queryKey: [...accountsKey, 'approved-scopes'], queryFn: fetchApprovedScopes });
 
-// Refetch on failure too: a refusal usually means someone else changed the account first.
-export const useApproveEditor = () => {
+// Every admin mutation refetches the account queries when it settles. Failures too: a refusal
+// usually means someone else changed the account first.
+const useAccountMutation = <V>(
+  mutationFn: (variables: V) => Promise<void>,
+  extra: { mutationKey?: readonly unknown[]; onError?: (err: unknown) => void } = {},
+) => {
   const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ targetId, scope }: { targetId: string; scope: string }) => approveEditor(targetId, scope),
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
+  return useMutation({ ...extra, mutationFn, onSettled: () => client.invalidateQueries({ queryKey: accountsKey }) });
 };
 
-export const useRejectEditor = ({ onError }: RowActionOptions = {}) => {
-  const client = useQueryClient();
-  return useMutation({
-    mutationKey: rowActionKey,
-    mutationFn: rejectEditor,
-    onError,
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
-};
+type ScopeChoice = { targetId: string; scope: string };
 
-export const useSetEditorScope = () => {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ targetId, scope }: { targetId: string; scope: string }) => setEditorScope(targetId, scope),
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
-};
+export const useApproveEditor = () =>
+  useAccountMutation(({ targetId, scope }: ScopeChoice) => approveEditor(targetId, scope));
 
-export const useSuspendEditor = ({ onError }: RowActionOptions = {}) => {
-  const client = useQueryClient();
-  return useMutation({
-    mutationKey: rowActionKey,
-    mutationFn: suspendEditor,
-    onError,
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
-};
+export const useSetEditorScope = () =>
+  useAccountMutation(({ targetId, scope }: ScopeChoice) => setEditorScope(targetId, scope));
 
-export const useReactivateEditor = ({ onError }: RowActionOptions = {}) => {
-  const client = useQueryClient();
-  return useMutation({
-    mutationKey: rowActionKey,
-    mutationFn: reactivateEditor,
-    onError,
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
-};
+const useRowAction = (mutationFn: (targetId: string) => Promise<void>, { onError }: RowActionOptions) =>
+  useAccountMutation(mutationFn, { mutationKey: rowActionKey, onError });
 
-export const useDeleteAccount = ({ onError }: RowActionOptions = {}) => {
-  const client = useQueryClient();
-  return useMutation({
-    mutationKey: rowActionKey,
-    mutationFn: deleteAccount,
-    onError,
-    onSettled: () => client.invalidateQueries({ queryKey: accountsKey }),
-  });
-};
+export const useRejectEditor = (options: RowActionOptions = {}) => useRowAction(rejectEditor, options);
+export const useSuspendEditor = (options: RowActionOptions = {}) => useRowAction(suspendEditor, options);
+export const useReactivateEditor = (options: RowActionOptions = {}) => useRowAction(reactivateEditor, options);
+export const useDeleteAccount = (options: RowActionOptions = {}) => useRowAction(deleteAccount, options);
