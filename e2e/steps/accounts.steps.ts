@@ -30,7 +30,7 @@ When('I approve the applicant as {string}', async ({ page, applicant }, name: st
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.approve }).click();
   await page.getByLabel(t.accountsScope).selectOption(verbandId(name));
   // The row has an approve button too, so look inside the dialog.
-  await page.getByTestId('approve-dialog').getByRole('button', { name: t.approve }).click();
+  await page.getByTestId('scope-dialog').getByRole('button', { name: t.approve }).click();
   await expect(page.getByTestId(`account-${applicant.email}`)).toHaveCount(0);
 });
 

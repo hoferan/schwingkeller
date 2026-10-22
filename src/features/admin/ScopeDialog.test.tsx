@@ -18,7 +18,7 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import type { Account } from './accounts';
-import { ApproveDialog } from './ApproveDialog';
+import { ScopeDialog } from './ScopeDialog';
 
 const t = STR.de;
 
@@ -32,7 +32,7 @@ const account = (over: Partial<Account> = {}): Account => ({
   ...over,
 });
 
-const renderDialog = (as: TestAccount, a: Account = account()) => {
+const renderDialog = (as: TestAccount, a: Account = account(), mode: 'approve' | 'change' = 'approve') => {
   const onClose = vi.fn();
   const onError = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -40,7 +40,7 @@ const renderDialog = (as: TestAccount, a: Account = account()) => {
     <QueryClientProvider client={client}>
       <TestAuthProvider as={as}>
         <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
-          <ApproveDialog account={a} onClose={onClose} onError={onError} />
+          <ScopeDialog account={a} mode={mode} onClose={onClose} onError={onError} />
         </I18nContext.Provider>
       </TestAuthProvider>
     </QueryClientProvider>,
@@ -55,7 +55,7 @@ beforeEach(() => {
   rpc.mockReset().mockResolvedValue({ error: null });
 });
 
-describe('ApproveDialog', () => {
+describe('ScopeDialog', () => {
   it('offers a Teilverband editor its Verbände, with the requested one preselected', async () => {
     renderDialog('bksv');
     expect(scopeSelect().value).toBe('emmental');
@@ -105,5 +105,40 @@ describe('ApproveDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: t.approve }));
     await waitFor(() => expect(onError).toHaveBeenCalledWith('adminErrStale'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  describe('changing a scope', () => {
+    const editor = account({ status: 'approved', scope_association_id: 'emmental' });
+
+    it('preselects the current scope', () => {
+      renderDialog('bksv', editor, 'change');
+      expect(scopeSelect().value).toBe('emmental');
+      expect(screen.queryByRole('button', { name: t.approve })).toBeNull();
+    });
+
+    it('keeps the button disabled until another scope is picked', async () => {
+      renderDialog('bksv', editor, 'change');
+      const confirm = screen.getByRole('button', { name: t.changeScope });
+      expect(confirm).toBeDisabled();
+      await userEvent.selectOptions(scopeSelect(), 'seeland');
+      expect(confirm).toBeEnabled();
+    });
+
+    it('changes the scope through set_editor_scope', async () => {
+      const { onClose } = renderDialog('bksv', editor, 'change');
+      await userEvent.selectOptions(scopeSelect(), 'seeland');
+      await userEvent.click(screen.getByRole('button', { name: t.changeScope }));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(rpc).toHaveBeenCalledWith('set_editor_scope', { target_id: 'u2', scope: 'seeland' });
+    });
+
+    it('hands a refused change to the panel', async () => {
+      rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot remove the last super-admin' } });
+      const { onClose, onError } = renderDialog('esv', account({ status: 'approved', scope_association_id: 'esv' }), 'change');
+      await userEvent.selectOptions(scopeSelect(), 'bksv');
+      await userEvent.click(screen.getByRole('button', { name: t.changeScope }));
+      await waitFor(() => expect(onError).toHaveBeenCalledWith('adminErrLastSuperAdmin'));
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 });

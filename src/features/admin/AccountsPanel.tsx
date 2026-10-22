@@ -9,7 +9,7 @@ import { useAuth } from '../auth/useAuth';
 import { AccountList } from './AccountList';
 import type { Account, AccountFilter } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
-import { ApproveDialog } from './ApproveDialog';
+import { ScopeDialog } from './ScopeDialog';
 import { useAccounts, useRejectEditor } from './useAccounts';
 
 // Read by screen readers, not shown: on a phone the select's value says what it filters.
@@ -118,7 +118,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
           />
         )}
       </Modal>
-      {approving && <ApproveDialog account={approving} onClose={() => setApproving(null)} onError={setError} />}
+      {approving && <ScopeDialog account={approving} mode="approve" onClose={() => setApproving(null)} onError={setError} />}
     </>
   );
 };
