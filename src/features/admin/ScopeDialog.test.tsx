@@ -113,12 +113,13 @@ describe('ScopeDialog', () => {
     it('preselects the current scope', () => {
       renderDialog('bksv', editor, 'change');
       expect(scopeSelect().value).toBe('emmental');
+      expect(screen.getByText(t.changeScope)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: t.approve })).toBeNull();
     });
 
     it('keeps the button disabled until another scope is picked', async () => {
       renderDialog('bksv', editor, 'change');
-      const confirm = screen.getByRole('button', { name: t.changeScope });
+      const confirm = screen.getByRole('button', { name: t.save });
       expect(confirm).toBeDisabled();
       await userEvent.selectOptions(scopeSelect(), 'seeland');
       expect(confirm).toBeEnabled();
@@ -127,7 +128,7 @@ describe('ScopeDialog', () => {
     it('changes the scope through set_editor_scope', async () => {
       const { onClose } = renderDialog('bksv', editor, 'change');
       await userEvent.selectOptions(scopeSelect(), 'seeland');
-      await userEvent.click(screen.getByRole('button', { name: t.changeScope }));
+      await userEvent.click(screen.getByRole('button', { name: t.save }));
       await waitFor(() => expect(onClose).toHaveBeenCalled());
       expect(rpc).toHaveBeenCalledWith('set_editor_scope', { target_id: 'u2', scope: 'seeland' });
     });
@@ -136,7 +137,7 @@ describe('ScopeDialog', () => {
       rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot remove the last super-admin' } });
       const { onClose, onError } = renderDialog('esv', account({ status: 'approved', scope_association_id: 'esv' }), 'change');
       await userEvent.selectOptions(scopeSelect(), 'bksv');
-      await userEvent.click(screen.getByRole('button', { name: t.changeScope }));
+      await userEvent.click(screen.getByRole('button', { name: t.save }));
       await waitFor(() => expect(onError).toHaveBeenCalledWith('adminErrLastSuperAdmin'));
       expect(onClose).toHaveBeenCalled();
     });

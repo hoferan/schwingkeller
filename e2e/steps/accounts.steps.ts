@@ -78,7 +78,7 @@ When("I change the applicant's scope to {string}", async ({ page, applicant }, n
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.changeScope }).click();
   const dialog = page.getByTestId('scope-dialog');
   await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
-  await dialog.getByRole('button', { name: t.changeScope }).click();
+  await dialog.getByRole('button', { name: t.save }).click();
   await expect(dialog).toHaveCount(0);
 });
 

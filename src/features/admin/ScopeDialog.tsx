@@ -89,7 +89,8 @@ export const ScopeDialog = ({ account, mode, onClose, onError }: ScopeDialogProp
             disabled={blocked}
             style={{ ...primaryButtonStyle, opacity: blocked ? 0.5 : 1 }}
           >
-            {mode === 'approve' ? t.approve : t.changeScope}
+            {/* Short enough for one line on a phone; the title says what is saved. */}
+            {mode === 'approve' ? t.approve : t.save}
           </button>
         </div>
       </div>
