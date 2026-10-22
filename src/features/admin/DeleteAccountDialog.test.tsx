@@ -82,4 +82,16 @@ describe('DeleteAccountDialog', () => {
     expect(onClose).toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  // Closing it then would leave the admin without word of how the deletion ended.
+  it('stays open while the deletion runs', async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    const { onClose } = renderDialog();
+    await userEvent.click(deleteButton());
+    const cancel = screen.getByRole('button', { name: t.cancel });
+    expect(cancel).toBeDisabled();
+    // The backdrop: the dialog sits in Modal's card, which sits in the backdrop.
+    await userEvent.click(screen.getByTestId('delete-account-dialog').parentElement!.parentElement!);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

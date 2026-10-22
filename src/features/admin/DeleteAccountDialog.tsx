@@ -19,9 +19,13 @@ export const DeleteAccountDialog = ({ account, onClose, onError }: DeleteAccount
   const remove = useDeleteAccount({ onError: (err) => onError(adminErrorKey(err)) });
 
   const confirm = () => remove.mutate(account.id, { onSettled: onClose });
+  // Stays open until the deletion returns, so the admin sees how it ended.
+  const dismiss = () => {
+    if (!remove.isPending) onClose();
+  };
 
   return (
-    <Modal onClose={onClose} width={340} zIndex={1500}>
+    <Modal onClose={dismiss} width={340} zIndex={1500}>
       <div data-testid="delete-account-dialog" style={{ padding: '22px' }}>
         <div
           style={{
@@ -37,7 +41,14 @@ export const DeleteAccountDialog = ({ account, onClose, onError }: DeleteAccount
           {t.deleteAccountBody.replace('{email}', account.email)}
         </div>
         <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
-          <button type="button" onClick={onClose} style={secondaryButtonStyle}>{t.cancel}</button>
+          <button
+            type="button"
+            onClick={dismiss}
+            disabled={remove.isPending}
+            style={{ ...secondaryButtonStyle, opacity: remove.isPending ? 0.5 : 1 }}
+          >
+            {t.cancel}
+          </button>
           <button
             type="button"
             onClick={confirm}
