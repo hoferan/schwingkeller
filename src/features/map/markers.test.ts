@@ -149,6 +149,13 @@ describe('cluster icon', () => {
     expect(parts(sized(99).html).inner).toContain('font-size:14px');
     expect(parts(sized(100).html).inner).toContain('font-size:12px');
   });
+
+  // Oswald's line box reaches much further above the baseline than below, so a centred line box
+  // sets the digits low. Trimmed to cap height and baseline, the count centres on its digits.
+  it.each([['off', 'production'], ['on', 'development']])('trims the count to its digits with the flag %s', (_, env) => {
+    vi.stubEnv('VITE_APP_ENV', env);
+    expect(clusterHtml(['emmental', 'freiburg']).html).toContain('<span style="text-box:trim-both cap alphabetic;">2</span>');
+  });
 });
 
 describe('userPinHtml', () => {
