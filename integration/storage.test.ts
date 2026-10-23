@@ -51,6 +51,52 @@ describe('the venue-photos bucket', () => {
   });
 });
 
+// Storage checks the content type the upload declares and never reads the bytes, so every case
+// sends the same PNG. It serves the file under that type, which decides whether a browser could run
+// it as a page.
+describe('the venue-photos bucket by content type', () => {
+  let emmental: SupabaseClient;
+
+  beforeAll(async () => {
+    emmental = await signInAs('emmental');
+  });
+
+  const upload = (contentType: string, ext: string) => {
+    const path = `${INT_STORAGE_DIR}/${crypto.randomUUID()}.${ext}`;
+    const body = new Blob([PNG], { type: contentType });
+    return emmental.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, body, { contentType })
+      .then((result) => {
+        if (!result.error) created.push(path);
+        return result;
+      });
+  };
+
+  it.each([
+    ['image/jpeg', 'jpg'],
+    ['image/png', 'png'],
+    ['image/webp', 'webp'],
+    ['image/gif', 'gif'],
+    ['image/avif', 'avif'],
+  ])('takes %s from an editor', async (contentType, ext) => {
+    const { error } = await upload(contentType, ext);
+    expect(error).toBeNull();
+  });
+
+  // HEIC and HEIF are left out on purpose: only Safari can show them.
+  it.each([
+    ['text/html', 'html'],
+    ['image/svg+xml', 'svg'],
+    ['application/octet-stream', 'bin'],
+    ['image/heic', 'heic'],
+  ])('refuses %s from an editor', async (contentType, ext) => {
+    const { error } = await upload(contentType, ext);
+    expect(error?.message ?? '(no error)').toMatch(/mime type .* is not supported/i);
+    expect(error && 'statusCode' in error ? error.statusCode : '(no statusCode)').toBe('415');
+  });
+});
+
 describe('the venue-photos bucket by uploader', () => {
   let bksv: SupabaseClient;
   let emmental: SupabaseClient;
