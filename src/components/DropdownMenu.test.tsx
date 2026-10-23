@@ -89,6 +89,18 @@ describe('DropdownMenu', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  // Leaflet stops pointer and mouse events on its controls and popups from bubbling.
+  it('closes on a click outside that stops propagation', async () => {
+    const { trigger } = renderMenu();
+    const outside = screen.getByText('outside');
+    for (const type of ['pointerdown', 'mousedown', 'click']) {
+      outside.addEventListener(type, (e) => e.stopPropagation());
+    }
+    await userEvent.click(trigger);
+    await userEvent.click(outside);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('toggles closed when the button is pressed again', async () => {
     const { trigger } = renderMenu();
     await userEvent.click(trigger);

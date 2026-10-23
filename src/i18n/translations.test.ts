@@ -59,6 +59,7 @@ describe('translations', () => {
         'deleteOwnPassword',
         'deleteOwnErrPassword',
         'deleteOwnErrLastSuperAdmin',
+        'deleteOwnErrTooMany',
         'accountDeleted',
       ] as const) {
         expect(STR[lang][key]).toBeTruthy();

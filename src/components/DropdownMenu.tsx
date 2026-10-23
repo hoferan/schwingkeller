@@ -43,11 +43,13 @@ export const DropdownMenu = ({ label, button, buttonStyle, header, sections }: D
   useEffect(() => {
     if (!open) return;
     itemRefs.current[0]?.focus();
-    const onMouseDown = (e: MouseEvent) => {
+    // In the capture phase, because Leaflet's controls and popups stop pointer events from bubbling.
+    // Pointer events cover touch as well.
+    const onPointerDown = (e: Event) => {
       if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [open]);
 
   const close = () => {

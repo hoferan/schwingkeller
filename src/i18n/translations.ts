@@ -181,6 +181,7 @@ export const STR = {
     deleteOwnPassword: 'Passwort zur Bestätigung',
     deleteOwnErrPassword: 'Das Passwort stimmt nicht.',
     deleteOwnErrLastSuperAdmin: 'Sie sind der letzte Super-Admin. Geben Sie die ESV-Berechtigung zuerst jemand anderem.',
+    deleteOwnErrTooMany: 'Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es dann erneut.',
     accountDeleted: 'Ihr Konto wurde gelöscht.',
   },
   fr: {
@@ -362,6 +363,7 @@ export const STR = {
     deleteOwnPassword: 'Mot de passe pour confirmer',
     deleteOwnErrPassword: 'Le mot de passe est incorrect.',
     deleteOwnErrLastSuperAdmin: 'Vous êtes le dernier super-admin. Donnez d’abord l’autorisation ESV à quelqu’un d’autre.',
+    deleteOwnErrTooMany: 'Trop de tentatives. Veuillez patienter un moment, puis réessayer.',
     accountDeleted: 'Votre compte a été supprimé.',
   },
   it: {
@@ -538,11 +540,12 @@ export const STR = {
     adminErrLastSuperAdmin: 'L’ultimo super-admin non può essere rimosso.',
     adminErrGeneric: 'L’azione non è riuscita. Riprovi più tardi.',
     accountMenu: 'Account',
-    deleteOwnAccount: 'Elimina account …',
+    deleteOwnAccount: 'Eliminare l’account …',
     deleteOwnBody: 'Il suo account {email} e il relativo accesso saranno eliminati definitivamente. Le sedi e le foto che ha modificato restano.',
     deleteOwnPassword: 'Password per conferma',
     deleteOwnErrPassword: 'La password non è corretta.',
     deleteOwnErrLastSuperAdmin: 'È l’ultimo super-admin. Dia prima l’autorizzazione ESV a qualcun altro.',
+    deleteOwnErrTooMany: 'Troppi tentativi. Attenda un momento e poi riprovi.',
     accountDeleted: 'Il suo account è stato eliminato.',
   },
 } as const;

@@ -14,4 +14,5 @@ Feature: Deleting my own account
     And I am signed in as the applicant
     When I try to delete my account with the password "not-my-password"
     Then I'm told the password is wrong
+    And I am still signed in
     And the applicant's account is "pending"

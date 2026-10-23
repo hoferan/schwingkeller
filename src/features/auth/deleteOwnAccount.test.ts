@@ -54,9 +54,16 @@ describe('deleteOwnAccount', () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
-  it('still resolves when the local sign-out fails', async () => {
+  it('tries the local sign-out once more when it fails', async () => {
+    signOut.mockResolvedValueOnce({ error: { message: 'network' } }).mockResolvedValueOnce({ error: null });
+    await deleteOwnAccount('a@example.ch', 'pw');
+    expect(signOut).toHaveBeenCalledTimes(2);
+  });
+
+  it('still resolves when the local sign-out keeps failing', async () => {
     signOut.mockResolvedValue({ error: { message: 'network' } });
     await expect(deleteOwnAccount('a@example.ch', 'pw')).resolves.toBeUndefined();
+    expect(signOut).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -69,6 +76,13 @@ describe('deleteOwnErrorKey', () => {
   it('maps the last super-admin without reporting it', () => {
     expect(deleteOwnErrorKey(new Error('[P0001] cannot delete the last super-admin'))).toBe(
       'deleteOwnErrLastSuperAdmin',
+    );
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('maps the sign-in rate limit without reporting it', () => {
+    expect(deleteOwnErrorKey(new Error('[over_request_rate_limit] Request rate limit reached'))).toBe(
+      'deleteOwnErrTooMany',
     );
     expect(captureException).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { STR } from '../../src/i18n/translations';
 import { Given, When, Then, expect } from '../fixtures';
+import { sessionControl } from '../session';
 
 const t = STR.de;
 
@@ -40,4 +41,13 @@ Then('I see that my account has been deleted', async ({ page }) => {
 
 Then("I'm told the password is wrong", async ({ page }) => {
   await expect(dialog(page).getByRole('alert')).toHaveText(t.deleteOwnErrPassword);
+});
+
+// A failed sign-in must leave the current session alone. The banner needs a loaded profile, so it
+// also shows that the old session still works after the dialog closes.
+Then('I am still signed in', async ({ page }) => {
+  await dialog(page).getByRole('button', { name: t.cancel }).click();
+  await expect(sessionControl(page)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('status')).toContainText(t.statusPending);
 });
