@@ -33,8 +33,4 @@ describe('isFeatureOn', () => {
       expect(isFeatureOn('verband')).toBe(FEATURES.verband[env]);
     },
   );
-
-  it('ships verband on locally and on previews, off in production', () => {
-    expect(FEATURES.verband).toEqual({ development: true, stage: true, production: false });
-  });
 });

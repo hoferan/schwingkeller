@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
 import { MarkerPopup } from './MarkerPopup';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
+import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: '1',
@@ -113,10 +114,8 @@ describe('MarkerPopup', () => {
   });
 
   describe('with the verband flag off', () => {
-    afterEach(() => { vi.unstubAllEnvs(); });
-
     it('shows no Verband line', () => {
-      vi.stubEnv('VITE_APP_ENV', 'production');
+      setFeature('verband', false);
       popup(venue);
       expect(screen.queryByText('BKSV')).toBeNull();
     });

@@ -1,3 +1,4 @@
+@editors
 Feature: Managing editor accounts
   Super-admins and Teilverband editors change, suspend and remove editor accounts.
 

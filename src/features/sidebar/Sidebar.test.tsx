@@ -17,6 +17,7 @@ import type { PosterTarget } from '../venues/posterSubject';
 import type { SortMode } from '../venues/grouping';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
+import { setFeature } from '../../test/features';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
@@ -106,11 +107,9 @@ const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de', as: TestAcco
 const renderAdminSidebar = (props: HarnessProps = {}) => renderSidebar(props, 'de', 'esv');
 
 describe('Sidebar', () => {
-  // These tests describe the canton view, which is what production shows until the verband flag
-  // goes on there.
-  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+  // These tests describe the canton view, which stays until #72 removes it with the verband flag.
+  beforeEach(() => { setFeature('verband', false); });
   afterEach(() => {
-    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
@@ -664,11 +663,10 @@ describe('Sidebar', () => {
 });
 
 describe('Sidebar width handle', () => {
-  // The handle doesn't depend on the verband flag; production's value keeps the canton list, whose
-  // names the tests wait for.
-  beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+  // The handle doesn't depend on the verband flag; with it off the sidebar shows the canton list,
+  // whose names the tests wait for.
+  beforeEach(() => { setFeature('verband', false); });
   afterEach(() => {
-    vi.unstubAllEnvs();
     localStorage.clear();
   });
 

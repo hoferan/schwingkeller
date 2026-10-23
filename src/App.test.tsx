@@ -6,6 +6,7 @@ import type { Venue } from './features/venues/types';
 import type { CantonalId } from './data/associations';
 import { ASSOCIATION_HOME_BOUNDS } from './data/associationBounds';
 import { boundsForCanton } from './data/cantonBounds';
+import { setFeature } from './test/features';
 
 // App is the composition root. We stub the heavy children/hooks and drive the poster-editor wiring
 // (Sidebar's onGeneratePoster → open editor → onSave downloads + closes → onError flashes).
@@ -92,16 +93,14 @@ import App from './App';
 import { VenueChangeRefusedError } from './features/venues/api';
 
 describe('App — sidebar default state', () => {
-  afterEach(() => { vi.unstubAllEnvs(); });
-
   it('starts with no canton expanded with the flag off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     render(<App />);
     expect(screen.getByTestId('expanded-state')).toHaveTextContent('{}');
   });
 
   it('sorts by canton by default with the flag off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     render(<App />);
     expect(screen.getByTestId('sort-mode')).toHaveTextContent('canton');
   });
@@ -139,7 +138,6 @@ describe('App — permalinks', () => {
   afterEach(() => {
     mocked.venues = null;
     openAt('');
-    vi.unstubAllEnvs();
   });
 
   describe('with the verband flag on', () => {
@@ -220,7 +218,7 @@ describe('App — permalinks', () => {
   });
 
   describe('with the verband flag off', () => {
-    beforeEach(() => { vi.stubEnv('VITE_APP_ENV', 'production'); });
+    beforeEach(() => { setFeature('verband', false); });
 
     it.each(['BE', 'AI', 'ZH'])('opens canton %s for ?ctn= and frames its bounds, as before', (code) => {
       openAt('?ctn=' + code.toLowerCase());
