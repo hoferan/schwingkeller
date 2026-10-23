@@ -1,6 +1,7 @@
 import { STR } from '../../src/i18n/translations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 import { verbandId } from '../associations';
+import { sessionControl } from '../session';
 
 const t = STR.de;
 
@@ -24,7 +25,7 @@ Given('I am signed in as the {string} editor', async ({ page }, name: string) =>
   const password = page.getByLabel(t.password);
   await password.fill(account.password);
   await password.press('Enter');
-  await expect(page.getByRole('button', { name: t.logout })).toBeVisible();
+  await expect(sessionControl(page)).toBeVisible();
   // The profile loads after the session. Both waits show that it has arrived, so a "doesn't offer
   // editing" check can't pass just because rights haven't loaded yet: an approved editor gets the
   // add button, an account waiting for approval gets the banner.

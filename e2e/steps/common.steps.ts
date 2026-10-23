@@ -1,13 +1,13 @@
 import { STR } from '../../src/i18n/translations';
 import { Given, expect } from '../fixtures';
+import { sessionControl } from '../session';
 
 const t = STR.de;
 
 Given('I am signed in as the admin', async ({ page }) => {
   await page.goto('/');
-  // The session from auth.setup.ts comes in with storageState; once it is live the topbar shows
-  // the lock button instead of the unlock one.
-  await expect(page.getByRole('button', { name: t.logout })).toBeVisible();
+  // The session from auth.setup.ts comes in with storageState.
+  await expect(sessionControl(page)).toBeVisible();
 });
 
 Given('I visit the map', async ({ page }) => {
