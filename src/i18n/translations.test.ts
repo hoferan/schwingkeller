@@ -51,6 +51,21 @@ describe('translations', () => {
       expect(STR[lang].deleteAccountBody).toContain('{email}');
     }
   });
+  it('defines the account menu and self-deletion keys in every language', () => {
+    for (const lang of LANGS) {
+      for (const key of [
+        'accountMenu',
+        'deleteOwnAccount',
+        'deleteOwnPassword',
+        'deleteOwnErrPassword',
+        'deleteOwnErrLastSuperAdmin',
+        'accountDeleted',
+      ] as const) {
+        expect(STR[lang][key]).toBeTruthy();
+      }
+      expect(STR[lang].deleteOwnBody).toContain('{email}');
+    }
+  });
   // The form fills in the minimum from MIN_PASSWORD_LENGTH, so the number lives in one place.
   it('leaves the minimum password length to the form', () => {
     for (const lang of LANGS) {
