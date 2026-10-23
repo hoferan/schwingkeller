@@ -21,12 +21,12 @@ vi.mock('../../lib/supabase', () => ({ supabase: { from, rpc } }));
 
 import {
   listVenues, insertVenuePhoto, deleteVenuePhoto,
-  updateVenuePhotoPosition, syncVenuePhotos, uploadPhoto,
-  updateVenue, removeVenue, VenueChangeRefusedError,
+  updateVenuePhotoPosition, uploadPhoto,
+  createVenue, updateVenue, removeVenue, VenueChangeRefusedError,
 } from './api';
+import type { VenueInput } from './types';
 import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
 import { supabase } from '../../lib/supabase';
-import type { VenuePhoto } from './types';
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -84,6 +84,32 @@ describe('removeVenue', () => {
   });
 });
 
+describe('createVenue', () => {
+  const input = { name: 'Halle' } as VenueInput;
+
+  it('inserts the venue under the id the form gave it', async () => {
+    single.mockResolvedValueOnce({ data: { id: 'n1', name: 'Halle' }, error: null });
+    await expect(createVenue('n1', input)).resolves.toEqual({ id: 'n1', name: 'Halle', photos: [] });
+    expect(insert).toHaveBeenCalledWith({ id: 'n1', name: 'Halle' });
+  });
+
+  // An earlier attempt created it and the answer got lost. The id is the only unique key.
+  it('updates the venue when one with that id exists already', async () => {
+    single
+      .mockResolvedValueOnce({ data: null, error: { message: 'duplicate key value', code: '23505' } })
+      .mockResolvedValueOnce({ data: { id: 'n1', name: 'Halle' }, error: null });
+    await expect(createVenue('n1', input)).resolves.toEqual({ id: 'n1', name: 'Halle', photos: [] });
+    expect(update).toHaveBeenCalledWith(input);
+    expect(eq).toHaveBeenCalledWith('id', 'n1');
+  });
+
+  it('keeps the generic error for other codes', async () => {
+    single.mockResolvedValueOnce({ data: null, error: { message: 'boom', code: '42501' } });
+    await expect(createVenue('n1', input)).rejects.toThrow('[42501] boom');
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
 describe('updateVenue', () => {
   it('throws VenueChangeRefusedError when .single() found no row (PGRST116)', async () => {
     single.mockResolvedValueOnce({ data: null, error: { message: 'no rows', code: 'PGRST116' } });
@@ -99,11 +125,11 @@ describe('updateVenue', () => {
 });
 
 describe('venue_photos CRUD', () => {
-  it('insertVenuePhoto inserts a row and returns it', async () => {
+  it('insertVenuePhoto inserts a row under the photo id and returns it', async () => {
     single.mockResolvedValue({ data: { id: 'p1', url: 'u1', position: 0 }, error: null });
-    const result = await insertVenuePhoto('v1', 'u1', 0);
+    const result = await insertVenuePhoto('v1', { id: 'p1', url: 'u1', position: 0 });
     expect(from).toHaveBeenCalledWith('venue_photos');
-    expect(insert).toHaveBeenCalledWith({ venue_id: 'v1', url: 'u1', position: 0 });
+    expect(insert).toHaveBeenCalledWith({ id: 'p1', venue_id: 'v1', url: 'u1', position: 0 });
     expect(result).toEqual({ id: 'p1', url: 'u1', position: 0 });
   });
 
@@ -120,43 +146,6 @@ describe('venue_photos CRUD', () => {
     await updateVenuePhotoPosition('p1', 2);
     expect(update).toHaveBeenCalledWith({ position: 2 });
     expect(eq).toHaveBeenCalledWith('id', 'p1');
-  });
-});
-
-describe('syncVenuePhotos', () => {
-  const original: VenuePhoto[] = [
-    { id: 'p1', url: 'u1', position: 0 },
-    { id: 'p2', url: 'u2', position: 1 },
-  ];
-
-  it('deletes photos removed from the draft', async () => {
-    eq.mockResolvedValue({ error: null });
-    await syncVenuePhotos('v1', original, [original[0]]);
-    expect(del).toHaveBeenCalledTimes(1);
-    expect(eq).toHaveBeenCalledWith('id', 'p2');
-  });
-
-  it('inserts new photos (no matching id in original) at their draft index', async () => {
-    single.mockResolvedValue({ data: {}, error: null });
-    eq.mockResolvedValue({ error: null });
-    const draft: VenuePhoto[] = [...original, { id: 'new-1', url: 'u3', position: 0 }];
-    await syncVenuePhotos('v1', original, draft);
-    expect(insert).toHaveBeenCalledWith({ venue_id: 'v1', url: 'u3', position: 2 });
-  });
-
-  it('updates position only for existing photos whose index changed', async () => {
-    eq.mockResolvedValue({ error: null });
-    const reordered: VenuePhoto[] = [original[1], original[0]];
-    await syncVenuePhotos('v1', original, reordered);
-    expect(update).toHaveBeenCalledWith({ position: 0 });
-    expect(update).toHaveBeenCalledWith({ position: 1 });
-  });
-
-  it('does nothing when the draft matches the original', async () => {
-    await syncVenuePhotos('v1', original, original);
-    expect(del).not.toHaveBeenCalled();
-    expect(insert).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
   });
 });
 

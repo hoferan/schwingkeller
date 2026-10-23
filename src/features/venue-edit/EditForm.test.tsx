@@ -164,7 +164,101 @@ describe('EditForm onError prop', () => {
     fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
     fireEvent.click(screen.getByText(STR.de.saveClose));
 
-    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], []));
+    await waitFor(() =>
+      expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], { opened: new Set(), sent: new Set() }),
+    );
+  });
+
+  it('tells the photo sync which photos the form opened with and which it has sent', async () => {
+    const existing: Venue = {
+      id: 'v9', name: 'Halle', canton: 'ZH', address: '', lat: 47.4, lng: 8.5, indoor: true, outdoor: false,
+      person: '', phone: '', website: '', association_id: 'zuerich',
+      photos: [{ id: 'p1', url: 'u1', position: 0 }, { id: 'p2', url: 'u2', position: 1 }],
+    };
+    renderForm(vi.fn(), makeClient(), 'esv', existing);
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalled());
+    const [, draft, known] = vi.mocked(syncVenuePhotos).mock.calls[0];
+    expect(draft.map((p) => p.id)).toEqual(['p1', 'p2']);
+    expect(known).toEqual({ opened: new Set(['p1', 'p2']), sent: new Set(['p1', 'p2']) });
+  });
+
+  // Create the venue, then the photos fail: Save again must update that venue, not add another.
+  const saveTwiceAfterFailure = async (failFirst: () => void) => {
+    failFirst();
+    const venues = supabase.from('venues') as unknown as { insert: Mock; update: Mock; eq: Mock };
+    const onError = vi.fn();
+    renderForm(onError);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
+
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.saveError));
+    await waitFor(() => expect(screen.getByText(STR.de.saveClose).closest('button')).not.toBeDisabled());
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalled());
+    return venues;
+  };
+
+  it('saves into the venue it created when Save is pressed again after the photos failed', async () => {
+    const venues = await saveTwiceAfterFailure(() => {
+      vi.mocked(syncVenuePhotos).mockRejectedValueOnce(new Error('Failed to fetch'));
+    });
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledTimes(2));
+
+    expect(venues.insert).toHaveBeenCalledTimes(1);
+    expect(venues.update).toHaveBeenCalledTimes(1);
+    const createdId = (venues.insert.mock.calls[0][0] as { id: string }).id;
+    expect(venues.eq).toHaveBeenCalledWith('id', createdId);
+  });
+
+  it('creates a new venue under the same id when Save is pressed again after creating failed', async () => {
+    const venues = await saveTwiceAfterFailure(() => {
+      const single = (supabase.from('venues') as unknown as { single: Mock }).single;
+      single.mockResolvedValueOnce({ data: null, error: { message: 'Failed to fetch', code: '' } });
+    });
+
+    expect(venues.insert).toHaveBeenCalledTimes(2);
+    const [first, second] = venues.insert.mock.calls.map((c) => (c[0] as { id: string }).id);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).toBe(first);
+  });
+
+  it('keeps Save disabled until the photos are saved too', async () => {
+    let resolveSync: () => void = () => {};
+    vi.mocked(syncVenuePhotos).mockImplementationOnce(() => new Promise<void>((r) => { resolveSync = r; }));
+    renderForm();
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalled());
+    const saveButton = screen.getByText(STR.de.saveClose).closest('button');
+    await waitFor(() => expect(saveButton).toBeDisabled());
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+    expect(syncVenuePhotos).toHaveBeenCalledTimes(1);
+
+    resolveSync();
+    await waitFor(() => expect(saveButton).not.toBeDisabled());
+  });
+
+  it('refreshes the venues after a photo sync that failed, so the map shows what was stored', async () => {
+    let rejectSync: (e: Error) => void = () => {};
+    vi.mocked(syncVenuePhotos).mockImplementationOnce(() => new Promise<void>((_, rej) => { rejectSync = rej; }));
+    const client = makeClient();
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+    renderForm(vi.fn(), client);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Testkeller' } });
+    fireEvent.change(screen.getByLabelText(STR.de.association), { target: { value: 'zuerich' } });
+    fireEvent.click(screen.getByText(STR.de.saveClose));
+
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalled());
+    const callsBefore = invalidateSpy.mock.calls.length;
+    rejectSync(new Error('Failed to fetch'));
+
+    await waitFor(() => expect(invalidateSpy.mock.calls.length).toBeGreaterThan(callsBefore));
+    expect(invalidateSpy).toHaveBeenLastCalledWith({ queryKey: ['venues'] });
   });
 
   it('invalidates the venues query again after syncVenuePhotos resolves, not just after the venue save', async () => {
@@ -185,7 +279,7 @@ describe('EditForm onError prop', () => {
     // The venue-row create/update mutation has resolved and syncVenuePhotos has been
     // invoked (but not yet resolved) — at this point only the create mutation's own
     // onSuccess should have invalidated the ['venues'] query.
-    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalledWith('v1', [], []));
+    await waitFor(() => expect(syncVenuePhotos).toHaveBeenCalled());
     const callsBeforeSyncResolved = invalidateSpy.mock.calls.length;
     expect(callsBeforeSyncResolved).toBeGreaterThanOrEqual(1);
 

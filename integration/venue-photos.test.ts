@@ -59,6 +59,18 @@ describe('venue photos by scope', () => {
     expect(error).toBeNull();
   });
 
+  // The gallery editor picks a photo's id, so a repeated Save can tell what it stored already.
+  it('lets a bksv editor add a photo under an id it chose, and only once', async () => {
+    const venue = await insertVenue(admin, 'photo own id', { association_id: 'emmental' });
+    const row = { id: crypto.randomUUID(), ...photo(venue.id, 0) };
+    const first = await bksv.from('venue_photos').insert(row).select('id').single();
+    expect(first.error).toBeNull();
+    expect(first.data?.id).toBe(row.id);
+
+    const again = await bksv.from('venue_photos').insert(row);
+    expect(again.error?.code).toBe('23505');
+  });
+
   it('refuses a bksv editor a photo on a luzern venue', async () => {
     const venue = await insertVenue(admin, 'photo luzern', { association_id: 'luzern' });
     const { error } = await bksv.from('venue_photos').insert(photo(venue.id, 0));
