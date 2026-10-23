@@ -8,7 +8,7 @@ export type TestAccount = 'esv' | 'bksv' | 'emmental' | 'pending' | 'suspended' 
 
 const tree = buildTree();
 const USER_ID = 'test-user';
-const session = { user: { id: USER_ID } } as unknown as Session;
+const session = { user: { id: USER_ID, email: 'editor@example.ch' } } as unknown as Session;
 
 const profileFor = (as: Exclude<TestAccount, 'signed-out' | 'loading'>): Profile => {
   const base = { id: USER_ID, requested_association_id: null };
