@@ -5,8 +5,8 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { uploadPhoto, PhotoTooLargeError } from '../venues/api';
-import { MAX_PHOTOS } from '../venues/photos';
+import { uploadPhoto, PhotoTooLargeError, UnsupportedPhotoTypeError } from '../venues/api';
+import { MAX_PHOTOS, PHOTO_TYPES } from '../venues/photos';
 import type { VenuePhoto } from '../venues/types';
 import { useTranslation } from '../../i18n/useTranslation';
 import { captureAndFormat } from '../../lib/sentry';
@@ -77,6 +77,7 @@ export function PhotoGalleryEditor({ photos, onChange, onError }: PhotoGalleryEd
           next = [...next, { id: crypto.randomUUID(), url, position: next.length }];
         } catch (err) {
           if (err instanceof PhotoTooLargeError) onError?.(t.photoTooLarge);
+          else if (err instanceof UnsupportedPhotoTypeError) onError?.(t.photoTypeUnsupported);
           else onError?.(captureAndFormat(err, t.uploadError));
         }
       }
@@ -109,7 +110,7 @@ export function PhotoGalleryEditor({ photos, onChange, onError }: PhotoGalleryEd
                 <Plus size={18} />
                 <span style={{ fontSize: '11px', fontWeight: 600 }}>{photos.length}/{MAX_PHOTOS}</span>
                 <input
-                  type="file" accept="image/*" multiple aria-label={t.upload}
+                  type="file" accept={PHOTO_TYPES.join(',')} multiple aria-label={t.upload}
                   onChange={(e) => { void onFiles(e); }} style={{ display: 'none' }} disabled={uploading}
                 />
               </label>

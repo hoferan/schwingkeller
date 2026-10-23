@@ -25,7 +25,7 @@ import {
   createVenue, updateVenue, removeVenue, VenueChangeRefusedError,
 } from './api';
 import type { VenueInput } from './types';
-import { compressImageIfNeeded, PhotoTooLargeError } from './imageCompression';
+import { compressImageIfNeeded, PhotoTooLargeError, UnsupportedPhotoTypeError } from './imageCompression';
 import { supabase } from '../../lib/supabase';
 
 beforeEach(() => { vi.clearAllMocks(); });
@@ -174,5 +174,34 @@ describe('uploadPhoto', () => {
     const file = new File(['x'], 'big.jpg', { type: 'image/jpeg' });
     await expect(uploadPhoto(file)).rejects.toBeInstanceOf(PhotoTooLargeError);
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['an SVG', new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })],
+    ['a HEIC photo', new File(['x'], 'IMG_1.heic', { type: 'image/heic' })],
+    ['a file without a type', new File(['x'], 'IMG_1')],
+  ])('refuses %s before uploading, since the bucket would', async (_label, file) => {
+    await expect(uploadPhoto(file)).rejects.toBeInstanceOf(UnsupportedPhotoTypeError);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('uploads a large photo that compression turned into a JPEG, whatever it was before', async () => {
+    vi.mocked(compressImageIfNeeded).mockResolvedValueOnce(new File(['x'], 'IMG_1.jpg', { type: 'image/jpeg' }));
+    await expect(uploadPhoto(new File(['x'], 'IMG_1.heic', { type: 'image/heic' }))).resolves.toBe(
+      'https://cdn.example.com/x.jpg',
+    );
+    expect(upload).toHaveBeenCalled();
+  });
+
+  it('calls a large photo the browser cannot read unsupported when its type is not allowed', async () => {
+    vi.mocked(compressImageIfNeeded).mockRejectedValueOnce(new DOMException('decode failed', 'InvalidStateError'));
+    await expect(uploadPhoto(new File(['x'], 'IMG_1.heic', { type: 'image/heic' }))).rejects.toBeInstanceOf(
+      UnsupportedPhotoTypeError,
+    );
+  });
+
+  it('keeps the original error when a photo of an allowed type cannot be read', async () => {
+    vi.mocked(compressImageIfNeeded).mockRejectedValueOnce(new Error('decode failed'));
+    await expect(uploadPhoto(new File(['x'], 'broken.png', { type: 'image/png' }))).rejects.toThrow('decode failed');
   });
 });

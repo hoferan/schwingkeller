@@ -1,9 +1,12 @@
 import { supabase } from '../../lib/supabase';
-import { compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError } from './imageCompression';
+import {
+  compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError, UnsupportedPhotoTypeError,
+} from './imageCompression';
+import { isPhotoType } from './photos';
 import type { CantonalId } from '../../data/associations';
 import type { Venue, VenueInput, VenuePhoto } from './types';
 
-export { PhotoTooLargeError };
+export { PhotoTooLargeError, UnsupportedPhotoTypeError };
 
 const toError = (e: { message: string; code?: string; hint?: string; details?: string }): Error => {
   const err = new Error(e.code ? `[${e.code}] ${e.message}` : e.message);
@@ -131,7 +134,12 @@ export const syncVenuePhotos = async (venueId: string, draft: VenuePhoto[], know
 };
 
 export const uploadPhoto = async (file: File): Promise<string> => {
-  const processed = await compressImageIfNeeded(file);
+  // A photo over the size limit is redrawn as a JPEG first, so its own type doesn't matter if the
+  // browser can read it. The type check is on the file that goes up.
+  const processed = await compressImageIfNeeded(file).catch((err: unknown) => {
+    throw isPhotoType(file.type) ? err : new UnsupportedPhotoTypeError();
+  });
+  if (!isPhotoType(processed.type)) throw new UnsupportedPhotoTypeError();
   if (processed.size > COMPRESS_THRESHOLD_BYTES) throw new PhotoTooLargeError();
   const ext = processed.name.split('.').pop() || 'jpg';
   const path = `${crypto.randomUUID()}.${ext}`;
