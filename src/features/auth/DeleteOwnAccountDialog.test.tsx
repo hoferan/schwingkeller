@@ -128,6 +128,17 @@ describe('DeleteOwnAccountDialog', () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
   });
 
+  it('is a dialog named by its title', () => {
+    renderDialog();
+    expect(screen.getByRole('dialog', { name: t.deleteAccountTitle })).toBeInTheDocument();
+  });
+
+  it('closes on Escape when idle', async () => {
+    const { onClose } = renderDialog();
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('closes on Cancel when idle', async () => {
     const { onClose } = renderDialog();
     await userEvent.click(screen.getByRole('button', { name: t.cancel }));

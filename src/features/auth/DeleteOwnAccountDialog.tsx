@@ -35,9 +35,10 @@ export const DeleteOwnAccountDialog = ({ email, onClose, onDeleted }: DeleteOwnA
   };
 
   return (
-    <Modal onClose={dismiss} width={340} zIndex={1500}>
+    <Modal onClose={dismiss} width={340} zIndex={1500} labelledBy="delete-own-account-title">
       <form data-testid="delete-own-account-dialog" onSubmit={submit} style={{ padding: '22px' }}>
         <div
+          id="delete-own-account-title"
           style={{
             fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
             color: theme.color.ink,
