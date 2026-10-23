@@ -25,10 +25,9 @@ export const DeleteOwnAccountDialog = ({ email, onClose, onDeleted }: DeleteOwnA
     e.preventDefault();
     if (busy || password === '') return;
     setErrorKey(null);
-    remove.mutate(
-      { email, password },
-      { onSuccess: onDeleted, onError: (err) => setErrorKey(deleteOwnErrorKey(err)) },
-    );
+    // mutateAsync rather than mutate's callbacks: signing out unmounts this dialog, and TanStack Query
+    // skips mutate callbacks once the component is gone.
+    remove.mutateAsync({ email, password }).then(onDeleted, (err: unknown) => setErrorKey(deleteOwnErrorKey(err)));
   };
   // Stays open until the deletion returns, so the person sees how it ended.
   const dismiss = () => {

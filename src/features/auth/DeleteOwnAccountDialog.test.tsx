@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -99,6 +101,31 @@ describe('DeleteOwnAccountDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: t.cancel }));
     expect(signInWithPassword).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // Signing out unmounts the account menu and this dialog with it, possibly before the mutation
+  // settles. Success must still be reported.
+  it('reports success even when signing out has already removed the dialog', async () => {
+    const onDeleted = vi.fn();
+    let hide = () => {};
+    const Host = () => {
+      const [shown, setShown] = useState(true);
+      hide = () => setShown(false);
+      return shown ? <DeleteOwnAccountDialog email="me@example.ch" onClose={vi.fn()} onDeleted={onDeleted} /> : null;
+    };
+    signOut.mockImplementation(async () => {
+      flushSync(() => hide());
+      return { error: null };
+    });
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}>
+        <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
+          <Host />
+        </I18nContext.Provider>
+      </QueryClientProvider>,
+    );
+    await userEvent.type(password(), 'pw{Enter}');
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
   });
 
   it('closes on Cancel when idle', async () => {

@@ -46,6 +46,12 @@ describe('DropdownMenu', () => {
     expect(screen.getAllByRole('separator')).toHaveLength(1);
   });
 
+  it('describes the menu with its header, so screen readers announce it', async () => {
+    const { trigger } = renderMenu();
+    await userEvent.click(trigger);
+    expect(screen.getByRole('menu')).toHaveAccessibleDescription('me@example.ch');
+  });
+
   it('focuses the first item and moves with the arrow keys, wrapping', async () => {
     const { trigger } = renderMenu();
     await userEvent.click(trigger);

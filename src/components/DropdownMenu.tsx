@@ -34,6 +34,7 @@ const itemStyle = (tone: MenuItem['tone']): CSSProperties => ({
 export const DropdownMenu = ({ label, button, buttonStyle, header, sections }: DropdownMenuProps) => {
   const [open, setOpen] = useState(false);
   const menuId = useId();
+  const headerId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -105,9 +106,11 @@ export const DropdownMenu = ({ label, button, buttonStyle, header, sections }: D
           }}
         >
           {header && (
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid ' + theme.color.line }}>{header}</div>
+            <div id={headerId} style={{ padding: '12px 14px', borderBottom: '1px solid ' + theme.color.line }}>
+              {header}
+            </div>
           )}
-          <div id={menuId} role="menu" aria-label={label}>
+          <div id={menuId} role="menu" aria-label={label} aria-describedby={header ? headerId : undefined}>
             {sections.map((section, s) => (
               <Fragment key={s}>
                 {s > 0 && <div role="separator" style={{ borderTop: '1px solid ' + theme.color.line }} />}
