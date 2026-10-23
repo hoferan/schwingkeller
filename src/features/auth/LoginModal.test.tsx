@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -16,6 +16,7 @@ import { AuthProvider } from './AuthProvider';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { LoginModal } from './LoginModal';
+import { setFeature } from '../../test/features';
 
 const t = STR.de;
 
@@ -50,10 +51,8 @@ describe('LoginModal', () => {
   });
 
   describe('registration', () => {
-    afterEach(() => { vi.unstubAllEnvs(); });
-
-    // VITE_APP_ENV is unset here, which reads as development, where the editors flag is on.
     it('offers registration when the editors flag is on', async () => {
+      setFeature('editors', true);
       const user = userEvent.setup();
       renderLogin();
 
@@ -64,7 +63,7 @@ describe('LoginModal', () => {
     });
 
     it('offers no registration when the editors flag is off', () => {
-      vi.stubEnv('VITE_APP_ENV', 'production');
+      setFeature('editors', false);
       renderLogin();
 
       expect(screen.queryByRole('button', { name: t.registerLink })).toBeNull();

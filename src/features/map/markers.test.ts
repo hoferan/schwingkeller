@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { clusterIcon, clusterRing, clusterSize, clusterTipExtents, pinIcon, pinTipExtents, popupHtml, userPinHtml, USER_PIN_SIZE } from './markers';
 import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
+import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '3550 Langnau', lat: 46.9, lng: 7.7,
@@ -19,8 +20,6 @@ const cluster = (ids: CantonalId[]) => ({
 });
 const clusterHtml = (ids: CantonalId[]) => clusterIcon(fakeL)(cluster(ids));
 
-afterEach(() => { vi.unstubAllEnvs(); });
-
 describe('markers html', () => {
   it('popupHtml includes name and a data-detail hook', () => {
     const html = popupHtml(venue, STR.de, associationsFor('de'));
@@ -33,14 +32,14 @@ const count = (html: string, needle: string) => html.split(needle).length - 1;
 
 describe('pins with the verband flag off', () => {
   it('draws every pin in the accent red, whatever the association', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     expect(pinIcon(false, 'emmental').html).toBe(pinIcon(false, 'luzern').html);
     expect(pinIcon(false, 'emmental').html).toContain(theme.color.accent);
     expect(pinIcon(true, 'emmental').html).toContain(theme.color.accent);
   });
 
   it('still marks the selected pin as a teardrop', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     expect(pinIcon(true, 'emmental').html).toContain('<path');
     expect(pinIcon(false, 'emmental').html).not.toContain('<path');
   });
@@ -109,7 +108,7 @@ describe('clusterRing', () => {
 
 describe('cluster icon', () => {
   it('stays a red disc with the count when the flag is off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     const icon = clusterHtml(['emmental', 'freiburg']);
     expect(icon.html).toContain('background:' + theme.color.accent);
     expect(icon.html).toContain('>2<');
@@ -152,8 +151,8 @@ describe('cluster icon', () => {
 
   // Oswald's line box reaches much further above the baseline than below, so a centred line box
   // sets the digits low. Trimmed to cap height and baseline, the count centres on its digits.
-  it.each([['off', 'production'], ['on', 'development']])('trims the count to its digits with the flag %s', (_, env) => {
-    vi.stubEnv('VITE_APP_ENV', env);
+  it.each([['off', false], ['on', true]] as const)('trims the count to its digits with the flag %s', (_, on) => {
+    setFeature('verband', on);
     expect(clusterHtml(['emmental', 'freiburg']).html).toContain('<span style="text-box:trim-both cap alphabetic;">2</span>');
   });
 });

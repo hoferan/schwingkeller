@@ -3,12 +3,13 @@ import { defineBddConfig } from 'playwright-bdd';
 import type { SetupOptions } from './e2e/fixtures';
 import { SUPABASE_URL, supabaseEnv } from './test-support/local-stack';
 import { assertLocalTargets } from './test-support/local-only';
+import { flagTagFilter } from './test-support/flag-tags';
 
 // End-to-end scenarios drive a real browser against the local Compose stack (see
 // docker-compose.yml): Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the venues
 // from supabase/seed.sql already loaded. The app under test is two production bundles, one with
-// production's feature flag values on 4173 and one with the verband flag on at 4174, next to the
-// Compose dev server on 5173. Nothing here talks to the cloud project, and the guard below refuses
+// production's feature flag values on 4173 and one with stage's at 4174, next to the Compose dev
+// server on 5173. Nothing here talks to the cloud project, and the guard below refuses
 // to start if any of these URLs points anywhere else.
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4173';
 const VERBAND_BASE_URL = process.env.E2E_VERBAND_BASE_URL ?? 'http://localhost:4174';
@@ -21,9 +22,11 @@ assertLocalTargets({ baseURL: BASE_URL, verbandBaseURL: VERBAND_BASE_URL, supaba
 const ADMIN_STATE = 'e2e/.auth/admin.json';
 const VERBAND_ADMIN_STATE = 'e2e/.auth/admin-verband.json';
 
-// Feature files by role, in e2e/features/admin or e2e/features/visitor. A scenario runs against
-// both bundles unless a tag ties it to one view: @canton-view runs only with the verband flag off,
-// @verband-view only with it on. bddgen writes each project's tests to its own folder.
+// Feature files by role, in e2e/features/admin, editor or visitor. A scenario runs against both
+// bundles unless a tag ties it to one state of a flag, such as @verband-view or @canton-view.
+// flagTagFilter reads the state of every flag in the bundle's environment from src/lib/features.ts
+// and skips the scenarios tagged for the other one (test-support/flag-tags.ts lists the tags).
+// bddgen writes each project's tests to its own folder.
 const bddProject = (name: string, role: 'admin' | 'visitor' | 'editor', tags: string) => ({
   name,
   testDir: defineBddConfig({
@@ -68,14 +71,17 @@ export default defineConfig<SetupOptions>({
     // exercised once per bundle rather than in front of each scenario.
     { name: 'setup', testDir: './e2e', testMatch: /auth\.setup\.ts/, use: { storageStatePath: ADMIN_STATE } },
     {
-      ...bddProject('admin', 'admin', 'not @verband-view'),
+      ...bddProject('admin', 'admin', flagTagFilter('production')),
       use: { ...devices['Desktop Chrome'], storageState: ADMIN_STATE },
       dependencies: ['setup'],
     },
     // Visitors are anonymous: no saved session and no dependency on the sign-in setup.
-    { ...bddProject('visitor', 'visitor', 'not @verband-view'), use: { ...devices['Desktop Chrome'] } },
+    { ...bddProject('visitor', 'visitor', flagTagFilter('production')), use: { ...devices['Desktop Chrome'] } },
+    // Editors sign in through the form in each scenario, since every scenario needs a different
+    // account: no saved session and no setup dependency.
+    { ...bddProject('editor', 'editor', flagTagFilter('production')), use: { ...devices['Desktop Chrome'] } },
 
-    // The same three against the bundle with the verband flag on.
+    // The same against the bundle built like a deploy preview.
     {
       name: 'setup-verband',
       testDir: './e2e',
@@ -83,26 +89,24 @@ export default defineConfig<SetupOptions>({
       use: { baseURL: VERBAND_BASE_URL, storageStatePath: VERBAND_ADMIN_STATE },
     },
     {
-      ...bddProject('admin-verband', 'admin', 'not @canton-view'),
+      ...bddProject('admin-verband', 'admin', flagTagFilter('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL, storageState: VERBAND_ADMIN_STATE },
       dependencies: ['setup-verband'],
     },
     {
-      ...bddProject('visitor-verband', 'visitor', 'not @canton-view'),
+      ...bddProject('visitor-verband', 'visitor', flagTagFilter('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
     },
-    // Editors sign in through the form in each scenario, since every scenario needs a different
-    // account: no saved session and no setup dependency. Only the bundle with the Verband view.
     {
-      ...bddProject('editor-verband', 'editor', ''),
+      ...bddProject('editor-verband', 'editor', flagTagFilter('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
     },
   ],
 
   // The suite tests production bundles, so a bug that only shows after bundling or minification
   // fails it. The bundle on 4173 has production's flag values (src/lib/features.ts) and covers what
-  // visitors get today. The one on 4174 is built like a deploy preview, with VITE_APP_ENV=stage, and
-  // covers the Verband view before it is switched on. Playwright builds and serves both itself,
+  // visitors get. The one on 4174 is built like a deploy preview, with VITE_APP_ENV=stage, and covers
+  // a flag that is on there before it is switched on in production. Playwright builds and serves both itself,
   // locally as in CI, and never reuses a running one: a server someone else started may have been
   // built with other flags. It starts the servers one after the other, and the second bundle builds
   // into its own folder because the first is already being served from dist.

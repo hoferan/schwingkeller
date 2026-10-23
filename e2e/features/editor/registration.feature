@@ -1,3 +1,4 @@
+@editors
 Feature: Applying for an editor account
   An official applies with the Verband they work for. The account then waits for an admin's approval.
 

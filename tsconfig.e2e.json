@@ -22,5 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["e2e", "test-support", "integration", "playwright.config.ts"]
+  // test-support/flag-tags.ts reads the flag table in src/lib/features.ts, which types import.meta.env
+  // through src/vite-env.d.ts.
+  "include": ["e2e", "test-support", "integration", "playwright.config.ts", "src/vite-env.d.ts"]
 }

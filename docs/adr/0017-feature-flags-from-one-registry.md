@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-02
+date: 2026-10-23
 decision-makers: André Hofer
 ---
 
@@ -45,6 +45,10 @@ own value.
   is that pull request, and rolling back is its revert.
 * Removing a flag means deleting its entry. TypeScript then reports every remaining call. When to do
   that is tracked by hand in an issue.
+* Apart from the tests of the mapping itself, no test reaches a flag's state through
+  `VITE_APP_ENV`. Unit tests set it with `setFeature` from `src/test/features.ts`, and the e2e
+  projects take their tag filters from the table, so the switch pull request stays one line. An earlier attempt at switching `verband` on in production had to
+  rewrite eight test files, because they borrowed production's value to get the flag off.
 * Per-flag variables would spread one setting over three places, two of them outside the code.
   Browser overrides and the stage alias solve testing on production data, which previews already
   cover. A Supabase table or a hosted service would let flags change without a deploy, and nothing
@@ -65,8 +69,10 @@ own value.
 fallback for unknown values.
 
 The e2e suite builds two bundles, one with production's values and one for `stage`, and runs its
-scenarios against both, so each state of `verband` is tested in a browser. A scenario that only
-applies to one state is tagged `@canton-view` or `@verband-view` and runs against that bundle alone.
+scenarios against both, so a flag that differs between the two is tested in a browser in each
+state. A scenario that only applies to one state of a flag carries that state's tag, such as
+`@verband-view`, `@canton-view` or `@editors`. `test-support/flag-tags.ts` maps flags to tags and
+gives each bundle the filter that skips the states its environment doesn't have.
 
 ## More information
 

@@ -1,3 +1,4 @@
+@editors
 Feature: Approving editor accounts
   A Teilverband editor approves officials who applied for one of its Verbände.
 

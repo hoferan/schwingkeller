@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 // supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
@@ -16,6 +16,7 @@ import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
 import { DetailModal } from './DetailModal';
 import { theme } from '../../theme';
+import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: 'v1',
@@ -127,23 +128,19 @@ describe('DetailModal', () => {
 });
 
 describe('DetailModal association', () => {
-  afterEach(() => { vi.unstubAllEnvs(); });
-
   it('shows the association with the flag on', () => {
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
     expect(screen.getByTestId('venue-association')).toHaveTextContent('Emmental');
   });
 
   it('shows nothing with the flag off', () => {
-    vi.stubEnv('VITE_APP_ENV', 'production');
+    setFeature('verband', false);
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
     expect(screen.queryByTestId('venue-association')).toBeNull();
   });
 });
 
 describe('DetailModal layout', () => {
-  afterEach(() => { vi.unstubAllEnvs(); });
-
   const withPhotos: Venue = { ...venue, photos: [{ id: 'p1', url: 'https://example.com/a.jpg', position: 0 }] };
 
   it('shows no photo area when the venue has no photos', () => {
