@@ -1,13 +1,16 @@
 import { Lock, Unlock } from 'lucide-react';
 import { AccountsEntry } from '../features/admin/AccountsEntry';
+import { AccountMenu } from '../features/auth/AccountMenu';
 import { useAuth } from '../features/auth/useAuth';
 import { useTranslation } from '../i18n/useTranslation';
 import { LANGS, type Lang } from '../i18n/translations';
+import { isFeatureOn } from '../lib/features';
 import { theme } from '../theme';
 
 interface TopbarProps {
   onOpenLogin: () => void;
   onOpenAccounts: () => void;
+  onAccountDeleted: () => void;
   isMobile: boolean;
 }
 
@@ -25,7 +28,7 @@ const langStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: theme.radius.pill,
 });
 
-export const Topbar = ({ onOpenLogin, onOpenAccounts, isMobile }: TopbarProps) => {
+export const Topbar = ({ onOpenLogin, onOpenAccounts, onAccountDeleted, isMobile }: TopbarProps) => {
   const { session, isApproved, signOut } = useAuth();
   const { lang, t, setLang } = useTranslation();
 
@@ -83,7 +86,9 @@ export const Topbar = ({ onOpenLogin, onOpenAccounts, isMobile }: TopbarProps) =
 
       <AccountsEntry onOpen={onOpenAccounts} isMobile={isMobile} inverted={isApproved} />
 
-      {session ? (
+      {session && isFeatureOn('editors') ? (
+        <AccountMenu isMobile={isMobile} inverted={isApproved} onAccountDeleted={onAccountDeleted} />
+      ) : session ? (
         <button
           onClick={signOut}
           type="button"

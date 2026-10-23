@@ -1,5 +1,6 @@
 import { STR } from '../src/i18n/translations';
 import { setupTest as setup, expect, ADMIN } from './fixtures';
+import { sessionControl } from './session';
 
 const t = STR.de;
 
@@ -15,8 +16,7 @@ setup('signs in as the local admin', async ({ page, storageStatePath }) => {
   await password.fill(ADMIN.password);
   await password.press('Enter');
 
-  // The topbar swaps the unlock button for a lock button once the session is live.
-  await expect(page.getByRole('button', { name: t.logout })).toBeVisible();
+  await expect(sessionControl(page)).toBeVisible();
 
   await page.context().storageState({ path: storageStatePath });
 });

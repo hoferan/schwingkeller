@@ -6,7 +6,7 @@ import { captureAndFormat } from '../../lib/sentry';
 import { buildTree, type AssociationTree } from '../associations/tree';
 import type { Profile } from './profile';
 import { canWriteAssociation } from './scope';
-import { useProfile } from './useProfile';
+import { forgetAccount, useProfile } from './useProfile';
 
 export interface AuthValue {
   session: Session | null;
@@ -87,9 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   const signOut = async () => {
     await supabase.auth.signOut();
-    // The account list too, so the next account on this tab never sees the last one's rows.
-    queryClient.removeQueries({ queryKey: ['profile'] });
-    queryClient.removeQueries({ queryKey: ['accounts'] });
+    forgetAccount(queryClient);
   };
 
   const base = useMemo(() => buildAuthValue(session, profile ?? null, tree), [session, profile]);

@@ -285,7 +285,12 @@ function AppShell() {
         overflow: 'hidden', fontFamily: theme.font.body,
       }}
     >
-      <Topbar onOpenLogin={() => setShowLogin(true)} onOpenAccounts={() => setShowAccounts(true)} isMobile={isMobile} />
+      <Topbar
+        onOpenLogin={() => setShowLogin(true)}
+        onOpenAccounts={() => setShowAccounts(true)}
+        onAccountDeleted={() => showFlash('ok', t.accountDeleted)}
+        isMobile={isMobile}
+      />
       <StatusBanner />
 
       <div style={mainStyle}>

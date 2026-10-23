@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // supabase.ts creates its client at import time and throws without env vars; an empty stub is enough.
@@ -7,6 +7,7 @@ vi.mock('../lib/supabase', () => ({ supabase: {} }));
 import { TestAuthProvider, type TestAccount } from '../features/auth/testing';
 import { I18nContext } from '../i18n/useTranslation';
 import { STR } from '../i18n/translations';
+import { setFeature } from '../test/features';
 import { theme } from '../theme';
 import { Topbar } from './Topbar';
 
@@ -16,7 +17,7 @@ const renderTopbar = (as: TestAccount) =>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <TestAuthProvider as={as}>
         <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
-          <Topbar onOpenLogin={() => {}} onOpenAccounts={() => {}} isMobile={false} />
+          <Topbar onOpenLogin={() => {}} onOpenAccounts={() => {}} onAccountDeleted={() => {}} isMobile={false} />
         </I18nContext.Provider>
       </TestAuthProvider>
     </QueryClientProvider>,
@@ -31,7 +32,9 @@ const cssColor = (value: string) => {
   return probe.style.background;
 };
 
-describe('Topbar', () => {
+describe('Topbar with the editors flag off', () => {
+  beforeEach(() => setFeature('editors', false));
+
   it('shows the title and the login button when signed out', () => {
     renderTopbar('signed-out');
     expect(screen.getByText(/SCHWINGKELLER/)).toBeInTheDocument();
@@ -56,5 +59,21 @@ describe('Topbar', () => {
     expect(screen.getByTestId('topbar').style.background).toBe(cssColor(theme.color.bg));
     expect(screen.getByText(STR.de.logout)).toBeInTheDocument();
     expect(screen.queryByText(STR.de.login)).toBeNull();
+  });
+});
+
+describe('Topbar with the editors flag on', () => {
+  beforeEach(() => setFeature('editors', true));
+
+  it('shows the account menu instead of logout', () => {
+    renderTopbar('pending');
+    expect(screen.getByRole('button', { name: STR.de.accountMenu })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: STR.de.logout })).toBeNull();
+  });
+
+  it('shows no account menu when signed out', () => {
+    renderTopbar('signed-out');
+    expect(screen.queryByRole('button', { name: STR.de.accountMenu })).toBeNull();
+    expect(screen.getByRole('button', { name: STR.de.login })).toBeInTheDocument();
   });
 });
