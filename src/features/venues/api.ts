@@ -1,9 +1,12 @@
 import { supabase } from '../../lib/supabase';
-import { compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError } from './imageCompression';
+import {
+  compressImageIfNeeded, COMPRESS_THRESHOLD_BYTES, PhotoTooLargeError, UnsupportedPhotoTypeError,
+} from './imageCompression';
+import { isPhotoType } from './photos';
 import type { CantonalId } from '../../data/associations';
 import type { Venue, VenueInput, VenuePhoto } from './types';
 
-export { PhotoTooLargeError };
+export { PhotoTooLargeError, UnsupportedPhotoTypeError };
 
 const toError = (e: { message: string; code?: string; hint?: string; details?: string }): Error => {
   const err = new Error(e.code ? `[${e.code}] ${e.message}` : e.message);
@@ -50,8 +53,11 @@ export const listVenues = async (): Promise<Venue[]> => {
   return ((data ?? []) as unknown as VenueRow[]).map(toVenue);
 };
 
-export const createVenue = async (input: VenueInput): Promise<Venue> => {
-  const { data, error } = await supabase.from('venues').insert(input).select().single();
+// The form picks the id, so a Save repeated after a lost answer can't create the venue twice. A
+// 23505 means an earlier attempt created it already: the id is the table's only unique key.
+export const createVenue = async (id: string, input: VenueInput): Promise<Venue> => {
+  const { data, error } = await supabase.from('venues').insert({ id, ...input }).select().single();
+  if (error?.code === '23505') return updateVenue(id, input);
   if (error) throw toError(error);
   return { ...(data as Omit<Venue, 'photos'>), photos: [] };
 };
@@ -70,10 +76,12 @@ export const removeVenue = async (id: string): Promise<void> => {
   if (!data?.length) throw new VenueChangeRefusedError();
 };
 
-export const insertVenuePhoto = async (venueId: string, url: string, position: number): Promise<VenuePhoto> => {
+// The row takes the id the editor gave the photo, so a retried save can tell which photos
+// the earlier attempt already stored.
+export const insertVenuePhoto = async (venueId: string, photo: VenuePhoto): Promise<VenuePhoto> => {
   const { data, error } = await supabase
     .from('venue_photos')
-    .insert({ venue_id: venueId, url, position })
+    .insert({ id: photo.id, venue_id: venueId, url: photo.url, position: photo.position })
     .select()
     .single();
   if (error) throw toError(error);
@@ -90,29 +98,48 @@ export const updateVenuePhotoPosition = async (id: string, position: number): Pr
   if (error) throw toError(error);
 };
 
-export const syncVenuePhotos = async (
-  venueId: string,
-  original: VenuePhoto[],
-  draft: VenuePhoto[],
-): Promise<void> => {
+// The photo ids an edit form knows about: those it opened with, and those it has sent in this or
+// an earlier save attempt.
+export interface KnownPhotos {
+  opened: ReadonlySet<string>;
+  sent: ReadonlySet<string>;
+}
+
+// Brings the stored photos in line with the draft. It reads what the database holds at the time
+// of the call, so a save that failed partway can run again. It leaves alone photos the form
+// never knew about, which someone else added, and doesn't bring back a photo the form opened
+// with that someone else has deleted since.
+export const syncVenuePhotos = async (venueId: string, draft: VenuePhoto[], known: KnownPhotos): Promise<void> => {
+  const { data, error } = await supabase
+    .from('venue_photos')
+    .select('id,url,position')
+    .eq('venue_id', venueId);
+  if (error) throw toError(error);
+  const stored = (data ?? []) as VenuePhoto[];
+
   const draftIds = new Set(draft.map((p) => p.id));
-  const removed = original.filter((p) => !draftIds.has(p.id));
+  const removed = stored.filter((p) => (known.opened.has(p.id) || known.sent.has(p.id)) && !draftIds.has(p.id));
   for (const p of removed) await deleteVenuePhoto(p.id);
 
-  const originalById = new Map(original.map((p) => [p.id, p]));
+  const storedById = new Map(stored.map((p) => [p.id, p]));
   for (let i = 0; i < draft.length; i++) {
     const p = draft[i];
-    const existing = originalById.get(p.id);
+    const existing = storedById.get(p.id);
     if (existing) {
       if (existing.position !== i) await updateVenuePhotoPosition(p.id, i);
-    } else {
-      await insertVenuePhoto(venueId, p.url, i);
+    } else if (!known.opened.has(p.id)) {
+      await insertVenuePhoto(venueId, { ...p, position: i });
     }
   }
 };
 
 export const uploadPhoto = async (file: File): Promise<string> => {
-  const processed = await compressImageIfNeeded(file);
+  // A photo over the size limit is redrawn as a JPEG first, so its own type doesn't matter if the
+  // browser can read it. The type check is on the file that goes up.
+  const processed = await compressImageIfNeeded(file).catch((err: unknown) => {
+    throw isPhotoType(file.type) ? err : new UnsupportedPhotoTypeError();
+  });
+  if (!isPhotoType(processed.type)) throw new UnsupportedPhotoTypeError();
   if (processed.size > COMPRESS_THRESHOLD_BYTES) throw new PhotoTooLargeError();
   const ext = processed.name.split('.').pop() || 'jpg';
   const path = `${crypto.randomUUID()}.${ext}`;

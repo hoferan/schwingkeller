@@ -9,6 +9,13 @@ export class PhotoTooLargeError extends Error {
   }
 }
 
+export class UnsupportedPhotoTypeError extends Error {
+  constructor() {
+    super('The photo has a type the venue-photos bucket does not take.');
+    this.name = 'UnsupportedPhotoTypeError';
+  }
+}
+
 export const compressImageIfNeeded = async (file: File): Promise<File> => {
   if (file.size <= COMPRESS_THRESHOLD_BYTES) return file;
 

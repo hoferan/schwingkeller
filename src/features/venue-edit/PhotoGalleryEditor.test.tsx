@@ -8,10 +8,12 @@ import type { VenuePhoto } from '../venues/types';
 vi.mock('../venues/api', () => ({
   uploadPhoto: vi.fn(),
   PhotoTooLargeError: class PhotoTooLargeError extends Error {},
+  UnsupportedPhotoTypeError: class UnsupportedPhotoTypeError extends Error {},
 }));
 vi.mock('../../lib/sentry', () => ({ captureAndFormat: vi.fn((_e: unknown, fallback: string) => fallback) }));
 
-import { uploadPhoto, PhotoTooLargeError } from '../venues/api';
+import { uploadPhoto, PhotoTooLargeError, UnsupportedPhotoTypeError } from '../venues/api';
+import { captureAndFormat } from '../../lib/sentry';
 
 const renderEditor = (photos: VenuePhoto[], onChange = vi.fn(), onError = vi.fn()) => {
   render(
@@ -101,5 +103,28 @@ describe('PhotoGalleryEditor', () => {
     fireEvent.change(input);
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.photoTooLarge));
+  });
+
+  // The venue-photos bucket takes these types and refuses anything else.
+  it('offers only the image types the bucket takes in the file picker', () => {
+    const { container } = render(
+      <I18nContext.Provider value={{ lang: 'de', t: STR.de, setLang: vi.fn() }}>
+        <PhotoGalleryEditor photos={[]} onChange={vi.fn()} onError={vi.fn()} />
+      </I18nContext.Provider>,
+    );
+    expect(fileInput(container).accept).toBe('image/jpeg,image/png,image/webp,image/gif,image/avif');
+  });
+
+  it('names the allowed types when a photo has another one, without reporting it to Sentry', async () => {
+    vi.mocked(uploadPhoto).mockRejectedValue(new UnsupportedPhotoTypeError());
+    const { onError, onChange } = renderEditor([]);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'], 'a.heic', { type: 'image/heic' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    fireEvent.change(input);
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(STR.de.photoTypeUnsupported));
+    expect(captureAndFormat).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

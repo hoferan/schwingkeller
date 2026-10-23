@@ -113,6 +113,26 @@ describe('venues by scope', () => {
     expect((await insertAs(emmental, 'emmental own', 'emmental')).error).toBeNull();
   });
 
+  // The edit form picks a new venue's id, so a repeated Save can't create it twice.
+  it('lets an emmental editor insert a venue under an id it chose, and only once', async () => {
+    const row = { id: crypto.randomUUID(), ...newVenueRow('own id'), association_id: 'emmental' };
+    const first = await emmental.from('venues').insert(row).select('id').single();
+    expect(first.error).toBeNull();
+    expect(first.data?.id).toBe(row.id);
+
+    const again = await emmental.from('venues').insert(row);
+    expect(again.error?.code).toBe('23505');
+  });
+
+  it("doesn't let a bksv editor take over a luzern venue by inserting under its id", async () => {
+    const venue = await insertVenue(admin, 'luzern id', { association_id: 'luzern' });
+    const { error } = await bksv
+      .from('venues')
+      .insert({ id: venue.id, ...newVenueRow('takeover'), association_id: 'emmental' });
+    expect(error?.code).toBe('23505');
+    expect(await addressOf(venue.id)).toMatchObject({ association_id: 'luzern' });
+  });
+
   it.each(['oberland', 'luzern'])('refuses an emmental editor a venue in %s', async (association) => {
     const { error } = await insertAs(emmental, `emmental ${association}`, association);
     expect(error?.message ?? '(no error)').toMatch(RLS);

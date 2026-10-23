@@ -91,6 +91,15 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
   const currentAddress = useRef(draft.address);
   // A blocked save focuses the field, which scrolls it into view inside the modal.
   const associationRef = useRef<HTMLSelectElement>(null);
+  // A new venue gets its id here, so a Save repeated after a lost answer can't create it twice.
+  const [venueId] = useState(() => initial?.id ?? crypto.randomUUID());
+  // Save creates the venue until a create is confirmed and updates it from then on.
+  const venueStored = useRef(initial !== null);
+  // What the photo sync may touch: the photos the form opened with and every photo it has sent.
+  const [openedPhotos] = useState(() => new Set(initial?.photos.map((p) => p.id)));
+  const sentPhotos = useRef(new Set<string>());
+  // Set while a save runs. It blocks a second press before the re-render disables the button.
+  const saveRunning = useRef(false);
   // Track which picked-coords payload we've already consumed.
   const lastPicked = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -156,21 +165,31 @@ export const EditForm = ({ initial, onClose, onSaved, onStartPlacing, pickedCoor
       associationRef.current?.focus();
       return;
     }
+    if (saveRunning.current) return;
+    saveRunning.current = true;
     try {
       const input = buildInput(associationId);
-      const saved = initial
-        ? await update.mutateAsync({ id: initial.id, input })
-        : await create.mutateAsync(input);
-      await syncPhotos.mutateAsync({ venueId: saved.id, original: initial?.photos ?? [], draft: draft.photos });
+      const saved = venueStored.current
+        ? await update.mutateAsync({ id: venueId, input })
+        : await create.mutateAsync({ id: venueId, input });
+      venueStored.current = true;
+      for (const p of draft.photos) sentPhotos.current.add(p.id);
+      await syncPhotos.mutateAsync({
+        venueId: saved.id,
+        draft: draft.photos,
+        known: { opened: openedPhotos, sent: sentPhotos.current },
+      });
       onSaved(saved, andNew);
     } catch (err) {
       onError?.(err instanceof VenueChangeRefusedError ? t.changeRefused : captureAndFormat(err, t.saveError));
+    } finally {
+      saveRunning.current = false;
     }
   };
 
   const editTitle = initial ? t.editTitle : t.newTitle;
   const editingCoords = Number(draft.lat).toFixed(4) + ', ' + Number(draft.lng).toFixed(4);
-  const saving = create.isPending || update.isPending;
+  const saving = create.isPending || update.isPending || syncPhotos.isPending;
 
   const header = (
     <div

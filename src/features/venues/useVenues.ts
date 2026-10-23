@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listVenues, createVenue, updateVenue, removeVenue, syncVenuePhotos, VenueChangeRefusedError,
+  type KnownPhotos,
 } from './api';
 import type { VenueInput, VenuePhoto } from './types';
 
@@ -20,7 +21,10 @@ export const useVenueMutations = () => {
     void qc.invalidateQueries({ queryKey: ['profile'] });
   };
   return {
-    create: useMutation({ mutationFn: (v: VenueInput) => createVenue(v), onSuccess: invalidate }),
+    create: useMutation({
+      mutationFn: (a: { id: string; input: VenueInput }) => createVenue(a.id, a.input),
+      onSuccess: invalidate,
+    }),
     update: useMutation({
       mutationFn: (a: { id: string; input: Partial<VenueInput> }) => updateVenue(a.id, a.input),
       onSuccess: invalidate,
@@ -32,9 +36,10 @@ export const useVenueMutations = () => {
       onError: refreshIfRefused,
     }),
     syncPhotos: useMutation({
-      mutationFn: (a: { venueId: string; original: VenuePhoto[]; draft: VenuePhoto[] }) =>
-        syncVenuePhotos(a.venueId, a.original, a.draft),
-      onSuccess: invalidate,
+      mutationFn: (a: { venueId: string; draft: VenuePhoto[]; known: KnownPhotos }) =>
+        syncVenuePhotos(a.venueId, a.draft, a.known),
+      // A sync that failed partway has still changed photos.
+      onSettled: invalidate,
     }),
   };
 };
