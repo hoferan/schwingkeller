@@ -66,6 +66,12 @@ const revoke = async (client: SupabaseClient, id: string): Promise<void> => {
   if (error) throw new Error(`revoking invitation ${id} failed: ${error.message}`);
 };
 
+const profilesWithEmail = async (email: string): Promise<unknown[]> => {
+  const { data, error } = await esv.from('profiles').select('id').eq('email', email);
+  if (error) throw new Error(`reading profiles of ${email} failed: ${error.message}`);
+  return data;
+};
+
 describe('can_invite / create_invitation', () => {
   it.each(['bksv', 'emmental'])('lets a bksv editor invite for %s', async (scope) => {
     const { data, error } = await invite(bksv, scope);
@@ -370,12 +376,6 @@ describe('consuming an invitation', () => {
   const createdWith = (email: string, invitation: unknown): Promise<string> =>
     createAuthUser(email, PASSWORD, { invitation });
 
-  const profilesWithEmail = async (email: string): Promise<unknown[]> => {
-    const { data, error } = await esv.from('profiles').select('id').eq('email', email);
-    if (error) throw new Error(`reading profiles of ${email} failed: ${error.message}`);
-    return data;
-  };
-
   let bksvId: string;
   beforeAll(async () => {
     bksvId = await userIdOf(bksv);
@@ -538,6 +538,76 @@ describe('consuming an invitation', () => {
       status: 'pending',
       requested_association_id: 'emmental',
       scope_association_id: null,
+    });
+  });
+});
+
+describe('the sign-up hook', () => {
+  // Public sign-up, the path the hook guards. Each refusal gets the same status and message, so a
+  // caller can't tell a used token from a revoked one or from none at all.
+  const REFUSAL = 'Sign-up requires a valid invitation.';
+  const PASSWORD = 'int-password';
+  const signUp = (email: string, data?: Record<string, unknown>) =>
+    anonClient().auth.signUp({ email, password: PASSWORD, options: data ? { data } : undefined });
+
+  // A used invitation's address always has an account, so the used token is tried with another one.
+  it.each<[string, () => Promise<{ email: string; data?: Record<string, unknown> }>]>([
+    ['no metadata', async () => ({ email: freshEmail() })],
+    ['a requested node only', async () => ({ email: freshEmail(), data: { association: 'emmental' } })],
+    [
+      'an unknown token',
+      async () => ({ email: freshEmail(), data: { invitation: 'A'.repeat(43) } }),
+    ],
+    [
+      'a used token',
+      async () => {
+        const used = await createInvitation(bksv, 'emmental');
+        await signUpWithInvitation(used.email, used.token);
+        return { email: freshEmail(), data: { invitation: used.token } };
+      },
+    ],
+    [
+      'a revoked token',
+      async () => {
+        const revoked = await createInvitation(bksv, 'emmental');
+        await revoke(bksv, revoked.id);
+        return { email: revoked.email, data: { invitation: revoked.token } };
+      },
+    ],
+    [
+      'an expired token',
+      async () => {
+        const expired = await createInvitation(bksv, 'emmental');
+        await backdate(expired.id, '8 days');
+        return { email: expired.email, data: { invitation: expired.token } };
+      },
+    ],
+    ['an empty token', async () => ({ email: freshEmail(), data: { invitation: '' } })],
+    ['a token that is not a string', async () => ({ email: freshEmail(), data: { invitation: 42 } })],
+    [
+      'a valid token for another address',
+      async () => {
+        const other = await createInvitation(bksv, 'emmental');
+        return { email: freshEmail(), data: { invitation: other.token } };
+      },
+    ],
+  ])('refuses %s', async (_case, setup) => {
+    const { email, data } = await setup();
+    const { error } = await signUp(email, data);
+    expect(error?.status ?? '(no error)', error?.message).toBe(403);
+    expect(error?.message).toBe(REFUSAL);
+    expect(await profilesWithEmail(email)).toEqual([]);
+  });
+
+  it('accepts a valid token with the address in upper case', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const { data, error } = await signUp(invitation.email.toUpperCase(), {
+      invitation: invitation.token,
+    });
+    expect(error).toBeNull();
+    expect(await profileOf(esv, data.user?.id ?? '')).toMatchObject({
+      status: 'approved',
+      scope_association_id: 'emmental',
     });
   });
 });

@@ -10,7 +10,8 @@
 -- writes the table: the RPCs below do, as its owner.
 --
 -- The file holds the table, the invitation helpers, the editor RPCs, the lookup by token, the
--- select policy, and the triggers that use up an invitation when its account is created.
+-- select policy, the triggers that use up an invitation when its account is created, and the
+-- sign-up hook that turns away every sign-up without one.
 --
 -- Safe to run twice.
 
@@ -359,3 +360,43 @@ drop trigger if exists strip_invitation_from_metadata on auth.users;
 create trigger strip_invitation_from_metadata
   before update of raw_user_meta_data on auth.users
   for each row execute function public.strip_invitation_from_metadata();
+
+-- ---------------------------------------------------------------------------------------------
+-- Sign-up hook
+-- ---------------------------------------------------------------------------------------------
+-- GoTrue's before-user-created hook. It runs for public sign-up, invites, generated links and
+-- OAuth, but not for users made through the admin API. The sign-up passes only with a token for a
+-- live invitation made for the address being signed up. Every other case gets the same 403, so the
+-- answer doesn't tell a used token from a revoked or unknown one. The hook only checks: the token
+-- is used up by consume_invitation inside the insert.
+--
+-- GoTrue calls it as supabase_auth_admin and looks the function up on each call, so the auth
+-- service can start before this migration has run.
+
+create or replace function public.before_user_created(event jsonb)
+returns jsonb
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select case
+    when exists (
+      select 1
+        from public.invitations i
+       where i.token_hash = public.invitation_token_hash(event->'user'->'user_metadata'->>'invitation')
+         and i.used_at is null
+         and i.revoked_at is null
+         and i.expires_at > now()
+         and i.email = lower(trim(event->'user'->>'email'))
+    ) then '{}'::jsonb
+    else jsonb_build_object(
+      'error',
+      jsonb_build_object('http_code', 403, 'message', 'Sign-up requires a valid invitation.')
+    )
+  end;
+$$;
+
+revoke execute on function public.before_user_created(jsonb) from public, anon, authenticated;
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.before_user_created(jsonb) to supabase_auth_admin;

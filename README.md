@@ -170,7 +170,8 @@ password `schwingadmin`:
 | `pending@schwingkeller.local` | pending, requested Emmental |
 
 db-init sets these profiles from `supabase/local-accounts.sql` on every start. Sign-up is on in the
-local stack, so you can also register new accounts; they start pending.
+local stack, but only with an invitation: an approved editor invites an address, and the account
+signed up with that token starts approved for the invitation's Verband.
 
 Use **Studio** at <http://localhost:54323> to inspect the database, auth users and storage.
 
