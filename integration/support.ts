@@ -1,6 +1,6 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { expect } from 'vitest';
-import { ACCOUNTS, anonClient, signInAsAdmin } from '../test-support/local-stack';
+import { ACCOUNTS, anonClient, createAuthUser, signInAsAdmin } from '../test-support/local-stack';
 
 // Everything the integration tests create carries these, so a sweep can find what a crashed run
 // left behind. Grisons, because the seed has no venue there, and Graubünden, its association.
@@ -68,24 +68,19 @@ export type Profile = {
 
 export type Applicant = { client: SupabaseClient; id: string; email: string; password: string };
 
-// Local sign-up is on and autoconfirmed, so signUp returns a live session. These users stay in the
-// local database unless a test deletes them through delete_account. CI starts from scratch.
+// Creates the account through GoTrue's admin API, since public sign-up needs an invitation, then
+// signs in as it. These users stay in the local database unless a test deletes them through
+// delete_account. CI starts from scratch.
 export const signUpApplicant = async (
   requested: string,
   email = `int-${crypto.randomUUID()}@schwingkeller.local`,
 ): Promise<Applicant> => {
-  const client = anonClient();
   const password = 'int-password';
-  const { data, error } = await client.auth.signUp({
-    email,
-    password,
-    options: { data: { association: requested } },
-  });
-  if (error) throw new Error(`sign-up failed: ${error.message}`);
-  if (!data.session || !data.user) {
-    throw new Error('sign-up returned no session; is GOTRUE_MAILER_AUTOCONFIRM on?');
-  }
-  return { client, id: data.user.id, email, password };
+  const id = await createAuthUser(email, password, { association: requested });
+  const client = anonClient();
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(`sign-in of ${email} failed: ${error.message}`);
+  return { client, id, email, password };
 };
 
 // Reads one profile row. Throws when the reader can't see it.

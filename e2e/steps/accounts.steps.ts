@@ -1,18 +1,15 @@
 import { STR } from '../../src/i18n/translations';
-import { anonClient, signInAsAdmin } from '../../test-support/local-stack';
+import { anonClient, createAuthUser, signInAsAdmin } from '../../test-support/local-stack';
 import { verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
 
-// Signs up through the API rather than the form: registration.feature covers the form. The local
-// stack confirms addresses on its own, so the account is pending right away.
+// Creates the account through the admin API rather than the form: registration.feature covers the
+// form, and public sign-up needs an invitation. The address is confirmed, so the account is pending
+// right away.
 Given('an applicant has applied for the Verband {string}', async ({ applicant }, name: string) => {
-  const { error } = await anonClient().auth.signUp({
-    ...applicant,
-    options: { data: { association: verbandId(name) } },
-  });
-  if (error) throw new Error(`sign-up failed: ${error.message}`);
+  await createAuthUser(applicant.email, applicant.password, { association: verbandId(name) });
 });
 
 // registration.feature adds applicants in parallel, so the count itself can't be pinned down.

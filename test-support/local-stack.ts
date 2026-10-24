@@ -4,9 +4,10 @@ import { resolve } from 'node:path';
 import { assertLocalTargets } from './local-only';
 
 // Shared by the E2E and integration layers. Both reach the local Compose stack through PostgREST
-// as ordinary users: anonymous with the demo anon key, or signed in as the local admin. No
-// service-role key, so a policy or grant that stopped permitting something fails in the tests too
-// instead of being bypassed.
+// as ordinary users: anonymous with the demo anon key, or signed in as the local admin. The
+// service-role key does one job here, creating auth users through GoTrue's admin API, because
+// public sign-up needs an invitation. It never reaches PostgREST, so a policy or grant that stopped
+// permitting something still fails in the tests instead of being bypassed.
 
 // Read from docker/supabase.env, the one file docker compose and CI already read, so rotating the
 // demo key cannot leave the tests on a stale one.
@@ -45,6 +46,26 @@ const clientOptions = { auth: { persistSession: false, autoRefreshToken: false }
 
 export const anonClient = (): SupabaseClient =>
   createClient(SUPABASE_URL, supabaseEnv('ANON_KEY'), clientOptions);
+
+// Creates a confirmed auth user through GoTrue's admin API, the way docker-compose.yml's admin-init
+// does, and returns its id. The sign-up trigger then makes the profile from user_metadata.
+export const createAuthUser = async (
+  email: string,
+  password: string,
+  userMetadata?: Record<string, unknown>,
+): Promise<string> => {
+  const key = supabaseEnv('SERVICE_ROLE_KEY');
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, email_confirm: true, user_metadata: userMetadata }),
+  });
+  const body = await response.text();
+  if (response.status !== 200 && response.status !== 201) {
+    throw new Error(`creating ${email} through the admin API failed: ${response.status} ${body}`);
+  }
+  return (JSON.parse(body) as { id: string }).id;
+};
 
 export const signInAsAdmin = async (email: string, password: string): Promise<SupabaseClient> => {
   const client = createClient(SUPABASE_URL, supabaseEnv('ANON_KEY'), clientOptions);
