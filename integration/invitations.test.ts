@@ -394,6 +394,15 @@ describe('consuming an invitation', () => {
     expect(row).toMatchObject({ used_at: expect.any(String), used_by: editor.id });
   });
 
+  // The user_metadata claim of an access token, read without checking the signature.
+  const metadataClaim = (accessToken: string): Record<string, unknown> => {
+    const payload = accessToken.split('.')[1] ?? '';
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      user_metadata?: Record<string, unknown>;
+    };
+    return claims.user_metadata ?? {};
+  };
+
   // GoTrue copies the sign-up metadata into the identity and writes it back to the user later in the
   // same transaction, so the stored account is read back through getUser, not the signUp response.
   it('keeps the token and a requested node out of the account', async () => {
@@ -419,6 +428,14 @@ describe('consuming an invitation', () => {
       scope_association_id: 'emmental',
       requested_association_id: null,
     });
+
+    // The token from sign-up itself isn't checked: GoTrue signs it from the user it holds in memory,
+    // which still has the request's metadata. The first refresh is built from the stripped row.
+    const { data: refreshed, error: refreshError } = await client.auth.refreshSession();
+    expect(refreshError).toBeNull();
+    const reissued = metadataClaim(refreshed.session?.access_token ?? '');
+    expect(reissued).not.toHaveProperty('invitation');
+    expect(reissued).not.toHaveProperty('association');
   });
 
   it('matches the address whatever its case', async () => {
