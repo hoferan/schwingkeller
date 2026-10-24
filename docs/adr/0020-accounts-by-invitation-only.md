@@ -1,0 +1,113 @@
+---
+status: proposed
+date: 2026-10-24
+decision-makers: André Hofer
+---
+
+# Accounts by invitation only
+
+## Context and problem statement
+
+Anyone holding the publishable key can call GoTrue's sign-up endpoint and get a pending account
+([#126](https://github.com/hoferan/schwingkeller/issues/126)). A pending account has no rights,
+because every write needs an approved scope ([ADR 0016](0016-editor-scope-is-a-verband-node.md)).
+It still lands in an approver's queue, can pass for an official, and once email confirmation is on,
+sends a mail to whatever address the caller typed. The platform has about 50 editors, each known to
+someone above them in the Verband tree. So accounts should come from invitations only, and the
+database should refuse every other sign-up before the account exists
+([#139](https://github.com/hoferan/schwingkeller/issues/139)).
+
+## Decision drivers
+
+* The refusal happens on the server, before an `auth.users` row or a mail exists. The form is only
+  a convenience.
+* No third-party service in the visitor's browser.
+* No service-role key outside the database and no Edge Function to deploy
+  ([ADR 0019](0019-account-deletion-runs-in-the-database.md)).
+* An invitation is used once at most, and a sign-up that fails for another reason doesn't use it up.
+* The token can't be read back after use.
+* It works on the Free and Pro plans and in the Compose stack.
+
+## Considered options
+
+* Turnstile or hCaptcha on every public form
+* Open sign-up with approval, as built in #126
+* A shared code per Verband
+* Invitations sent by Supabase (`inviteUserByEmail`) from an Edge Function, with sign-up off
+* Invitations checked by GoTrue's "before user created" hook and used up by a trigger on
+  `auth.users` before the insert
+* The same, with `handle_new_user` using up the invitation after the insert and then removing the
+  token
+* The same, with the hook using up the invitation
+
+## Decision outcome
+
+Chosen option: the hook checks the invitation, and a before-insert trigger uses it up.
+
+* An approved editor invites an address to their own node or one below it, and the super-admin to
+  any node. An invitation runs out after 7 days. Its token is random, and the table keeps only the
+  token's SHA-256. Inviting an address again replaces its open invitation.
+* The client sends the token in the sign-up metadata. The hook function,
+  `public.before_user_created`, lets the sign-up through only when the token matches a live
+  invitation for the same address. Every other case gets the same 403, so the answer doesn't say
+  why.
+* GoTrue calls the hook before it opens the insert transaction, so the hook can only check. The
+  trigger uses up the invitation inside that transaction and fails the insert when it can't.
+  `handle_new_user` then creates the profile as `approved`, with the invitation's node as its scope
+  and the inviter in `invited_by`. An invitation is the approval. The queue stays for accounts made
+  through the admin API and for `request_review_again`.
+* GoTrue writes the sign-up metadata three times: into `auth.users`, into `auth.identities`, and
+  back into `auth.users` with an update after the identity insert. A trigger on each of those writes
+  removes the token and any node the client asked for.
+* Accounts made through GoTrue's admin API, from the dashboard or the Compose seed, skip the hook
+  and start pending, as before.
+
+Captchas were turned down because they put a third party in the visitor's browser, and GoTrue
+supports only those two providers. Open sign-up with approval still answers bots, fills the queue
+and mails any address. A shared code ends up in group chats, and a short one can be guessed without
+rate limiting of our own. `inviteUserByEmail` needs the project's first Edge Function, a
+service-role secret, a deploy step and email, which the project doesn't have yet, and the hook
+protects just as well: a request without a token creates nothing. Using up the invitation after the
+insert writes the token to the row and then rewrites it, which fires the update triggers on
+`auth.users`. The hook can't use it up, because it runs outside the transaction: a sign-up refused
+afterwards, for a short password or a taken address, would burn the invitation.
+
+### Consequences
+
+* Good, because a sign-up without a valid invitation creates no row and sends no mail, whatever the
+  client does.
+* Good, because it ships as one migration and the integration tests run it with the hook on.
+* Bad, because the access token in the sign-up response still has the used token in
+  `user_metadata`. GoTrue signs it from the user it holds in memory, where no trigger reaches. Only
+  the sender gets it, the invitation is used by then, and the first refresh issues a clean token.
+  The sign-up form ([#140](https://github.com/hoferan/schwingkeller/issues/140)) may refresh right
+  after sign-up.
+* Bad, because two concurrent sign-ups with one token both pass the hook. One succeeds, and the
+  other fails in the trigger with GoTrue's 500 instead of the neutral 403.
+* Bad, because a sign-up for an address that already has an unconfirmed account updates that
+  account instead of inserting one. The token is stripped, but the invitation stays open and the
+  account stays pending. That needs email confirmation on and such an account to exist.
+* Bad, because the trigger on `auth.identities` relies on `postgres` being allowed to create
+  triggers on that table in hosted Supabase. If it isn't, the `migrate` job fails.
+
+### Confirmation
+
+`integration/invitations.test.ts` signs up through GoTrue as an anonymous client. It covers who may
+invite, revoke and see invitations, replacing and purging them, the lookup by token, each case the
+hook refuses with its single message, the race between two sign-ups with one token, the approved
+profile with `invited_by`, the token's absence from the stored metadata, the identity and a
+refreshed session, the cascade when an account is deleted, and the pending profile of an account
+made through the admin API. The unconfirmed-account case isn't tested, because the local stack
+confirms every address.
+
+## More information
+
+* This replaces the sign-up part of [ADR 0016](0016-editor-scope-is-a-verband-node.md): applicants
+  no longer choose a node.
+* Sign-up form: [#140](https://github.com/hoferan/schwingkeller/issues/140), inviting and revoking
+  in the admin panel: [#141](https://github.com/hoferan/schwingkeller/issues/141). Production needs
+  the hook switched on in the dashboard, pointing at `public.before_user_created`
+  ([#73](https://github.com/hoferan/schwingkeller/issues/73)), which also checks that `postgres` may
+  create a trigger on `auth.identities`.
+* Look at this again if GoTrue starts calling the hook inside the insert transaction or for
+  admin-API users, or stops copying the metadata into `auth.identities`.

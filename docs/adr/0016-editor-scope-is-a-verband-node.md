@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-10-19
+date: 2026-10-24
 decision-makers: André Hofer
 ---
 
@@ -39,8 +39,9 @@ Chosen option: one node of the tree per profile.
   recursive `association_is_within(node, scope)`.
 * Super-admin is scope `esv`. There's no role column, so there's no second concept to keep
   consistent with the scope.
-* An admin grants any node. Applicants may request any node at sign-up, the ESV included; the
-  approver decides.
+* An admin grants any node. Accounts come from invitations, and the invitation sets the node
+  ([ADR 0020](0020-accounts-by-invitation-only.md)). Before that, applicants could request any node
+  at sign-up, the ESV included, and the approver decided.
 * Account approval follows the same tree. An editor manages the accounts strictly below their node,
   so a Teilverband editor approves the Verband editors in it and only the ESV approves Teilverband
   and ESV editors. A Kantonal- or Gauverband editor approves nobody.

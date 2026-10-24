@@ -171,7 +171,9 @@ password `schwingadmin`:
 
 db-init sets these profiles from `supabase/local-accounts.sql` on every start. Sign-up is on in the
 local stack, but only with an invitation: an approved editor invites an address, and the account
-signed up with that token starts approved for the invitation's Verband.
+signed up with that token starts approved for the invitation's node, which may be the ESV, a
+Teilverband or a Verband. Until [#140](https://github.com/hoferan/schwingkeller/issues/140) the
+sign-up form can't send a token, so a local sign-up works only through the API.
 
 Use **Studio** at <http://localhost:54323> to inspect the database, auth users and storage.
 
