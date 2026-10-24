@@ -4,7 +4,8 @@
 --
 -- An address has at most one open invitation. Inviting it again replaces the open one, unless that
 -- one is live and was made for a node the caller may not invite to. Invitations run out after 7
--- days. Rows revoked or expired more than 30 days ago are deleted the next time anyone invites.
+-- days. Rows revoked or expired more than 30 days ago are deleted the next time an invitation is
+-- created, revoked or used. Once an account exists for an address, its other invitations go.
 --
 -- Editors see the open invitations at or below their node, without the token hash. No client role
 -- writes the table: the RPCs below do, as its owner.
@@ -21,8 +22,9 @@ create extension if not exists pgcrypto with schema extensions;
 -- Table
 -- ---------------------------------------------------------------------------------------------
 -- invited_by is set null when the inviter's account goes, so their invitations stay usable and
--- anyone who may invite there can revoke them. used_by cascades, so no address outlives the account
--- it made. It is deferred because the row is marked used while the account is still being inserted.
+-- anyone who may invite there can revoke them. used_by cascades, so the used invitation goes with
+-- the account it made; the triggers below delete the address's other rows when the account is
+-- created. It is deferred because the row is marked used while the account is still being inserted.
 
 create table if not exists public.invitations (
   id             uuid primary key default gen_random_uuid(),
@@ -76,7 +78,23 @@ as $$
   end;
 $$;
 
+-- Deletes the invitations revoked more than 30 days ago and the unused ones that expired more than
+-- 30 days ago. A used one stays until its account is deleted. Creating, revoking and using an
+-- invitation call it, so nothing needs a schedule.
+create or replace function public.purge_stale_invitations()
+returns void
+language sql
+security definer
+volatile
+set search_path = ''
+as $$
+  delete from public.invitations
+   where revoked_at < now() - interval '30 days'
+      or (used_at is null and expires_at < now() - interval '30 days');
+$$;
+
 revoke execute on function public.invitation_token_hash(text) from public, anon, authenticated;
+revoke execute on function public.purge_stale_invitations() from public, anon, authenticated;
 revoke execute on function public.can_invite(text) from public, anon;
 grant execute on function public.can_invite(text) to authenticated;
 
@@ -131,9 +149,7 @@ begin
     update public.invitations set revoked_at = now() where id = open_id;
   end if;
 
-  delete from public.invitations
-   where revoked_at < now() - interval '30 days'
-      or (used_at is null and expires_at < now() - interval '30 days');
+  perform public.purge_stale_invitations();
 
   new_token := rtrim(translate(encode(extensions.gen_random_bytes(32), 'base64'), '+/', '-_'), '=');
   insert into public.invitations (token_hash, email, association_id, invited_by)
@@ -168,6 +184,7 @@ begin
     raise exception 'cannot revoke an invitation that is revoked';
   end if;
   update public.invitations set revoked_at = now() where id = invitation_id;
+  perform public.purge_stale_invitations();
 end;
 $$;
 
@@ -272,6 +289,13 @@ begin
     raise exception 'invalid invitation';
   end if;
 
+  -- The address's replaced and revoked invitations would outlive the account, since only the used
+  -- one goes with it.
+  delete from public.invitations i
+   where i.email = lower(trim(new.email))
+     and i.id <> consumed;
+  perform public.purge_stale_invitations();
+
   new.raw_user_meta_data := new.raw_user_meta_data - 'invitation' - 'association';
   return new;
 end;
@@ -292,7 +316,8 @@ $$;
 
 -- After insert on auth.users, replacing 0011's version. An account whose insert used an invitation
 -- is approved with that invitation's node. Any other starts pending with the node it asked for, an
--- unknown one stored as null.
+-- unknown one stored as null. Its address's unused invitations are deleted: nobody can sign up with
+-- them any more, and they would outlive the account.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -320,6 +345,10 @@ begin
       (select a.id from public.associations a where a.id = new.raw_user_meta_data->>'association')
     )
     on conflict (id) do nothing;
+
+    delete from public.invitations i
+     where i.email = lower(trim(new.email))
+       and i.used_at is null;
   end if;
   return new;
 end;

@@ -6,6 +6,7 @@ import {
   createInvitation,
   expectNotAuthorized,
   freshEmail,
+  type Invitation,
   invitationRows,
   profileOf,
   signInAs,
@@ -165,22 +166,46 @@ describe('can_invite / create_invitation', () => {
     expect(rows).toHaveLength(2);
     expect(rows.find((r) => r.id === above.id)?.revoked_at).toEqual(expect.any(String));
   });
+});
 
-  it('purges invitations revoked or expired more than 30 days ago', async () => {
+describe('purging old invitations', () => {
+  // Each case prepares its own invitation first, because creating one purges as well. All the rows
+  // are made before any is backdated, for the same reason.
+  it.each<[string, () => Promise<() => Promise<unknown>>]>([
+    ['an invitation is created', async () => () => createInvitation(bksv, 'emmental')],
+    [
+      'an invitation is revoked',
+      async () => {
+        const invitation = await createInvitation(bksv, 'emmental');
+        return () => revoke(bksv, invitation.id);
+      },
+    ],
+    [
+      'an invitation is used',
+      async () => {
+        const invitation = await createInvitation(bksv, 'emmental');
+        return () => signUpWithInvitation(invitation.email, invitation.token);
+      },
+    ],
+  ])('deletes those revoked or expired over 30 days ago when %s', async (_when, prepare) => {
+    const act = await prepare();
     const revoked = await createInvitation(bksv, 'emmental');
-    await revoke(bksv, revoked.id);
-    await backdate(revoked.id, '31 days');
     const expired = await createInvitation(bksv, 'emmental');
-    await backdate(expired.id, '38 days');
     const recent = await createInvitation(bksv, 'emmental');
+    const used = await createInvitation(bksv, 'emmental');
+    await revoke(bksv, revoked.id);
+    await signUpWithInvitation(used.email, used.token);
+    await backdate(revoked.id, '31 days');
+    await backdate(expired.id, '38 days');
     await backdate(recent.id, '20 days');
+    await backdate(used.id, '38 days');
 
-    const { error } = await invite(bksv, 'emmental');
-    expect(error).toBeNull();
+    await act();
 
     expect(await invitationRows(esv, revoked.email)).toEqual([]);
     expect(await invitationRows(esv, expired.email)).toEqual([]);
     expect(await invitationRows(esv, recent.email)).toHaveLength(1);
+    expect(await invitationRows(esv, used.email)).toHaveLength(1);
   });
 });
 
@@ -265,6 +290,14 @@ describe('invitations visibility', () => {
     expect(data).toEqual([]);
   });
 
+  it('hides a used invitation', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    await signUpWithInvitation(invitation.email, invitation.token);
+    const { data, error } = await bksv.from('invitations').select(GRANTED).eq('id', invitation.id);
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+  });
+
   it('gives anonymous callers nothing', async () => {
     const { error } = await anonClient().from('invitations').select('id').limit(1);
     expect(error?.code ?? '(no error)', error?.message).toBe('42501');
@@ -291,6 +324,11 @@ describe('invitations guards', () => {
 
   it('keeps invitation_token_hash from signed-in callers', async () => {
     expectPermissionDenied(await bksv.rpc('invitation_token_hash', { token: 'x' }));
+  });
+
+  it('keeps purge_stale_invitations from every client role', async () => {
+    expectPermissionDenied(await bksv.rpc('purge_stale_invitations'));
+    expectPermissionDenied(await anonClient().rpc('purge_stale_invitations'));
   });
 
   it('refuses anonymous callers the editor RPCs', async () => {
@@ -338,6 +376,12 @@ describe('invitation_details', () => {
     const anon = anonClient();
     expect(await details(anon, '')).toMatchObject({ data: [], error: null });
     expect(await details(anon, 'A'.repeat(43))).toMatchObject({ data: [], error: null });
+  });
+
+  it('returns nothing for a used token', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    await signUpWithInvitation(invitation.email, invitation.token);
+    expect(await details(anonClient(), invitation.token)).toMatchObject({ data: [], error: null });
   });
 
   it('returns nothing for a revoked token', async () => {
@@ -400,7 +444,8 @@ describe('consuming an invitation', () => {
     const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       user_metadata?: Record<string, unknown>;
     };
-    return claims.user_metadata ?? {};
+    if (!claims.user_metadata) throw new Error('the access token has no user_metadata claim');
+    return claims.user_metadata;
   };
 
   // GoTrue copies the sign-up metadata into the identity and writes it back to the user later in the
@@ -519,6 +564,43 @@ describe('consuming an invitation', () => {
     expect(await profileOf(esv, back.id)).toMatchObject({ status: 'approved' });
   });
 
+  // Inviting the address again replaces the first invitation; revoking it first gives the same row.
+  it.each<[string, (first: Invitation) => Promise<void>]>([
+    ['replaced', async () => {}],
+    ['revoked', (first) => revoke(bksv, first.id)],
+  ])('leaves no %s invitation once the account is deleted', async (_how, retire) => {
+    const first = await createInvitation(bksv, 'emmental');
+    await retire(first);
+    const open = await createInvitation(bksv, 'emmental', first.email);
+    expect(await invitationRows(esv, first.email)).toHaveLength(2);
+    const editor = await signUpWithInvitation(open.email, open.token);
+    const { error } = await editor.client.rpc('delete_account');
+    expect(error).toBeNull();
+    expect(await invitationRows(esv, first.email)).toEqual([]);
+  });
+
+  it('deletes the open and replaced invitations of an address the admin API makes an account for', async () => {
+    const first = await createInvitation(bksv, 'emmental');
+    await createInvitation(bksv, 'emmental', first.email);
+    expect(await invitationRows(esv, first.email)).toHaveLength(2);
+    await createAuthUser(first.email, PASSWORD);
+    expect(await invitationRows(esv, first.email)).toEqual([]);
+  });
+
+  it('clears invited_by when the inviter deletes their account later', async () => {
+    const inviter = await approvedEditor(bksv, 'bksv');
+    const invitation = await createInvitation(inviter.client, 'emmental');
+    const editor = await signUpWithInvitation(invitation.email, invitation.token);
+    expect(await profileOf(esv, editor.id)).toMatchObject({ invited_by: inviter.id });
+    const { error } = await inviter.client.rpc('delete_account');
+    expect(error).toBeNull();
+    expect(await profileOf(esv, editor.id)).toMatchObject({
+      status: 'approved',
+      scope_association_id: 'emmental',
+      invited_by: null,
+    });
+  });
+
   it('still approves when the inviter has deleted their account', async () => {
     const inviter = await approvedEditor(bksv, 'bksv');
     const invitation = await createInvitation(inviter.client, 'emmental');
@@ -597,6 +679,26 @@ describe('the sign-up hook', () => {
     expect(error?.status ?? '(no error)', error?.message).toBe(403);
     expect(error?.message).toBe(REFUSAL);
     expect(await profilesWithEmail(email)).toEqual([]);
+  });
+
+  // GoTrue turns down a password under its minimum (10 locally) before it calls the hook. The
+  // invitation has to stay open, so the invited person can try again with a longer one.
+  it('leaves the invitation open when GoTrue refuses the password', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const { error } = await anonClient().auth.signUp({
+      email: invitation.email,
+      password: 'too-short',
+      options: { data: { invitation: invitation.token } },
+    });
+    expect(error?.status ?? '(no error)', error?.message).toBe(422);
+    expect(error?.code).toBe('weak_password');
+    expect(await profilesWithEmail(invitation.email)).toEqual([]);
+    expect(await invitationRows(esv, invitation.email)).toEqual([
+      { id: invitation.id, used_at: null, used_by: null, revoked_at: null },
+    ]);
+
+    const editor = await signUpWithInvitation(invitation.email, invitation.token);
+    expect(await profileOf(esv, editor.id)).toMatchObject({ status: 'approved' });
   });
 
   it('accepts a valid token with the address in upper case', async () => {
