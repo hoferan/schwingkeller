@@ -77,7 +77,7 @@ export const setupTest = playwrightTest.extend<SetupOptions>({
   page: stubbedPage,
 });
 
-// An account the registration scenario signs up through the form.
+// An account a scenario creates for itself, as an applicant or an invited editor.
 export interface Applicant { email: string; password: string }
 
 export const test = bddTest.extend<

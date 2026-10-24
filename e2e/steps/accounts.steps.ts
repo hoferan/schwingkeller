@@ -1,21 +1,17 @@
 import { STR } from '../../src/i18n/translations';
-import { anonClient, signInAsAdmin } from '../../test-support/local-stack';
+import { anonClient, createAuthUser, signInAsAdmin } from '../../test-support/local-stack';
 import { verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
 
-// Signs up through the API rather than the form: registration.feature covers the form. The local
-// stack confirms addresses on its own, so the account is pending right away.
+// Creates the account through the admin API, since public sign-up needs an invitation. The address
+// is confirmed, so the account is pending right away.
 Given('an applicant has applied for the Verband {string}', async ({ applicant }, name: string) => {
-  const { error } = await anonClient().auth.signUp({
-    ...applicant,
-    options: { data: { association: verbandId(name) } },
-  });
-  if (error) throw new Error(`sign-up failed: ${error.message}`);
+  await createAuthUser(applicant.email, applicant.password, { association: verbandId(name) });
 });
 
-// registration.feature adds applicants in parallel, so the count itself can't be pinned down.
+// Other scenarios add applicants in parallel, so the count itself can't be pinned down.
 Then('the account entry shows pending requests', async ({ page }) => {
   const entry = page.getByRole('button', { name: t.accountsTitle });
   await expect(entry).toHaveAccessibleDescription(/\d+ offene Anfragen/);
@@ -47,22 +43,17 @@ Then('the applicant is an editor for the Verband {string}', async ({ applicant }
   expect(profile).toEqual({ status: 'approved', scope_association_id: verbandId(name) });
 });
 
-// Approved through the API as the super-admin: account-approval.feature covers approving in the UI.
+// The super-admin invites the applicant through the API and the applicant signs up with the token,
+// which approves the account for that Verband.
 Given('an applicant is an editor for the Verband {string}', async ({ applicant }, name: string) => {
-  const { error } = await anonClient().auth.signUp({
-    ...applicant,
-    options: { data: { association: verbandId(name) } },
-  });
-  if (error) throw new Error(`sign-up failed: ${error.message}`);
   const admin = await signInAsAdmin(ACCOUNTS.esv.email, ACCOUNTS.esv.password);
-  const { data: profile, error: readError } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('email', applicant.email)
-    .single();
-  if (readError) throw new Error(`could not read ${applicant.email}: ${readError.message}`);
-  const { error: approveError } = await admin.rpc('approve_editor', { target_id: profile.id, scope: verbandId(name) });
-  if (approveError) throw new Error(`could not approve ${applicant.email}: ${approveError.message}`);
+  const { data: invitation, error: inviteError } = await admin.rpc('create_invitation', {
+    target_email: applicant.email,
+    scope: verbandId(name),
+  });
+  if (inviteError) throw new Error(`could not invite ${applicant.email}: ${inviteError.message}`);
+  const { error } = await anonClient().auth.signUp({ ...applicant, options: { data: { invitation } } });
+  if (error) throw new Error(`sign-up of ${applicant.email} failed: ${error.message}`);
 });
 
 When('I show the {string} accounts', async ({ page }, status: string) => {
