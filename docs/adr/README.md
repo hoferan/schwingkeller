@@ -74,4 +74,4 @@ instead of MADR's suggested `docs/decisions/`, which MADR allows.
 | [0017](0017-feature-flags-from-one-registry.md) | Feature flags as one table in code, with a value per environment | proposed |
 | [0018](0018-remove-the-import-and-replace-venues.md) | Remove the import and drop `replace_venues` | accepted |
 | [0019](0019-account-deletion-runs-in-the-database.md) | Account deletion runs in the database | accepted |
-| [0020](0020-accounts-by-invitation-only.md) | Accounts by invitation only, checked by a sign-up hook | proposed |
+| [0020](0020-accounts-by-invitation-only.md) | Accounts by invitation only | proposed |

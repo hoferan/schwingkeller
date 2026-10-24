@@ -44,7 +44,8 @@ Chosen option: one node of the tree per profile.
   at sign-up, the ESV included, and the approver decided.
 * Account approval follows the same tree. An editor manages the accounts strictly below their node,
   so a Teilverband editor approves the Verband editors in it and only the ESV approves Teilverband
-  and ESV editors. A Kantonal- or Gauverband editor approves nobody.
+  and ESV editors. A Kantonal- or Gauverband editor approves nobody. Invitations also reach the
+  editor's own node ([ADR 0020](0020-accounts-by-invitation-only.md)).
 * Inside their scope, editors at every level have the same rights over venues.
 * Status and scope change only through `security definer` RPCs that re-check the caller.
 * Nobody manages their own account, super-admins included. Rejecting answers an application and
