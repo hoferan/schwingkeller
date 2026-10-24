@@ -379,7 +379,7 @@ describe('request_review_again', () => {
     expect((await editor.client.rpc('request_review_again')).error).toBeNull();
     expect(await profileOf(admin, editor.id)).toMatchObject({
       status: 'pending',
-      requested_association_id: 'emmental',
+      requested_association_id: null,
       scope_association_id: 'oberland',
     });
   });

@@ -9,8 +9,8 @@
 -- Editors see the open invitations at or below their node, without the token hash. No client role
 -- writes the table: the RPCs below do, as its owner.
 --
--- The file holds the table, the invitation helpers, the editor RPCs, the lookup by token and the
--- select policy.
+-- The file holds the table, the invitation helpers, the editor RPCs, the lookup by token, the
+-- select policy, and the triggers that use up an invitation when its account is created.
 --
 -- Safe to run twice.
 
@@ -219,3 +219,143 @@ create policy "invitations_select" on public.invitations
 revoke all on public.invitations from anon, authenticated;
 grant select (id, email, association_id, invited_by, created_at, expires_at, used_at, revoked_at)
   on public.invitations to authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Consuming an invitation at sign-up
+-- ---------------------------------------------------------------------------------------------
+-- The sign-up hook (#139) only checks the token, because GoTrue calls it before the insert
+-- transaction opens. The token is used up here, inside that transaction: consume_invitation marks
+-- the invitation used while auth.users is inserted, and handle_new_user then approves the profile
+-- with the invitation's node. An account made without a token, through the admin API, starts
+-- pending as before.
+--
+-- Neither the token nor a requested node stays on the account. The node comes from the invitation,
+-- so whatever the client sent as association is dropped too. GoTrue writes the sign-up metadata
+-- three times in that transaction: into the auth.users row, into the auth.identities row, and,
+-- after the identity is inserted, back into auth.users from memory with a few updates. Each write
+-- gets its own trigger that strips both keys.
+
+-- Who invited the account. Null for an account made without an invitation, and once the inviter's
+-- account is gone.
+alter table public.profiles
+  add column if not exists invited_by uuid references auth.users(id) on delete set null;
+
+grant select on public.profiles to authenticated;
+
+-- Before insert on auth.users. Any value under the invitation key counts as a token, an empty
+-- string or a number included, so it either matches a live invitation for this address or the
+-- insert fails. Of two sign-ups racing for one token, the second waits on the row lock, finds the
+-- invitation used and fails.
+create or replace function public.consume_invitation()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  consumed uuid;
+begin
+  if not coalesce(new.raw_user_meta_data ? 'invitation', false) then
+    return new;
+  end if;
+
+  update public.invitations i
+     set used_at = now(), used_by = new.id
+   where i.token_hash = public.invitation_token_hash(new.raw_user_meta_data->>'invitation')
+     and i.used_at is null
+     and i.revoked_at is null
+     and i.expires_at > now()
+     and i.email = lower(trim(new.email))
+  returning i.id into consumed;
+  if consumed is null then
+    raise exception 'invalid invitation';
+  end if;
+
+  new.raw_user_meta_data := new.raw_user_meta_data - 'invitation' - 'association';
+  return new;
+end;
+$$;
+
+-- Before insert on auth.identities, which GoTrue fills with a copy of the sign-up metadata.
+create or replace function public.strip_invitation_token()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.identity_data := new.identity_data - 'invitation' - 'association';
+  return new;
+end;
+$$;
+
+-- After insert on auth.users, replacing 0011's version. An account whose insert used an invitation
+-- is approved with that invitation's node. Any other starts pending with the node it asked for, an
+-- unknown one stored as null.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  node text;
+  inviter uuid;
+begin
+  select i.association_id, i.invited_by into node, inviter
+    from public.invitations i
+   where i.used_by = new.id;
+
+  if found then
+    insert into public.profiles (id, email, status, scope_association_id, invited_by)
+    values (new.id, new.email, 'approved', node, inviter)
+    on conflict (id) do nothing;
+  else
+    insert into public.profiles (id, email, status, requested_association_id)
+    values (
+      new.id,
+      new.email,
+      'pending',
+      (select a.id from public.associations a where a.id = new.raw_user_meta_data->>'association')
+    )
+    on conflict (id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+-- Before update of the metadata on auth.users, for GoTrue's write-back after the identity insert.
+-- It only acts when the token is there, so a pending account keeps the node it asked for.
+create or replace function public.strip_invitation_from_metadata()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(new.raw_user_meta_data ? 'invitation', false) then
+    new.raw_user_meta_data := new.raw_user_meta_data - 'invitation' - 'association';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.consume_invitation() from public, anon, authenticated;
+revoke execute on function public.strip_invitation_token() from public, anon, authenticated;
+revoke execute on function public.strip_invitation_from_metadata() from public, anon, authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+drop trigger if exists consume_invitation on auth.users;
+create trigger consume_invitation
+  before insert on auth.users
+  for each row execute function public.consume_invitation();
+
+drop trigger if exists strip_invitation_token on auth.identities;
+create trigger strip_invitation_token
+  before insert on auth.identities
+  for each row execute function public.strip_invitation_token();
+
+drop trigger if exists strip_invitation_from_metadata on auth.users;
+create trigger strip_invitation_from_metadata
+  before update of raw_user_meta_data on auth.users
+  for each row execute function public.strip_invitation_from_metadata();

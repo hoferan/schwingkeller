@@ -64,7 +64,11 @@ export type Profile = {
   status: string;
   requested_association_id: string | null;
   scope_association_id: string | null;
+  invited_by: string | null;
 };
+
+// An address no account or invitation has used yet.
+export const freshEmail = (): string => `int-${crypto.randomUUID()}@schwingkeller.local`;
 
 export type Applicant = { client: SupabaseClient; id: string; email: string; password: string };
 
@@ -73,7 +77,7 @@ export type Applicant = { client: SupabaseClient; id: string; email: string; pas
 // delete_account. CI starts from scratch.
 export const signUpApplicant = async (
   requested: string,
-  email = `int-${crypto.randomUUID()}@schwingkeller.local`,
+  email = freshEmail(),
 ): Promise<Applicant> => {
   const password = 'int-password';
   const id = await createAuthUser(email, password, { association: requested });
@@ -81,6 +85,23 @@ export const signUpApplicant = async (
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw new Error(`sign-in of ${email} failed: ${error.message}`);
   return { client, id, email, password };
+};
+
+// Signs up through public sign-up with an invitation token, the way an invited editor does. Local
+// sign-up is autoconfirmed, so this returns a live session.
+export const signUpWithInvitation = async (email: string, token: string): Promise<Applicant> => {
+  const client = anonClient();
+  const password = 'int-password';
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: { data: { invitation: token } },
+  });
+  if (error) throw new Error(`sign-up of ${email} failed: ${error.message}`);
+  if (!data.session || !data.user) {
+    throw new Error(`sign-up of ${email} returned no session; is GOTRUE_MAILER_AUTOCONFIRM on?`);
+  }
+  return { client, id: data.user.id, email, password };
 };
 
 // Reads one profile row. Throws when the reader can't see it.
@@ -91,15 +112,14 @@ export const profileOf = async (reader: SupabaseClient, id: string): Promise<Pro
   return data;
 };
 
-// A throwaway applicant that the approver approves at once with this scope.
+// A throwaway editor with this scope, made the way a real one is: the approver invites a fresh
+// address and it signs up with the token.
 export const approvedEditor = async (
   approver: SupabaseClient,
   scope: string,
 ): Promise<Applicant> => {
-  const applicant = await signUpApplicant(scope);
-  const { error } = await approver.rpc('approve_editor', { target_id: applicant.id, scope });
-  if (error) throw new Error(`approving an applicant as ${scope} failed: ${error.message}`);
-  return applicant;
+  const invitation = await createInvitation(approver, scope);
+  return signUpWithInvitation(invitation.email, invitation.token);
 };
 
 export type InvitationRow = {
@@ -127,7 +147,7 @@ export type Invitation = { id: string; token: string; email: string };
 export const createInvitation = async (
   inviter: SupabaseClient,
   scope: string,
-  email = `int-${crypto.randomUUID()}@schwingkeller.local`,
+  email = freshEmail(),
 ): Promise<Invitation> => {
   const { data: token, error } = await inviter.rpc('create_invitation', {
     target_email: email,

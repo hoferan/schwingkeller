@@ -1,12 +1,16 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ACCOUNTS, anonClient } from '../test-support/local-stack';
+import { ACCOUNTS, anonClient, createAuthUser } from '../test-support/local-stack';
 import {
   approvedEditor,
   createInvitation,
   expectNotAuthorized,
+  freshEmail,
   invitationRows,
+  profileOf,
   signInAs,
+  signUpApplicant,
+  signUpWithInvitation,
 } from './support';
 
 // The invitation table and RPCs from 0015. Every address is a fresh int-… one, so no test depends
@@ -29,10 +33,19 @@ beforeAll(async () => {
   ]);
 });
 
-const freshEmail = (): string => `int-${crypto.randomUUID()}@schwingkeller.local`;
-
 const invite = (client: SupabaseClient, scope: string, email = freshEmail()) =>
   client.rpc('create_invitation', { target_email: email, scope });
+
+const userIdOf = async (client: SupabaseClient): Promise<string> => {
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user) throw new Error(`reading the signed-in user failed: ${error?.message}`);
+  return data.user.id;
+};
+
+// Refused by a missing grant, before any check inside the function runs.
+const expectPermissionDenied = (result: { error: PostgrestError | null }): void => {
+  expect(result.error?.code ?? '(no error)', result.error?.message).toBe('42501');
+};
 
 // A refusal from the RPC's own checks. The code rules out a missing function.
 const expectRefused = (result: { error: PostgrestError | null }, message: string): void => {
@@ -58,6 +71,19 @@ describe('can_invite / create_invitation', () => {
     const { data, error } = await invite(bksv, scope);
     expect(error).toBeNull();
     expect(data).toMatch(TOKEN);
+  });
+
+  it('records the inviter and an expiry 7 days out', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const { data, error } = await bksv
+      .from('invitations')
+      .select('invited_by, created_at, expires_at')
+      .eq('id', invitation.id)
+      .single();
+    expect(error).toBeNull();
+    expect(data?.invited_by).toBe(await userIdOf(bksv));
+    const week = Date.parse(data?.created_at) + 7 * 24 * 60 * 60 * 1000;
+    expect(Math.abs(Date.parse(data?.expires_at) - week)).toBeLessThan(60_000);
   });
 
   it('lets an emmental editor invite for emmental', async () => {
@@ -179,6 +205,15 @@ describe('revoke_invitation', () => {
     );
   });
 
+  it('refuses one that is used', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    await signUpWithInvitation(invitation.email, invitation.token);
+    expectRefused(
+      await bksv.rpc('revoke_invitation', { invitation_id: invitation.id }),
+      'cannot revoke an invitation that is used',
+    );
+  });
+
   it('revokes one that has expired', async () => {
     const invitation = await createInvitation(bksv, 'emmental');
     await backdate(invitation.id, '8 days');
@@ -227,6 +262,39 @@ describe('invitations visibility', () => {
   it('gives anonymous callers nothing', async () => {
     const { error } = await anonClient().from('invitations').select('id').limit(1);
     expect(error?.code ?? '(no error)', error?.message).toBe('42501');
+  });
+});
+
+describe('invitations guards', () => {
+  it('refuses an editor writing the table directly', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    expectPermissionDenied(
+      await bksv.from('invitations').insert({ email: freshEmail(), association_id: 'emmental' }),
+    );
+    expectPermissionDenied(
+      await bksv
+        .from('invitations')
+        .update({ expires_at: new Date(Date.now() + 1e10).toISOString() })
+        .eq('id', invitation.id),
+    );
+    expectPermissionDenied(await bksv.from('invitations').delete().eq('id', invitation.id));
+    expect(await invitationRows(esv, invitation.email)).toEqual([
+      { id: invitation.id, used_at: null, used_by: null, revoked_at: null },
+    ]);
+  });
+
+  it('keeps invitation_token_hash from signed-in callers', async () => {
+    expectPermissionDenied(await bksv.rpc('invitation_token_hash', { token: 'x' }));
+  });
+
+  it('refuses anonymous callers the editor RPCs', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const anon = anonClient();
+    expectPermissionDenied(
+      await anon.rpc('create_invitation', { target_email: freshEmail(), scope: 'emmental' }),
+    );
+    expectPermissionDenied(await anon.rpc('revoke_invitation', { invitation_id: invitation.id }));
+    expect((await invitationRows(esv, invitation.email))[0].revoked_at).toBeNull();
   });
 });
 
@@ -291,5 +359,168 @@ describe('invitation_details', () => {
     await details(anonClient(), invitation.token);
     expect(await invitationRows(esv, invitation.email)).toEqual(before);
     expect(await expiresAt(invitation.id)).toBe(expiry);
+  });
+});
+
+describe('consuming an invitation', () => {
+  // The trigger refuses through the admin API as well: createAuthUser skips the sign-up hook, so
+  // these cases reach consume_invitation whatever the hook would have said. GoTrue answers a
+  // trigger exception with a 500.
+  const PASSWORD = 'int-password';
+  const createdWith = (email: string, invitation: unknown): Promise<string> =>
+    createAuthUser(email, PASSWORD, { invitation });
+
+  const profilesWithEmail = async (email: string): Promise<unknown[]> => {
+    const { data, error } = await esv.from('profiles').select('id').eq('email', email);
+    if (error) throw new Error(`reading profiles of ${email} failed: ${error.message}`);
+    return data;
+  };
+
+  let bksvId: string;
+  beforeAll(async () => {
+    bksvId = await userIdOf(bksv);
+  });
+
+  it('approves the account with the invitation scope and marks the invitation used', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const editor = await signUpWithInvitation(invitation.email, invitation.token);
+    expect(await profileOf(esv, editor.id)).toMatchObject({
+      status: 'approved',
+      scope_association_id: 'emmental',
+      requested_association_id: null,
+      invited_by: bksvId,
+    });
+    const [row] = await invitationRows(esv, invitation.email);
+    expect(row).toMatchObject({ used_at: expect.any(String), used_by: editor.id });
+  });
+
+  // GoTrue copies the sign-up metadata into the identity and writes it back to the user later in the
+  // same transaction, so the stored account is read back through getUser, not the signUp response.
+  it('keeps the token and a requested node out of the account', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const client = anonClient();
+    const { data: signedUp, error: signUpError } = await client.auth.signUp({
+      email: invitation.email,
+      password: PASSWORD,
+      options: { data: { invitation: invitation.token, association: 'esv' } },
+    });
+    expect(signUpError).toBeNull();
+    expect(signedUp.session).not.toBeNull();
+
+    const { data, error } = await client.auth.getUser();
+    expect(error).toBeNull();
+    expect(data.user?.user_metadata).not.toHaveProperty('invitation');
+    expect(data.user?.user_metadata).not.toHaveProperty('association');
+    expect(data.user?.identities).toHaveLength(1);
+    expect(data.user?.identities?.[0].identity_data).not.toHaveProperty('invitation');
+    expect(data.user?.identities?.[0].identity_data).not.toHaveProperty('association');
+    expect(await profileOf(esv, data.user?.id ?? '')).toMatchObject({
+      status: 'approved',
+      scope_association_id: 'emmental',
+      requested_association_id: null,
+    });
+  });
+
+  it('matches the address whatever its case', async () => {
+    const mixed = `Int-Case-${crypto.randomUUID()}@Schwingkeller.LOCAL`;
+    const invitation = await createInvitation(bksv, 'emmental', mixed);
+    const editor = await signUpWithInvitation(mixed.toLowerCase(), invitation.token);
+    expect(await profileOf(esv, editor.id)).toMatchObject({ status: 'approved' });
+  });
+
+  // A used invitation's address always has an account, so the used token is tried with another one.
+  it.each<[string, () => Promise<{ email: string; invitation: unknown }>]>([
+    ['an unknown token', async () => ({ email: freshEmail(), invitation: 'A'.repeat(43) })],
+    [
+      'a used token',
+      async () => {
+        const used = await createInvitation(bksv, 'emmental');
+        await signUpWithInvitation(used.email, used.token);
+        return { email: freshEmail(), invitation: used.token };
+      },
+    ],
+    [
+      'a revoked token',
+      async () => {
+        const revoked = await createInvitation(bksv, 'emmental');
+        await revoke(bksv, revoked.id);
+        return { email: revoked.email, invitation: revoked.token };
+      },
+    ],
+    [
+      'an expired token',
+      async () => {
+        const expired = await createInvitation(bksv, 'emmental');
+        await backdate(expired.id, '8 days');
+        return { email: expired.email, invitation: expired.token };
+      },
+    ],
+    ['an empty token', async () => ({ email: freshEmail(), invitation: '' })],
+    ['a token that is not a string', async () => ({ email: freshEmail(), invitation: 42 })],
+    [
+      'a valid token for another address',
+      async () => {
+        const other = await createInvitation(bksv, 'emmental');
+        return { email: freshEmail(), invitation: other.token };
+      },
+    ],
+  ])('refuses the account for %s', async (_case, setup) => {
+    const { email, invitation } = await setup();
+    await expect(createdWith(email, invitation)).rejects.toThrow(/failed: 500/);
+    expect(await profilesWithEmail(email)).toEqual([]);
+  });
+
+  it('accepts only the newer token of a replaced invitation', async () => {
+    const first = await createInvitation(bksv, 'emmental');
+    const second = await createInvitation(bksv, 'emmental', first.email);
+    await expect(createdWith(first.email, first.token)).rejects.toThrow(/failed: 500/);
+    const id = await createdWith(first.email, second.token);
+    expect(await profileOf(esv, id)).toMatchObject({ status: 'approved' });
+  });
+
+  it('lets only one of two concurrent sign-ups use the token', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const results = await Promise.allSettled([
+      signUpWithInvitation(invitation.email, invitation.token),
+      signUpWithInvitation(invitation.email, invitation.token),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rows = await invitationRows(esv, invitation.email);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].used_at).toEqual(expect.any(String));
+  });
+
+  it('deletes the used invitation with the account, so the address can be invited again', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const editor = await signUpWithInvitation(invitation.email, invitation.token);
+    const { error } = await editor.client.rpc('delete_account');
+    expect(error).toBeNull();
+    expect(await invitationRows(esv, invitation.email)).toEqual([]);
+
+    const again = await createInvitation(bksv, 'emmental', invitation.email);
+    const back = await signUpWithInvitation(again.email, again.token);
+    expect(await profileOf(esv, back.id)).toMatchObject({ status: 'approved' });
+  });
+
+  it('still approves when the inviter has deleted their account', async () => {
+    const inviter = await approvedEditor(bksv, 'bksv');
+    const invitation = await createInvitation(inviter.client, 'emmental');
+    const { error } = await inviter.client.rpc('delete_account');
+    expect(error).toBeNull();
+    const editor = await signUpWithInvitation(invitation.email, invitation.token);
+    expect(await profileOf(esv, editor.id)).toMatchObject({
+      status: 'approved',
+      scope_association_id: 'emmental',
+      invited_by: null,
+    });
+  });
+
+  it('leaves an account made without a token pending', async () => {
+    const applicant = await signUpApplicant('emmental');
+    expect(await profileOf(esv, applicant.id)).toMatchObject({
+      status: 'pending',
+      requested_association_id: 'emmental',
+      scope_association_id: null,
+    });
   });
 });
