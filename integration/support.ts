@@ -102,6 +102,46 @@ export const approvedEditor = async (
   return applicant;
 };
 
+export type InvitationRow = {
+  id: string;
+  used_at: string | null;
+  used_by: string | null;
+  revoked_at: string | null;
+};
+
+// Every invitation row for email, oldest first, including those the select policy hides. Reads
+// through the local-only test_invitation_rows.
+export const invitationRows = async (
+  reader: SupabaseClient,
+  email: string,
+): Promise<InvitationRow[]> => {
+  const { data, error } = await reader.rpc('test_invitation_rows', { target_email: email });
+  if (error) throw new Error(`reading invitations of ${email} failed: ${error.message}`);
+  return data as InvitationRow[];
+};
+
+export type Invitation = { id: string; token: string; email: string };
+
+// The inviter invites email for scope. email comes back trimmed and lower-cased, as stored, and id
+// is that address's open invitation.
+export const createInvitation = async (
+  inviter: SupabaseClient,
+  scope: string,
+  email = `int-${crypto.randomUUID()}@schwingkeller.local`,
+): Promise<Invitation> => {
+  const { data: token, error } = await inviter.rpc('create_invitation', {
+    target_email: email,
+    scope,
+  });
+  if (error) throw new Error(`inviting ${email} as ${scope} failed: ${error.message}`);
+  const normalised = email.trim().toLowerCase();
+  const open = (await invitationRows(inviter, normalised)).find(
+    (r) => r.used_at === null && r.revoked_at === null,
+  );
+  if (!open) throw new Error(`no open invitation for ${normalised}`);
+  return { id: open.id, token: token as string, email: normalised };
+};
+
 // The refusal every editor RPC gives a caller who doesn't manage the target. Checks the code, so a
 // missing function (PGRST202) doesn't pass for a refusal.
 export const expectNotAuthorized = (result: { error: PostgrestError | null }): void => {
