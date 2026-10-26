@@ -287,7 +287,7 @@ describe('AccountsPanel', () => {
     renderPanel();
     await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.changeScope }));
     const dialog = screen.getByTestId('scope-dialog');
-    expect((within(dialog).getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
+    expect((within(dialog).getByRole('radio', { checked: true }) as HTMLInputElement).value).toBe('emmental');
   });
 
   it('asks before deleting an account', async () => {
