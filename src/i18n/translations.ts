@@ -53,6 +53,9 @@ export const STR = {
     passwordRule: 'Mindestens {n} Zeichen. Weitere Regeln gibt es nicht.',
     inviteSubmit: 'Konto erstellen',
     inviteTitle: 'Einladung annehmen',
+    inviteMailSubject: 'Einladung',
+    inviteMailBody:
+      'Sie sind eingeladen, die Schwingkeller des Verbands {node} zu bearbeiten. Öffnen Sie den Link unten innerhalb von 7 Tagen und legen Sie ein Passwort fest.',
     inviteFor: 'Mit dieser Einladung bearbeiten Sie die Schwingkeller dieses Verbands: {node}.',
     inviteChecking: 'Einladung wird geprüft …',
     inviteInvalid: 'Dieser Einladungslink ist nicht gültig. Bitten Sie die Person, die Sie eingeladen hat, um einen neuen.',
@@ -247,6 +250,9 @@ export const STR = {
     passwordRule: 'Au moins {n} caractères. Aucune autre règle.',
     inviteSubmit: 'Créer le compte',
     inviteTitle: 'Accepter l’invitation',
+    inviteMailSubject: 'Invitation',
+    inviteMailBody:
+      'Vous êtes invité à modifier les Schwingkeller de l’association {node}. Ouvrez le lien ci-dessous dans les 7 jours et choisissez un mot de passe.',
     inviteFor: 'Cette invitation vous permet de modifier les lieux de cette association : {node}.',
     inviteChecking: 'Vérification de l’invitation …',
     inviteInvalid: 'Ce lien d’invitation n’est pas valable. Demandez-en un nouveau à la personne qui vous l’a envoyé.',
@@ -441,6 +447,9 @@ export const STR = {
     passwordRule: 'Almeno {n} caratteri. Nessun’altra regola.',
     inviteSubmit: 'Creare l’account',
     inviteTitle: 'Accettare l’invito',
+    inviteMailSubject: 'Invito',
+    inviteMailBody:
+      'È invitato a modificare gli Schwingkeller dell’associazione {node}. Apra il link qui sotto entro 7 giorni e scelga una password.',
     inviteFor: 'Questo invito le permette di modificare le sedi di questa associazione: {node}.',
     inviteChecking: 'Verifica dell’invito …',
     inviteInvalid: 'Questo link d’invito non è valido. Ne chieda uno nuovo alla persona che gliel’ha inviato.',
