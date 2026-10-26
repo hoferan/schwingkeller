@@ -22,16 +22,12 @@ Given('I visit the map', async ({ page }) => {
 // InviteDialog asks a signed-in visitor to sign out instead of showing the sign-up form, so the
 // invited person's steps start from a signed-out page.
 When('I sign out', async ({ page }) => {
-  // The panel sits over the top bar.
-  await page.getByRole('button', { name: t.close, exact: true }).click();
-  const menu = page.getByRole('button', { name: t.accountMenu, exact: true });
-  if (await menu.isVisible()) {
-    await menu.click();
-    await page.getByRole('menuitem', { name: t.logout }).click();
-  } else {
-    await page.getByRole('button', { name: t.logout, exact: true }).click();
-  }
-  await expect(
-    page.getByRole('button', { name: t.loginShort, exact: true }).or(page.getByRole('button', { name: t.login, exact: true })),
-  ).toBeVisible();
+  // The panel sits over the top bar. Its title names it: "Benutzer" for an editor with nodes below,
+  // "Einladungen" for the others.
+  const panel = page.getByRole('dialog', { name: new RegExp(`^(${t.accountsTitle}|${t.invitationsTitle})$`) });
+  await panel.getByRole('button', { name: t.close, exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole('button', { name: t.accountMenu, exact: true }).click();
+  await page.getByRole('menuitem', { name: t.logout }).click();
+  await expect(page.getByRole('button', { name: t.login, exact: true })).toBeVisible();
 });

@@ -69,6 +69,19 @@ When('I invite the applicant from the invitations panel', async ({ page, applica
   invitation.token = token;
 });
 
+When('I invite the applicant to {string} from the Einladungen tab', async ({ page, applicant, invitation }, name: string) => {
+  await page.getByRole('tab', { name: new RegExp(t.invitationsTitle) }).click();
+  await page.getByRole('button', { name: new RegExp(String.raw`^\+?\s*${t.invite}$`) }).click();
+  const dialog = page.getByTestId('create-invitation-dialog');
+  await dialog.getByLabel(t.email).fill(applicant.email);
+  await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await dialog.getByRole('button', { name: t.inviteCreate }).click();
+  const link = await dialog.getByLabel(t.inviteLink).inputValue();
+  const token = new URL(link).searchParams.get('invite');
+  if (!token) throw new Error(`the invitation link has no token: ${link}`);
+  invitation.token = token;
+});
+
 Then('the invitation link is shown once', async ({ page }) => {
   const dialog = page.getByTestId('create-invitation-dialog');
   await expect(dialog.getByText(t.inviteShownOnce)).toBeVisible();
