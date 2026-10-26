@@ -3,11 +3,12 @@ import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 import { useAssociations } from '../associations/useAssociations';
-import { inputStyle, labelStyle, primaryButtonStyle, secondaryButtonStyle } from '../auth/formStyles';
+import { labelStyle, primaryButtonStyle, secondaryButtonStyle } from '../auth/formStyles';
 import { useAuth } from '../auth/useAuth';
 import type { Account } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
-import { defaultScopeFor, grantableBoard, grantableScopes, optionIds, type ScopeOption } from './scopeOptions';
+import { ScopeChips } from './ScopeChips';
+import { boardIds, defaultScopeFor, grantableBoard, scopeCounts } from './scopeOptions';
 import { useApprovedScopes, useApproveEditor, useSetEditorScope } from './useAccounts';
 
 interface ScopeDialogProps {
@@ -18,8 +19,7 @@ interface ScopeDialogProps {
   onError: (key: AdminErrorKey) => void;
 }
 
-// Picks a scope the caller may grant, to approve an account or to move an editor. A native select
-// for now; #128 replaces it with a tree picker.
+// Picks a scope the caller may grant, to approve an account or to move an editor.
 export const ScopeDialog = ({ account, mode, onClose, onError }: ScopeDialogProps) => {
   const { t } = useTranslation();
   const a = useAssociations();
@@ -28,22 +28,15 @@ export const ScopeDialog = ({ account, mode, onClose, onError }: ScopeDialogProp
   const approve = useApproveEditor();
   const change = useSetEditorScope();
   const mutation = mode === 'approve' ? approve : change;
-  const options = grantableScopes(a, callerScope ?? '', approved.data ?? []);
+  const board = grantableBoard(a, callerScope ?? '');
   const current = account.scope_association_id;
   const [scope, setScope] = useState<string>(() =>
     mode === 'approve'
-      ? (defaultScopeFor(account, grantableBoard(a, callerScope ?? '')) ?? '')
-      : current !== null && optionIds(options).includes(current) ? current : '',
+      ? (defaultScopeFor(account, board) ?? '')
+      : current !== null && boardIds(board).includes(current) ? current : '',
   );
   // Moving an editor to the scope it already has would change nothing.
   const blocked = scope === '' || (mode === 'change' && scope === current) || mutation.isPending;
-
-  // Counts only once they've loaded, so a picker never claims a Verband has no editors yet.
-  const optionText = (o: ScopeOption) => {
-    if (!approved.data) return o.name;
-    const below = o.below === null ? '' : ` · ${t.scopeBelow.replace('{n}', String(o.below))}`;
-    return `${o.name} · ${o.direct}${below}`;
-  };
 
   const confirm = () => {
     const handlers = {
@@ -71,16 +64,14 @@ export const ScopeDialog = ({ account, mode, onClose, onError }: ScopeDialogProp
         <div style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '6px', overflowWrap: 'anywhere' }}>
           {account.email}
         </div>
-        <label htmlFor="approve-scope" style={{ ...labelStyle, margin: '16px 0 6px' }}>{t.accountsScope}</label>
-        <select id="approve-scope" value={scope} onChange={(e) => setScope(e.target.value)} style={inputStyle}>
-          <option value="">{t.associationPlaceholder}</option>
-          {options.top && <option value={options.top.id}>{optionText(options.top)}</option>}
-          {options.groups.map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.options.map((o) => <option key={o.id} value={o.id}>{optionText(o)}</option>)}
-            </optgroup>
-          ))}
-        </select>
+        <div id="approve-scope-label" style={{ ...labelStyle, margin: '16px 0 6px' }}>{t.accountsScope}</div>
+        <ScopeChips
+          board={board}
+          counts={approved.data ? scopeCounts(a, approved.data) : null}
+          value={scope}
+          onChange={setScope}
+          labelledBy="approve-scope-label"
+        />
         <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
           <button type="button" onClick={onClose} style={secondaryButtonStyle}>{t.cancel}</button>
           <button

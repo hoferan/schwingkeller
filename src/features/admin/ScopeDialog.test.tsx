@@ -48,7 +48,8 @@ const renderDialog = (as: TestAccount, a: Account = account(), mode: 'approve' |
   return { onClose, onError };
 };
 
-const scopeSelect = () => screen.getByLabelText(t.accountsScope) as HTMLSelectElement;
+const checked = () => screen.queryByRole('radio', { checked: true }) as HTMLInputElement | null;
+const pick = (name: RegExp) => userEvent.click(screen.getByRole('radio', { name }));
 
 beforeEach(() => {
   state.approved = [{ scope_association_id: 'emmental' }];
@@ -58,25 +59,27 @@ beforeEach(() => {
 describe('ScopeDialog', () => {
   it('offers a Teilverband editor its Verbände, with the requested one preselected', async () => {
     renderDialog('bksv');
-    expect(scopeSelect().value).toBe('emmental');
-    const values = within(scopeSelect()).getAllByRole('option').map((o) => (o as HTMLOptionElement).value);
-    expect(values.filter(Boolean)).toEqual(['berner-jura', 'emmental', 'mittelland', 'oberaargau', 'oberland', 'seeland']);
-    await waitFor(() => expect(within(scopeSelect()).getByRole('option', { name: /^Emmental · 1$/ })).toBeInTheDocument());
-    // The select above shows the scope, so the button stays short enough for one line on a phone.
+    expect(checked()?.value).toBe('emmental');
+    const values = screen.getAllByRole('radio').map((r) => (r as HTMLInputElement).value);
+    expect(values).toEqual(['berner-jura', 'emmental', 'mittelland', 'oberaargau', 'oberland', 'seeland']);
+    await waitFor(() => expect(screen.getByRole('radio', { name: /^Emmental.*Benutzer: 1/ })).toBeInTheDocument());
+    // The board above shows the scope, so the button stays short enough for one line on a phone.
     expect(screen.getByRole('button', { name: t.approve })).toBeEnabled();
   });
 
   it('shows the counts below a Teilverband for a super-admin', async () => {
     renderDialog('esv');
+    const bksv = screen.getByRole('group', { name: /Bernisch-Kantonaler Schwingerverband/ });
     await waitFor(() =>
-      expect(within(scopeSelect()).getByRole('option', { name: /^Bernisch-Kantonaler Schwingerverband · 0 · 1 darunter$/ }))
+      expect(within(bksv).getByRole('radio', { name: new RegExp(`^${t.scopeWholeRegional}.*Benutzer: 0.*1 darunter`) }))
         .toBeInTheDocument(),
     );
   });
 
   it('lets a super-admin approve with another scope', async () => {
     const { onClose } = renderDialog('esv');
-    await userEvent.selectOptions(scopeSelect(), 'bksv');
+    const bksv = screen.getByRole('group', { name: /Bernisch-Kantonaler Schwingerverband/ });
+    await userEvent.click(within(bksv).getByRole('radio', { name: new RegExp(`^${t.scopeWholeRegional}`) }));
     await userEvent.click(screen.getByRole('button', { name: t.approve }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(rpc).toHaveBeenCalledWith('approve_editor', { target_id: 'u2', scope: 'bksv' });
@@ -84,9 +87,9 @@ describe('ScopeDialog', () => {
 
   it('preselects nothing outside the caller’s scopes, and waits for a choice', async () => {
     renderDialog('bksv', account({ requested_association_id: 'luzern' }));
-    expect(scopeSelect().value).toBe('');
+    expect(checked()).toBeNull();
     expect(screen.getByRole('button', { name: t.approve })).toBeDisabled();
-    await userEvent.selectOptions(scopeSelect(), 'seeland');
+    await pick(/^Seeland/);
     expect(screen.getByRole('button', { name: t.approve })).toBeEnabled();
   });
 
@@ -112,14 +115,14 @@ describe('ScopeDialog', () => {
 
     it('preselects the current scope', () => {
       renderDialog('bksv', editor, 'change');
-      expect(scopeSelect().value).toBe('emmental');
+      expect(checked()?.value).toBe('emmental');
       expect(screen.getByText(t.changeScope)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: t.approve })).toBeNull();
     });
 
     it('preselects nothing when the current scope is not one the caller may grant', () => {
       renderDialog('bksv', account({ status: 'approved', scope_association_id: 'luzern' }), 'change');
-      expect(scopeSelect().value).toBe('');
+      expect(checked()).toBeNull();
       expect(screen.getByRole('button', { name: t.save })).toBeDisabled();
     });
 
@@ -127,13 +130,13 @@ describe('ScopeDialog', () => {
       renderDialog('bksv', editor, 'change');
       const confirm = screen.getByRole('button', { name: t.save });
       expect(confirm).toBeDisabled();
-      await userEvent.selectOptions(scopeSelect(), 'seeland');
+      await pick(/^Seeland/);
       expect(confirm).toBeEnabled();
     });
 
     it('changes the scope through set_editor_scope', async () => {
       const { onClose } = renderDialog('bksv', editor, 'change');
-      await userEvent.selectOptions(scopeSelect(), 'seeland');
+      await pick(/^Seeland/);
       await userEvent.click(screen.getByRole('button', { name: t.save }));
       await waitFor(() => expect(onClose).toHaveBeenCalled());
       expect(rpc).toHaveBeenCalledWith('set_editor_scope', { target_id: 'u2', scope: 'seeland' });
@@ -142,7 +145,8 @@ describe('ScopeDialog', () => {
     it('hands a refused change to the panel', async () => {
       rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot remove the last super-admin' } });
       const { onClose, onError } = renderDialog('esv', account({ status: 'approved', scope_association_id: 'esv' }), 'change');
-      await userEvent.selectOptions(scopeSelect(), 'bksv');
+      const bksv = screen.getByRole('group', { name: /Bernisch-Kantonaler Schwingerverband/ });
+      await userEvent.click(within(bksv).getByRole('radio', { name: new RegExp(`^${t.scopeWholeRegional}`) }));
       await userEvent.click(screen.getByRole('button', { name: t.save }));
       await waitFor(() => expect(onError).toHaveBeenCalledWith('adminErrLastSuperAdmin'));
       expect(onClose).toHaveBeenCalled();
