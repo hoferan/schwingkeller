@@ -79,7 +79,7 @@ export const signUpApplicant = async (
   requested: string,
   email = freshEmail(),
 ): Promise<Applicant> => {
-  const password = 'int-password';
+  const password = 'int-password-016';
   const id = await createAuthUser(email, password, { association: requested });
   const client = anonClient();
   const { error } = await client.auth.signInWithPassword({ email, password });
@@ -91,7 +91,7 @@ export const signUpApplicant = async (
 // sign-up is autoconfirmed, so this returns a live session.
 export const signUpWithInvitation = async (email: string, token: string): Promise<Applicant> => {
   const client = anonClient();
-  const password = 'int-password';
+  const password = 'int-password-016';
   const { data, error } = await client.auth.signUp({
     email,
     password,
