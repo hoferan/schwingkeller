@@ -64,7 +64,7 @@ export const InviteDialog = ({ token, onClose }: InviteDialogProps) => {
     </div>
   );
 
-  let title = t.inviteTitle;
+  let title: string = t.inviteTitle;
   let body: ReactNode;
   if (step === 'welcome' && invitation) {
     title = t.inviteWelcomeTitle;
