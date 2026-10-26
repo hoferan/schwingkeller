@@ -76,4 +76,14 @@ describe('translations', () => {
       }
     }
   });
+
+  // Node names run from "Emmental" to "Bernisch-Kantonaler Schwingerverband", so they stand after a
+  // colon rather than inside a phrase that would have to decline or elide them.
+  it('never declines a Verband name in the invitation texts', () => {
+    for (const lang of LANGS) {
+      for (const key of ['inviteFor', 'inviteWelcome'] as const) {
+        expect(STR[lang][key]).toMatch(/: ?\{node\}/);
+      }
+    }
+  });
 });

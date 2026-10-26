@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act } from '@testing-library/react';
 
 const { fetchInvitation } = vi.hoisted(() => ({ fetchInvitation: vi.fn() }));
 vi.mock('./invitation', () => ({ fetchInvitation }));
@@ -40,5 +41,20 @@ describe('useInvitation', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     unmount();
     await waitFor(() => expect(client.getQueryCache().find({ queryKey: ['invitation', 'tok'] })).toBeUndefined());
+  });
+
+  // A used invitation looks up as nothing, so a second lookup after sign-up would turn the welcome
+  // step into "link not valid". The dialog needs the answer once.
+  it('looks the token up once, even when the window regains focus', async () => {
+    fetchInvitation.mockReset().mockResolvedValue(invitation);
+    const { result } = setup();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fetchInvitation).toHaveBeenCalledTimes(1);
+    focusManager.setFocused(undefined);
   });
 });

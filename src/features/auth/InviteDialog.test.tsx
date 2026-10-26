@@ -164,6 +164,30 @@ describe('InviteDialog', () => {
     expect(screen.getByRole('button', { name: t.inviteSubmit })).toBeEnabled();
   });
 
+  it('keeps the welcome step when the used invitation no longer looks up', async () => {
+    lookup({ data: invitation });
+    const signUp = vi.fn().mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    const { rerender } = renderDialog({ signUp });
+
+    await signUpWith(user);
+    await screen.findByText(t.inviteWelcome.replace('{node}', emmental));
+    lookup({ data: null });
+    rerender({ signUp, session: sessionFor('a@b.ch') });
+
+    expect(screen.getByText(t.inviteWelcome.replace('{node}', emmental))).toBeInTheDocument();
+    expect(screen.queryByText(t.inviteInvalid)).toBeNull();
+  });
+
+  // Signing out would gain nothing: the link is dead either way.
+  it('says a dead link is dead before offering to sign out', () => {
+    lookup({ data: null });
+    renderDialog({ session: sessionFor('x@y.ch') });
+
+    expect(screen.getByText(t.inviteInvalid)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.inviteSignOut })).toBeNull();
+  });
+
   it('closes on Cancel without signing up', async () => {
     lookup({ data: invitation });
     const signUp = vi.fn();
