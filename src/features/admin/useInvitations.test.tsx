@@ -3,10 +3,16 @@ import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
-vi.mock('../../lib/supabase', () => ({ supabase: { rpc } }));
+const { rpc, from, state } = vi.hoisted(() => {
+  const state: { result: unknown } = { result: { data: [], error: null } };
+  const builder: Record<string, unknown> = {};
+  for (const m of ['select', 'order']) builder[m] = () => builder;
+  builder.then = (resolve: (v: unknown) => unknown) => resolve(state.result);
+  return { rpc: vi.fn(), from: vi.fn(() => builder), state };
+});
+vi.mock('../../lib/supabase', () => ({ supabase: { rpc, from } }));
 
-import { useCreateInvitation, useRevokeInvitation } from './useInvitations';
+import { useCreateInvitation, useInvitations, useRevokeInvitation } from './useInvitations';
 
 const setup = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -19,6 +25,18 @@ const setup = () => {
 
 beforeEach(() => {
   rpc.mockReset().mockResolvedValue({ data: 'secret-token', error: null });
+});
+
+describe('useInvitations', () => {
+  it('returns the fetched rows', async () => {
+    const row = { id: 'i1', email: 'a@b.ch' };
+    state.result = { data: [row], error: null };
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useInvitations(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([row]);
+    expect(from).toHaveBeenCalledWith('invitations');
+  });
 });
 
 describe('useCreateInvitation', () => {

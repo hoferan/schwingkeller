@@ -7,7 +7,7 @@ export type InviteMessage = { subject: string; body: string };
 export const inviteMessage = (first: Lang, scope: string, link: string): InviteMessage => {
   const langs = [first, ...LANGS.filter((lang) => lang !== first)];
   const paragraphs = langs.map((lang) =>
-    STR[lang].inviteMailBody.replace('{node}', associationsFor(lang).nameOf(scope)),
+    STR[lang].inviteMailBody.replace('{node}', () => associationsFor(lang).nameOf(scope)),
   );
   const subjects = langs.map((lang) => STR[lang].inviteMailSubject);
   return {

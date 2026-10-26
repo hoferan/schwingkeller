@@ -19,14 +19,14 @@ import { DeleteOwnAccountDialog } from './DeleteOwnAccountDialog';
 
 const t = STR.de;
 
-const renderDialog = () => {
+const renderDialog = (email = 'me@example.ch') => {
   const onClose = vi.fn();
   const onDeleted = vi.fn();
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
-        <DeleteOwnAccountDialog email="me@example.ch" onClose={onClose} onDeleted={onDeleted} />
+        <DeleteOwnAccountDialog email={email} onClose={onClose} onDeleted={onDeleted} />
       </I18nContext.Provider>
     </QueryClientProvider>,
   );
@@ -50,6 +50,11 @@ describe('DeleteOwnAccountDialog', () => {
     expect(deleteButton()).toBeDisabled();
     await userEvent.type(password(), 'pw');
     expect(deleteButton()).toBeEnabled();
+  });
+
+  it('shows an address with a $ pattern as typed', () => {
+    renderDialog('a$&b@example.ch');
+    expect(screen.getByTestId('delete-own-account-dialog')).toHaveTextContent('a$&b@example.ch');
   });
 
   it('deletes and reports success with the right password', async () => {

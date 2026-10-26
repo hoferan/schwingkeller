@@ -48,10 +48,10 @@ describe('fetchInvitations', () => {
   });
 
   it('rejects with the database error', async () => {
-    state.result = { data: null, error: { code: '42501', message: 'denied' } };
+    state.result = { data: null, error: { code: 'PGRST301', message: 'JWT expired' } };
     const err = await fetchInvitations().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
-    expect(extractCode(err)).toBe('42501');
+    expect(extractCode(err)).toBe('PGRST301');
   });
 });
 

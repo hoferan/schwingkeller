@@ -26,7 +26,9 @@ describe('inviteMessage', () => {
     for (const lang of ['de', 'fr', 'it'] as const) {
       expect(body).toContain(`: ${associationsFor(lang).nameOf(scope)}.`);
     }
-    expect(body).not.toMatch(/Verbands Eidgen|association Association|associazione Associazione/);
+    expect(body).not.toMatch(
+      /Verbands Eidgen|Verbands Bernisch|association Association|associazione Associazione/,
+    );
   });
 
   it('joins the three subjects in the same order', () => {

@@ -147,6 +147,12 @@ describe('InviteDialog', () => {
     expect(screen.getByLabelText(t.email)).toHaveValue('a@b.ch');
   });
 
+  it('shows a signed-in address with a $ pattern as typed', () => {
+    lookup({ data: invitation });
+    renderDialog({ session: sessionFor('a$&b@example.ch') });
+    expect(screen.getByText(/angemeldet/)).toHaveTextContent('Sie sind als a$&b@example.ch angemeldet.');
+  });
+
   it.each([
     ['invitation', t.inviteInvalid],
     ['weakPassword', t.registerErrShort.replace('{n}', '15')],

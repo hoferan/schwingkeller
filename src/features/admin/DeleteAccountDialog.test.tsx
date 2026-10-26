@@ -23,14 +23,14 @@ const account: Account = {
   created_at: '2026-10-19T08:00:00Z',
 };
 
-const renderDialog = () => {
+const renderDialog = (acc: Account = account) => {
   const onClose = vi.fn();
   const onError = vi.fn();
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
-        <DeleteAccountDialog account={account} onClose={onClose} onError={onError} />
+        <DeleteAccountDialog account={acc} onClose={onClose} onError={onError} />
       </I18nContext.Provider>
     </QueryClientProvider>,
   );
@@ -51,6 +51,11 @@ describe('DeleteAccountDialog', () => {
       t.deleteAccountBody.replace('{email}', 'gau@example.ch'),
     );
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('shows an address with a $ pattern as typed', () => {
+    renderDialog({ ...account, email: 'a$&b@example.ch' });
+    expect(screen.getByTestId('delete-account-dialog')).toHaveTextContent('a$&b@example.ch');
   });
 
   it('deletes through delete_account and closes', async () => {

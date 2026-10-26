@@ -90,7 +90,7 @@ export const InviteDialog = ({ token, onClose }: InviteDialogProps) => {
   } else if (session && step === 'form') {
     body = (
       <>
-        <p style={textStyle}>{t.inviteSignedInAs.replace('{email}', session.user.email ?? '')}</p>
+        <p style={textStyle}>{t.inviteSignedInAs.replace('{email}', () => session.user.email ?? '')}</p>
         <div style={{ display: 'flex', gap: '11px', marginTop: '18px' }}>
           <button type="button" onClick={onClose} style={secondaryButtonStyle}>{t.cancel}</button>
           <button type="button" onClick={() => { void signOut(); }} style={primaryButtonStyle}>{t.inviteSignOut}</button>

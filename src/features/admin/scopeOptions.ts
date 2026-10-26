@@ -64,6 +64,8 @@ export interface InviteOptions {
 export const invitableScopes = (a: Associations, callerScope: string): InviteOptions => {
   const caller = a.byId.get(callerScope);
   if (!caller) return { own: null, groups: [] };
+  // Keys on level 'federation', which only the ESV has. That matches is_super_admin() in can_invite
+  // (migration 0015).
   if (caller.level === 'federation') {
     return {
       own: caller.id,
