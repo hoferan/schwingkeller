@@ -6,6 +6,7 @@ import { Sidebar } from './features/sidebar/Sidebar';
 import { MapView } from './features/map/MapView';
 import { DetailModal } from './features/venue-detail/DetailModal';
 import { EditForm } from './features/venue-edit/EditForm';
+import { InviteDialog } from './features/auth/InviteDialog';
 import { LoginModal } from './features/auth/LoginModal';
 import { StatusBanner } from './features/auth/StatusBanner';
 import { useAuth } from './features/auth/useAuth';
@@ -17,7 +18,9 @@ import { I18nContext, useTranslation, loadLang, saveLang } from './i18n/useTrans
 import { STR, type Lang } from './i18n/translations';
 import { captureAndFormat } from './lib/sentry';
 import { theme } from './theme';
-import { associationForCanton, parseAssociationParam, parseCantonParam, parseVenueParam } from './lib/permalink';
+import {
+  associationForCanton, parseAssociationParam, parseCantonParam, parseInviteParam, parseVenueParam, withoutInviteParam,
+} from './lib/permalink';
 import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
@@ -64,8 +67,16 @@ function AppShell() {
 
   // Cross-cutting UI state.
   // Parsed once at startup. ?venue= takes precedence over the others. With the verband flag on, a
-  // ?ctn= link lands on its Verband or Teilverband instead of the canton. See src/lib/permalink.ts
-  // and docs/adr/0007-url-parameters-without-a-router.md.
+  // ?ctn= link lands on its Verband or Teilverband instead of the canton. ?invite= stands apart: it
+  // opens the sign-up dialog with the editors flag on, and leaves the address bar either way. See
+  // src/lib/permalink.ts and docs/adr/0007-url-parameters-without-a-router.md.
+  const [inviteToken, setInviteToken] = useState<string | null>(() =>
+    isFeatureOn('editors') ? parseInviteParam(window.location.search) : null,
+  );
+  useEffect(() => {
+    if (!parseInviteParam(window.location.search)) return;
+    window.history.replaceState(window.history.state, '', withoutInviteParam(window.location.pathname + window.location.search));
+  }, []);
   const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
   const [ctnParam] = useState<string | null>(() =>
     venueParam || isFeatureOn('verband') ? null : parseCantonParam(window.location.search),
@@ -362,6 +373,7 @@ function AppShell() {
       )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {inviteToken && <InviteDialog token={inviteToken} onClose={() => setInviteToken(null)} />}
 
       {posterSubject && (
         <PosterEditorModal
