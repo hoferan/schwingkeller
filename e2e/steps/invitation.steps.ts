@@ -6,7 +6,8 @@ import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
 
-// The super-admin invites through the API; the admin panel's invite form is #141.
+// The super-admin invites through the API. Scenarios that don't test the invitations panel use this
+// path; the panel has its own scenarios in invitations.feature.
 Given('the applicant has been invited to the Verband {string}', async ({ applicant, invitation }, name: string) => {
   const admin = await signInAsAdmin(ACCOUNTS.esv.email, ACCOUNTS.esv.password);
   const { data, error } = await admin.rpc('create_invitation', {
@@ -38,6 +39,9 @@ When('the applicant chooses a password and creates the account', async ({ page, 
   await page.getByLabel(t.password, { exact: true }).fill(applicant.password);
   await page.getByLabel(t.passwordConfirm).fill(applicant.password);
   await page.getByRole('button', { name: t.inviteSubmit }).click();
+  // The form gives way to the welcome note once the account exists, so later steps that read the
+  // account don't race the sign-up request.
+  await expect(page.getByLabel(t.password, { exact: true })).toHaveCount(0);
 });
 
 Then('the welcome note names {string}', async ({ page }, name: string) => {
@@ -51,4 +55,35 @@ When('I open an invitation link with an unknown token', async ({ page }) => {
 
 Then('I see that the invitation link is not valid', async ({ page }) => {
   await expect(page.getByText(t.inviteInvalid)).toBeVisible();
+});
+
+When('I invite the applicant from the invitations panel', async ({ page, applicant, invitation }) => {
+  await page.getByRole('button', { name: t.invitationsTitle, exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(String.raw`^\+?\s*${t.invite}$`) }).click();
+  const dialog = page.getByTestId('create-invitation-dialog');
+  await dialog.getByLabel(t.email).fill(applicant.email);
+  await dialog.getByRole('button', { name: t.inviteCreate }).click();
+  const link = await dialog.getByLabel(t.inviteLink).inputValue();
+  const token = new URL(link).searchParams.get('invite');
+  if (!token) throw new Error(`the invitation link has no token: ${link}`);
+  invitation.token = token;
+});
+
+Then('the invitation link is shown once', async ({ page }) => {
+  const dialog = page.getByTestId('create-invitation-dialog');
+  await expect(dialog.getByText(t.inviteShownOnce)).toBeVisible();
+  const link = await dialog.getByLabel(t.inviteLink).inputValue();
+  expect(link.startsWith(`${new URL(page.url()).origin}/?invite=`)).toBe(true);
+});
+
+When('I close the invitation dialog', async ({ page }) => {
+  const dialog = page.getByTestId('create-invitation-dialog');
+  await dialog.getByRole('button', { name: t.inviteDone }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+When("I revoke the applicant's invitation", async ({ page, applicant }) => {
+  const row = page.getByTestId(`invitation-${applicant.email}`);
+  await row.getByRole('button', { name: t.invitationRevoke }).click();
+  await expect(row).toHaveCount(0);
 });
