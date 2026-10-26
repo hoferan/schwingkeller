@@ -1,8 +1,8 @@
-import type { CSSProperties } from 'react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 import { useAssociations } from '../associations/useAssociations';
 import type { Account } from './accounts';
+import { actionStyle, cell, head } from './listStyles';
 import { scopeLabel } from './scopeLabel';
 
 export type AccountAction = 'approve' | 'reject' | 'changeScope' | 'suspend' | 'reactivate' | 'delete';
@@ -34,20 +34,6 @@ const STATUS_KEY = {
   suspended: 'accountStatusSuspended',
   rejected: 'accountStatusRejected',
 } as const;
-
-const cell: CSSProperties = { padding: '10px 12px', borderBottom: '1px solid ' + theme.color.line, verticalAlign: 'top' };
-const head: CSSProperties = {
-  ...cell, textAlign: 'left', fontSize: '11px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
-  color: theme.color.muted,
-};
-// Delete gets the red outline of the venue delete button.
-const actionStyle = (kind: 'primary' | 'plain' | 'danger', busy: boolean): CSSProperties => ({
-  border: kind === 'primary' ? 'none' : '1.5px solid ' + (kind === 'danger' ? theme.color.accent : theme.color.line),
-  background: kind === 'primary' ? theme.color.accent : 'transparent',
-  color: kind === 'primary' ? theme.color.accentInk : kind === 'danger' ? theme.color.accent : theme.color.ink,
-  fontWeight: 600, fontSize: '13px', padding: '7px 12px', borderRadius: theme.radius.sm,
-  cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
-});
 
 export const AccountList = ({ accounts, isMobile, ownId, busyIds, canDelete, onAction }: AccountListProps) => {
   const { t, lang } = useTranslation();
