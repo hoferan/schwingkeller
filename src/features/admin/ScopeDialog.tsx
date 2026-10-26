@@ -7,7 +7,7 @@ import { inputStyle, labelStyle, primaryButtonStyle, secondaryButtonStyle } from
 import { useAuth } from '../auth/useAuth';
 import type { Account } from './accounts';
 import { adminErrorKey, type AdminErrorKey } from './adminError';
-import { defaultScopeFor, grantableScopes, optionIds, type ScopeOption } from './scopeOptions';
+import { defaultScopeFor, grantableBoard, grantableScopes, optionIds, type ScopeOption } from './scopeOptions';
 import { useApprovedScopes, useApproveEditor, useSetEditorScope } from './useAccounts';
 
 interface ScopeDialogProps {
@@ -32,7 +32,7 @@ export const ScopeDialog = ({ account, mode, onClose, onError }: ScopeDialogProp
   const current = account.scope_association_id;
   const [scope, setScope] = useState<string>(() =>
     mode === 'approve'
-      ? (defaultScopeFor(account, options) ?? '')
+      ? (defaultScopeFor(account, grantableBoard(a, callerScope ?? '')) ?? '')
       : current !== null && optionIds(options).includes(current) ? current : '',
   );
   // Moving an editor to the scope it already has would change nothing.
