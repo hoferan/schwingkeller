@@ -18,7 +18,8 @@ export interface AuthValue {
   isApproved: boolean;
   isSuperAdmin: boolean;
   // True when the scope has nodes below it (the ESV and the Teilverbände): those accounts get the
-  // account list. RLS decides which rows it shows.
+  // account list (the Benutzer tab) and the pending badge. RLS decides which rows it shows. Every
+  // approved editor gets the panel itself, for the invitations.
   canManageAccounts: boolean;
   canEditAssociation: (id: string | null) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: SignInFailure | null }>;

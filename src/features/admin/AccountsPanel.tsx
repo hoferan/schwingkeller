@@ -1,24 +1,19 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useMutationState } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
-import { captureAndFormat } from '../../lib/sentry';
 import { theme } from '../../theme';
 import { inputStyle, labelStyle } from '../auth/formStyles';
 import { useAuth } from '../auth/useAuth';
-import { AccountList, type AccountAction } from './AccountList';
-import type { Account, AccountFilter } from './accounts';
-import { adminErrorKey, type AdminErrorKey } from './adminError';
-import { DeleteAccountDialog } from './DeleteAccountDialog';
-import { ScopeDialog } from './ScopeDialog';
-import { rowActionKey, useAccounts, useReactivateEditor, useRejectEditor, useSuspendEditor } from './useAccounts';
-
-// Read by screen readers, not shown: on a phone the select's value says what it filters.
-const visuallyHidden: CSSProperties = {
-  position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden',
-  clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0,
-};
+import type { AccountFilter } from './accounts';
+import { AccountsTabs } from './AccountsTabs';
+import { AccountsView } from './AccountsView';
+import type { AdminErrorKey } from './adminError';
+import { CreateInvitationDialog } from './CreateInvitationDialog';
+import type { RevokeInvitationErrorKey } from './invitationError';
+import { InvitationsView } from './InvitationsView';
+import { actionStyle, visuallyHidden } from './listStyles';
+import { PANEL_TITLE_ID, TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
 
 const FILTERS = [
   ['pending', 'accountStatusPending'],
@@ -28,91 +23,99 @@ const FILTERS = [
   ['all', 'accountStatusAll'],
 ] as const;
 
-// The accounts the caller manages. RLS decides which rows come back: everyone for a super-admin,
-// the accounts below their node for a Teilverband editor, and their own row in both cases.
+// People management for approved editors. Editors with nodes below them get two tabs, accounts and
+// invitations; the others only the invitations.
 export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) => {
   const { t } = useTranslation();
-  const { session, isSuperAdmin } = useAuth();
+  const { canManageAccounts } = useAuth();
+  const [chosen, setChosen] = useState<PanelTab>('accounts');
+  const tab: PanelTab = canManageAccounts ? chosen : 'invitations';
   const [filter, setFilter] = useState<AccountFilter>('pending');
-  const [dialog, setDialog] = useState<{ kind: 'approve' | 'change' | 'delete'; account: Account } | null>(null);
-  const [error, setError] = useState<AdminErrorKey | null>(null);
-  const accounts = useAccounts(filter);
-  const onError = (err: unknown) => setError(adminErrorKey(err));
-  const reject = useRejectEditor({ onError });
-  const suspend = useSuspendEditor({ onError });
-  const reactivate = useReactivateEditor({ onError });
-  // Every row with an action running, the delete dialog's included. Their buttons wait meanwhile.
-  const pending = useMutationState({
-    filters: { mutationKey: rowActionKey, status: 'pending' },
-    select: (m) => m.state.variables as string,
-  });
-  const busyIds = useMemo(() => new Set(pending), [pending]);
+  // The refusal and the tab it came from. A late answer to an action on the other tab stays hidden.
+  const [error, setError] = useState<{ tab: PanelTab; key: AdminErrorKey | RevokeInvitationErrorKey } | null>(null);
+  const reportFrom = (from: PanelTab) => (key: AdminErrorKey | RevokeInvitationErrorKey | null) =>
+    setError(key ? { tab: from, key } : null);
+  const [creating, setCreating] = useState<{ initial?: { email: string; scope: string } } | null>(null);
 
-  useEffect(() => {
-    if (accounts.error) captureAndFormat(accounts.error, 'account list fetch failed');
-  }, [accounts.error]);
-
-  const onAction = (action: AccountAction, account: Account) => {
-    setError(null);
-    switch (action) {
-      case 'approve':
-        return setDialog({ kind: 'approve', account });
-      case 'changeScope':
-        return setDialog({ kind: 'change', account });
-      case 'delete':
-        return setDialog({ kind: 'delete', account });
-      case 'reject':
-        return reject.mutate(account.id);
-      case 'suspend':
-        return suspend.mutate(account.id);
-      case 'reactivate':
-        return reactivate.mutate(account.id);
-    }
+  const select = (next: PanelTab) => {
+    if (next !== tab) setError(null);
+    setChosen(next);
   };
 
-  // One row on a phone: title, filter, close. It stays put while the list scrolls under it, and so
-  // does a refusal, which may be for a row far down the list.
+  // Two rows: title, "+ Einladen" and close, then the tabs and the filter. They stay put while the
+  // list scrolls under them, and so does a refusal, which may be for a row far down the list. The
+  // second row wraps the filter onto its own line when it doesn't fit beside the tabs.
   const header = (
     <>
-      <div
-        style={{
-          display: 'flex', alignItems: isMobile ? 'center' : 'flex-end', gap: '12px',
-          padding: isMobile ? '10px 12px 10px 16px' : '16px 18px', borderBottom: '1px solid ' + theme.color.line,
-        }}
-      >
+      <div style={{ borderBottom: '1px solid ' + theme.color.line }}>
         <div
           style={{
-            fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
-            color: theme.color.ink, flex: 1, minWidth: 0, alignSelf: 'center',
+            display: 'flex', alignItems: 'center', gap: '12px',
+            padding: isMobile ? '6px 6px 6px 16px' : '12px 12px 12px 18px',
           }}
         >
-          {t.accountsTitle}
-        </div>
-        <div>
-          <label htmlFor="accounts-filter" style={isMobile ? visuallyHidden : labelStyle}>{t.accountsFilter}</label>
-          <select
-            id="accounts-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as AccountFilter)}
-            style={{ ...inputStyle, width: 'auto', padding: '8px 11px' }}
+          <div
+            id={PANEL_TITLE_ID}
+            style={{
+              fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
+              color: theme.color.ink, flex: 1, minWidth: 0,
+            }}
           >
-            {FILTERS.map(([value, key]) => <option key={value} value={value}>{t[key]}</option>)}
-          </select>
+            {canManageAccounts ? t.accountsTitle : t.invitationsTitle}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCreating({})}
+            style={{
+              ...actionStyle('primary', false), display: 'flex', alignItems: 'center', gap: '6px', flex: 'none',
+              minHeight: '36px',
+            }}
+          >
+            <Plus size={15} />
+            {t.invite}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t.close}
+            title={t.close}
+            style={{
+              border: 'none', background: 'transparent', color: theme.color.muted, cursor: 'pointer', padding: 0,
+              width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', flex: 'none', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={20} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t.close}
-          title={t.close}
-          style={{
-            border: 'none', background: 'transparent', color: theme.color.muted, cursor: 'pointer', padding: '6px',
-            alignSelf: 'center', display: 'flex',
-          }}
-        >
-          <X size={20} />
-        </button>
+        {canManageAccounts && (
+          <div
+            style={{
+              display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: '16px', rowGap: '8px', minHeight: '44px',
+              padding: isMobile ? '0 12px 0 16px' : '0 18px',
+            }}
+          >
+            <AccountsTabs tab={tab} onSelect={select} />
+            {tab === 'accounts' && (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                {/* Read by screen readers, not shown: on a phone the select's value says what it filters. */}
+                <label htmlFor="accounts-filter" style={isMobile ? visuallyHidden : { ...labelStyle, marginBottom: 0 }}>
+                  {t.accountsFilter}
+                </label>
+                <select
+                  id="accounts-filter"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as AccountFilter)}
+                  style={{ ...inputStyle, width: 'auto', padding: '8px 11px' }}
+                >
+                  {FILTERS.map(([value, key]) => <option key={value} value={value}>{t[key]}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      {error && (
+      {error && error.tab === tab && (
         <div
           role="alert"
           style={{
@@ -120,40 +123,38 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
             borderBottom: '1px solid ' + theme.color.line,
           }}
         >
-          {t[error]}
+          {t[error.key]}
         </div>
       )}
     </>
   );
 
+  const view =
+    tab === 'accounts' ? (
+      <AccountsView filter={filter} isMobile={isMobile} onError={reportFrom('accounts')} />
+    ) : (
+      <InvitationsView isMobile={isMobile} onError={reportFrom('invitations')} onReinvite={(initial) => setCreating({ initial })} />
+    );
+
   return (
     <>
-      <Modal onClose={onClose} width={960} zIndex={1400} header={header} fullScreen={isMobile}>
-        {accounts.isError && (
-          <div role="alert" style={{ padding: '12px 18px', color: theme.color.accent, fontSize: '13px' }}>
-            {t.accountsLoadFailed}
+      <Modal
+        onClose={onClose}
+        width={960}
+        zIndex={1400}
+        header={header}
+        fullScreen={isMobile}
+        labelledBy={PANEL_TITLE_ID}
+      >
+        {canManageAccounts ? (
+          <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={tabId(tab)}>
+            {view}
           </div>
-        )}
-        {accounts.data && accounts.data.length === 0 && (
-          <div style={{ padding: '22px 18px', color: theme.color.muted, fontSize: '13.5px' }}>{t.accountsEmpty}</div>
-        )}
-        {accounts.data && accounts.data.length > 0 && (
-          <AccountList
-            accounts={accounts.data}
-            isMobile={isMobile}
-            ownId={session?.user.id ?? null}
-            busyIds={busyIds}
-            canDelete={isSuperAdmin}
-            onAction={onAction}
-          />
+        ) : (
+          view
         )}
       </Modal>
-      {dialog && dialog.kind !== 'delete' && (
-        <ScopeDialog account={dialog.account} mode={dialog.kind} onClose={() => setDialog(null)} onError={setError} />
-      )}
-      {dialog?.kind === 'delete' && (
-        <DeleteAccountDialog account={dialog.account} onClose={() => setDialog(null)} onError={setError} />
-      )}
+      {creating && <CreateInvitationDialog initial={creating.initial} onClose={() => setCreating(null)} />}
     </>
   );
 };

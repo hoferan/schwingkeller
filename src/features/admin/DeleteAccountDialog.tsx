@@ -38,7 +38,7 @@ export const DeleteAccountDialog = ({ account, onClose, onError }: DeleteAccount
         <div
           style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '8px', lineHeight: 1.5, overflowWrap: 'anywhere' }}
         >
-          {t.deleteAccountBody.replace('{email}', account.email)}
+          {t.deleteAccountBody.replace('{email}', () => account.email)}
         </div>
         <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
           <button

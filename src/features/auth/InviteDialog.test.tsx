@@ -147,6 +147,22 @@ describe('InviteDialog', () => {
     expect(screen.getByLabelText(t.email)).toHaveValue('a@b.ch');
   });
 
+  it('shows a signed-in address with a $ pattern as typed', () => {
+    lookup({ data: invitation });
+    renderDialog({ session: sessionFor('a$&b@example.ch') });
+    const text = t.inviteSignedInAs.replace('{email}', () => 'a$&b@example.ch');
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  // A session can come without an address; the note still offers to sign out.
+  it('offers to sign out of a session that has no address', () => {
+    lookup({ data: invitation });
+    renderDialog({ session: { user: { id: 'u1' } } as unknown as Session });
+    // getByText collapses the double space the empty address leaves.
+    expect(screen.getByText(t.inviteSignedInAs.replace('{email}', '').replace(/\s+/g, ' '))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.inviteSignOut })).toBeInTheDocument();
+  });
+
   it.each([
     ['invitation', t.inviteInvalid],
     ['weakPassword', t.registerErrShort.replace('{n}', '15')],

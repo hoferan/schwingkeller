@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { associationsFor } from '../associations/useAssociations';
-import { defaultScopeFor, grantableScopes, optionIds } from './scopeOptions';
+import { defaultScopeFor, grantableScopes, inviteOptionIds, invitableScopes, optionIds } from './scopeOptions';
 
 const a = associationsFor('de');
 const BERNESE_GAUE = ['berner-jura', 'emmental', 'mittelland', 'oberaargau', 'oberland', 'seeland'];
@@ -41,6 +41,39 @@ describe('grantableScopes', () => {
     expect(byId('bksv')).toMatchObject({ direct: 1, below: 2 });
     expect(byId('emmental')).toMatchObject({ direct: 2, below: null });
     expect(byId('isv')).toMatchObject({ direct: 0, below: 1 });
+  });
+});
+
+describe('invitableScopes', () => {
+  it('offers a super-admin every node once, the ESV first', () => {
+    const o = invitableScopes(a, 'esv');
+    const ids = inviteOptionIds(o);
+    expect(o.own).toBe('esv');
+    expect(ids[0]).toBe('esv');
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toHaveLength(a.byId.size);
+    expect(o.groups.map((g) => g.ids[0])).toEqual(a.childrenOf('esv').map((r) => r.id));
+  });
+
+  it('offers a Teilverband editor its own node and the Verbände below it', () => {
+    const o = invitableScopes(a, 'bksv');
+    expect(o.own).toBe('bksv');
+    expect(o.groups).toHaveLength(1);
+    expect(o.groups[0].label).toBe(a.nameOf('bksv'));
+    expect(inviteOptionIds(o)).toEqual(['bksv', ...BERNESE_GAUE]);
+  });
+
+  it('offers a Verband editor only its own node', () => {
+    const o = invitableScopes(a, 'emmental');
+    expect(o.own).toBe('emmental');
+    expect(o.groups).toEqual([]);
+    expect(inviteOptionIds(o)).toEqual(['emmental']);
+  });
+
+  it('offers an unknown scope nothing', () => {
+    const o = invitableScopes(a, 'nope');
+    expect(o.own).toBeNull();
+    expect(inviteOptionIds(o)).toEqual([]);
   });
 });
 

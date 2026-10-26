@@ -3,6 +3,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { isFeatureOn } from '../../lib/features';
 import { theme } from '../../theme';
 import { useAuth } from '../auth/useAuth';
+import { badgeStyle, pendingCountText } from './listStyles';
 import { usePendingCount } from './useAccounts';
 
 interface AccountsEntryProps {
@@ -12,26 +13,39 @@ interface AccountsEntryProps {
   inverted: boolean;
 }
 
-// The top-bar button to the account list, with the number of requests waiting. Only accounts that
-// manage others get it, and only they ask the database for the count.
+// The top-bar button to the people panel. Every approved editor gets it, for the invitations. Only
+// accounts that manage others see the number of requests waiting, and only they ask the database
+// for it.
 export const AccountsEntry = (props: AccountsEntryProps) => {
-  const { canManageAccounts } = useAuth();
-  if (!canManageAccounts || !isFeatureOn('editors')) return null;
-  return <EntryButton {...props} />;
+  const { t } = useTranslation();
+  const { isApproved, canManageAccounts } = useAuth();
+  if (!isApproved || !isFeatureOn('editors')) return null;
+  const title = canManageAccounts ? t.accountsTitle : t.invitationsTitle;
+  return canManageAccounts ? (
+    <PendingEntryButton {...props} title={title} />
+  ) : (
+    <EntryButton {...props} title={title} pending={0} />
+  );
 };
 
-const EntryButton = ({ onOpen, isMobile, inverted }: AccountsEntryProps) => {
-  const { t } = useTranslation();
+type EntryProps = AccountsEntryProps & { title: string };
+
+const PendingEntryButton = (props: EntryProps) => {
   const { data: pending = 0 } = usePendingCount();
+  return <EntryButton {...props} pending={pending} />;
+};
+
+const EntryButton = ({ onOpen, isMobile, inverted, title, pending }: EntryProps & { pending: number }) => {
+  const { t } = useTranslation();
   const ink = inverted ? theme.color.accentInk : theme.color.accent;
-  const pendingText = t.accountsPendingCount.replace('{n}', String(pending));
+  const pendingText = pendingCountText(t.accountsPendingCount, pending);
 
   return (
     <button
       onClick={onOpen}
       type="button"
-      title={t.accountsTitle}
-      aria-label={t.accountsTitle}
+      title={title}
+      aria-label={title}
       aria-describedby={pending > 0 ? 'accounts-pending' : undefined}
       style={{
         position: 'relative', fontSize: '12.5px', fontWeight: 600, color: ink, background: 'transparent',
@@ -42,14 +56,13 @@ const EntryButton = ({ onOpen, isMobile, inverted }: AccountsEntryProps) => {
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center' }}><Users size={13} /></span>
-      {!isMobile && t.accountsTitle}
+      {!isMobile && title}
       {pending > 0 && (
         <span
           style={{
-            position: 'absolute', top: '-6px', right: '-6px', minWidth: '18px', height: '18px', padding: '0 5px',
-            borderRadius: theme.radius.pill, background: inverted ? theme.color.accentInk : theme.color.accent,
-            color: inverted ? theme.color.accent : theme.color.accentInk, fontSize: '11px', fontWeight: 700,
-            lineHeight: '18px', textAlign: 'center', boxSizing: 'border-box',
+            ...badgeStyle, position: 'absolute', top: '-6px', right: '-6px',
+            background: inverted ? theme.color.accentInk : theme.color.accent,
+            color: inverted ? theme.color.accent : theme.color.accentInk,
           }}
         >
           <span aria-hidden="true">{pending}</span>
