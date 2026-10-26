@@ -90,8 +90,8 @@ fails after the hook, in the insert, would burn the invitation.
 * Bad, because the access token in the sign-up response still has the used token in
   `user_metadata`. GoTrue signs it from the user it holds in memory, where no trigger reaches. Only
   the sender gets it, the invitation is used by then, and the first refresh issues a clean token.
-  The sign-up form ([#140](https://github.com/hoferan/schwingkeller/issues/140)) may refresh right
-  after sign-up.
+  The sign-up form ([#140](https://github.com/hoferan/schwingkeller/issues/140)) refreshes right
+  after sign-up, so the token lives only in that one response.
 * Bad, because two concurrent sign-ups with one token both pass the hook. One succeeds, and the
   other fails in the trigger with GoTrue's 500 instead of the neutral 403.
 * Bad, because a sign-up for an address that already has an unconfirmed account updates that

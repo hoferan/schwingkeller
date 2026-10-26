@@ -18,8 +18,8 @@ export const signInFailure = (error: AuthError): SignInFailure => {
 };
 
 // Two sign-ups racing for one token both pass the hook, and the loser fails in the trigger with
-// GoTrue's 500 (ADR 0020). It reads as the service being unavailable, which is close enough: the
-// account it wanted exists by then.
+// GoTrue's 500 (ADR 0020), which shows here as the service being unavailable. By then the other
+// sign-up has made the account for that address.
 export const signUpFailure = (error: AuthError): AuthFailure => {
   if (isRateLimited(error)) return 'rateLimit';
   if (isAuthWeakPasswordError(error) || error.code === 'weak_password') return 'weakPassword';
