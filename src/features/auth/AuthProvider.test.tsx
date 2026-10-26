@@ -179,26 +179,29 @@ describe('AuthProvider', () => {
       signIn = useAuth().signIn;
       return null;
     };
-    const renderGrab = () => {
-      render(
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <AuthProvider>
-            <Grab />
-          </AuthProvider>
-        </QueryClientProvider>,
-      );
+    // Waits until the session and the profile have landed, so no update arrives outside act().
+    const renderGrab = async () => {
+      await act(async () => {
+        render(
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <Grab />
+            </AuthProvider>
+          </QueryClientProvider>,
+        );
+      });
       if (!signIn) throw new Error('signIn not exposed');
       return signIn;
     };
 
     it('turns a refused sign-in into a failure kind, not Supabase text', async () => {
       signInFn.mockResolvedValue({ data: {}, error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials') });
-      expect(await renderGrab()('a@b.ch', 'wrong')).toEqual({ error: 'credentials' });
+      expect(await (await renderGrab())('a@b.ch', 'wrong')).toEqual({ error: 'credentials' });
     });
 
     it('reports no failure when the sign-in works', async () => {
       signInFn.mockResolvedValue({ data: {}, error: null });
-      expect(await renderGrab()('a@b.ch', 'right')).toEqual({ error: null });
+      expect(await (await renderGrab())('a@b.ch', 'right')).toEqual({ error: null });
     });
   });
 
@@ -208,14 +211,17 @@ describe('AuthProvider', () => {
       signUp = useAuth().signUp;
       return null;
     };
-    const renderGrab = () => {
-      render(
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <AuthProvider>
-            <Grab />
-          </AuthProvider>
-        </QueryClientProvider>,
-      );
+    // Waits until the session and the profile have landed, so no update arrives outside act().
+    const renderGrab = async () => {
+      await act(async () => {
+        render(
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <AuthProvider>
+              <Grab />
+            </AuthProvider>
+          </QueryClientProvider>,
+        );
+      });
       if (!signUp) throw new Error('signUp not exposed');
       return signUp;
     };
@@ -226,7 +232,7 @@ describe('AuthProvider', () => {
 
     it('sends the invitation token and nothing else as metadata', async () => {
       signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
-      await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok');
+      await (await renderGrab())('a@b.ch', 'fifteen-chars-ok', 'tok');
       expect(signUpFn).toHaveBeenCalledWith({
         email: 'a@b.ch',
         password: 'fifteen-chars-ok',
@@ -238,27 +244,27 @@ describe('AuthProvider', () => {
     // clean one.
     it('refreshes the new session once', async () => {
       signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
-      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
+      expect(await (await renderGrab())('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
       expect(refreshSession).toHaveBeenCalledTimes(1);
     });
 
     it('has nothing to refresh without a session', async () => {
       signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
+      expect(await (await renderGrab())('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
       expect(refreshSession).not.toHaveBeenCalled();
     });
 
     it('turns a refused invitation into a failure kind and refreshes nothing', async () => {
       const error = new AuthApiError('Sign-up requires a valid invitation.', 403, undefined);
       signUpFn.mockResolvedValue({ data: { session: null, user: null }, error });
-      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: 'invitation' });
+      expect(await (await renderGrab())('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: 'invitation' });
       expect(refreshSession).not.toHaveBeenCalled();
     });
 
     it('counts the sign-up as done when the refresh fails', async () => {
       signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
       refreshSession.mockResolvedValue({ data: {}, error: new AuthApiError('x', 500, 'unexpected_failure') });
-      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
+      expect(await (await renderGrab())('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
     });
   });
 });

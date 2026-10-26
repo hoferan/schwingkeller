@@ -11,7 +11,9 @@ const KEY = 'sk-sidebar-width';
 
 const setViewport = (w: number) => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
-  window.dispatchEvent(new Event('resize'));
+  act(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
 };
 
 describe('clampSidebarWidth', () => {
