@@ -116,6 +116,16 @@ describe('CreateInvitationDialog', () => {
     expect(await screen.findByRole('radio', { name: /^Emmental.*Benutzer: 1/ })).toBeInTheDocument();
   });
 
+  // RLS shows a Teilverband editor its own profile and those it manages, not the other editors on
+  // its own node, so a count there would always read 1.
+  it('gives no user count for a Teilverband editor’s own node', async () => {
+    state.approved = [{ scope_association_id: 'bksv' }, { scope_association_id: 'emmental' }];
+    renderDialog('bksv');
+    const whole = await screen.findByRole('radio', { name: new RegExp(`^${t.scopeWholeRegional}.*1 darunter`) });
+    expect(whole).not.toHaveAccessibleName(/Benutzer/);
+    expect(screen.getByRole('radio', { name: /^Emmental.*Benutzer: 1/ })).toBeInTheDocument();
+  });
+
   it('shows the node as text when there is nothing to choose', () => {
     renderDialog('emmental');
     expect(screen.queryByRole('radio')).toBeNull();

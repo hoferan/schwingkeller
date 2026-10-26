@@ -56,7 +56,12 @@ export const ScopeChips = ({ board, counts, value, onChange, labelledBy }: Scope
   const chip = (id: string, label: ReactNode, whole: boolean) => {
     const checked = value === id;
     const c = counts?.(id);
-    const visibleCount = c && (c.below === null || !whole ? `${c.direct}` : `${c.direct} · ${fill(t.scopeBelow, c.below)}`);
+    const direct = c?.direct ?? null;
+    const below = c?.below ?? null;
+    const shown = [direct === null ? null : `${direct}`, whole && below !== null ? fill(t.scopeBelow, below) : null];
+    const spoken = [direct === null ? null : fill(t.scopeEditors, direct), below === null ? null : fill(t.scopeBelow, below)];
+    const visibleCount = shown.filter((s) => s !== null).join(' · ');
+    const spokenCount = spoken.filter((s) => s !== null).join(', ');
     return (
       <label key={id} className="scope-chip" style={chipStyle(checked, whole)}>
         <input
@@ -68,14 +73,8 @@ export const ScopeChips = ({ board, counts, value, onChange, labelledBy }: Scope
           style={radioStyle}
         />
         <span>{label}</span>
-        {c && (
-          <>
-            <span aria-hidden="true" style={countStyle(checked)}>{visibleCount}</span>
-            <span style={visuallyHidden}>
-              {`, ${fill(t.scopeEditors, c.direct)}${c.below === null ? '' : `, ${fill(t.scopeBelow, c.below)}`}`}
-            </span>
-          </>
-        )}
+        {visibleCount && <span aria-hidden="true" style={countStyle(checked)}>{visibleCount}</span>}
+        {spokenCount && <span style={visuallyHidden}>{`, ${spokenCount}`}</span>}
       </label>
     );
   };

@@ -32,7 +32,7 @@ export const verbandChip = (name: string): RegExp => {
   return new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 };
 
-export const verbandIdsOf =(teilverband: RegionalId): CantonalId[] =>
+export const verbandIdsOf = (teilverband: RegionalId): CantonalId[] =>
   de.childrenOf(teilverband).filter(isCantonal).map((a) => a.id);
 
 export const teilverbandOf = (verband: CantonalId): RegionalId => {

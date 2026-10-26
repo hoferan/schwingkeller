@@ -53,9 +53,9 @@ export const boardIds = (b: ScopeBoard): string[] => [
 ];
 
 // How many approved editors have a node (`direct`) and how many sit in the nodes below it
-// (`below`, null for a Verband, which has none).
+// (`below`, null for a Verband, which has none). `direct` is null where the caller can't count it.
 export interface ScopeCount {
-  direct: number;
+  direct: number | null;
   below: number | null;
 }
 

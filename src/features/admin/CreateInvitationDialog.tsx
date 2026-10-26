@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -15,7 +15,7 @@ import { INVITATION_DAYS, invitationLink, isExpired } from './invitations';
 import { inviteMessage, mailtoHref } from './inviteMessage';
 import { scopeLabel } from './scopeLabel';
 import { ScopeChips } from './ScopeChips';
-import { boardIds, invitableBoard, scopeCounts } from './scopeOptions';
+import { boardIds, invitableBoard, scopeCounts, type ScopeCount } from './scopeOptions';
 import { useApprovedScopes } from './useAccounts';
 import { useCreateInvitation, useInvitations } from './useInvitations';
 
@@ -81,6 +81,14 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
   const approved = useApprovedScopes();
   const board = invitableBoard(a, callerScope ?? '');
   const ids = boardIds(board);
+  // RLS shows an editor below the ESV only its own profile and those it manages, so the other
+  // editors on its own node are out of sight. Its own chip goes without a user count.
+  const counts = useMemo(() => {
+    if (!approved.data) return null;
+    const count = scopeCounts(a, approved.data);
+    const sameScopeHidden = a.byId.get(callerScope ?? '')?.level !== 'federation';
+    return (id: string): ScopeCount => (sameScopeHidden && id === callerScope ? { ...count(id), direct: null } : count(id));
+  }, [a, approved.data, callerScope]);
 
   const [email, setEmail] = useState(initial?.email ?? '');
   const [scope, setScope] = useState(() => {
@@ -257,7 +265,7 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
             </div>
             <ScopeChips
               board={board}
-              counts={approved.data ? scopeCounts(a, approved.data) : null}
+              counts={counts}
               value={scope}
               onChange={setScope}
               labelledBy="invite-scope-label"
