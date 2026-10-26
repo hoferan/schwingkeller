@@ -11,7 +11,7 @@ import { useRevokeInvitation } from './useInvitations';
 interface RevokeInvitationDialogProps {
   invitation: Invitation;
   onClose: () => void;
-  onError: (key: RevokeInvitationErrorKey) => void;
+  onError: (key: RevokeInvitationErrorKey | null) => void;
 }
 
 // Asks before revoking an invitation someone else created. Built like DeleteAccountDialog.
@@ -20,7 +20,10 @@ export const RevokeInvitationDialog = ({ invitation, onClose, onError }: RevokeI
   const a = useAssociations();
   const revoke = useRevokeInvitation({ onError: (err) => onError(revokeInvitationErrorKey(err)) });
 
-  const confirm = () => revoke.mutate(invitation.id, { onSettled: onClose });
+  const confirm = () => {
+    onError(null);
+    revoke.mutate(invitation.id, { onSettled: onClose });
+  };
   // Stays open until the call returns, so the editor sees how it ended.
   const dismiss = () => {
     if (!revoke.isPending) onClose();

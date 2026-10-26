@@ -142,6 +142,16 @@ describe('InvitationsView', () => {
     expect(rpc).toHaveBeenCalledWith('revoke_invitation', { invitation_id: 'i1' });
   });
 
+  it('clears the error line when the confirmed revoke starts', async () => {
+    const { onError } = renderView();
+    await userEvent.click(within(await row('anna@example.ch')).getByRole('button', { name: t.invitationRevoke }));
+    await userEvent.click(
+      within(screen.getByTestId('revoke-invitation-dialog')).getByRole('button', { name: t.invitationRevoke }),
+    );
+    expect(onError).toHaveBeenCalledWith(null);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('revoke_invitation', { invitation_id: 'i1' }));
+  });
+
   it('reports a stale invitation and refetches the list', async () => {
     state.rows = [invitation({ invited_by: 'test-user' })];
     rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot revoke an invitation that is used' } });

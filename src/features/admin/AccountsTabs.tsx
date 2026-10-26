@@ -2,7 +2,7 @@ import { useRef, type CSSProperties, type KeyboardEvent } from 'react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
 import { visuallyHidden } from './listStyles';
-import { PANEL_TABS, TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
+import { PANEL_TABS, PANEL_TITLE_ID, TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
 import { usePendingCount } from './useAccounts';
 import { useInvitations } from './useInvitations';
 
@@ -65,7 +65,7 @@ export const AccountsTabs = ({ tab, onSelect }: { tab: PanelTab; onSelect: (tab:
     );
 
   return (
-    <div role="tablist" onKeyDown={onKeyDown} style={{ display: 'flex', gap: '18px', alignSelf: 'stretch' }}>
+    <div role="tablist" aria-labelledby={PANEL_TITLE_ID} onKeyDown={onKeyDown} style={{ display: 'flex', gap: '18px', alignSelf: 'stretch' }}>
       {PANEL_TABS.map((which) => (
         <button
           key={which}

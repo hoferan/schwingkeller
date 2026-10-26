@@ -174,7 +174,7 @@ local stack, but only with an invitation: an approved editor invites an address,
 signed up with that token starts approved for the invitation's node, which may be the ESV, a
 Teilverband or a Verband. The invitation link has the form `http://localhost:5173/?invite=<token>`
 and opens the sign-up form, which asks for a password of at least 15 characters. To get a link,
-sign in as one of the approved accounts, open the button in the top bar ("Einladungen" or
+sign in as one of the approved accounts, click the button in the top bar ("Einladungen" or
 "Benutzer"), choose "+ Einladen" and copy the link; it is shown only once. You can also call the
 `create_invitation` function through the API, which returns the token.
 

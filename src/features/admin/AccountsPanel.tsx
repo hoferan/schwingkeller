@@ -13,7 +13,7 @@ import { CreateInvitationDialog } from './CreateInvitationDialog';
 import type { RevokeInvitationErrorKey } from './invitationError';
 import { InvitationsView } from './InvitationsView';
 import { actionStyle, visuallyHidden } from './listStyles';
-import { TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
+import { PANEL_TITLE_ID, TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
 
 const FILTERS = [
   ['pending', 'accountStatusPending'],
@@ -22,8 +22,6 @@ const FILTERS = [
   ['rejected', 'accountStatusRejected'],
   ['all', 'accountStatusAll'],
 ] as const;
-
-const TITLE_ID = 'accounts-panel-title';
 
 // People management for approved editors. Editors with nodes below them get two tabs, accounts and
 // invitations; the others only the invitations.
@@ -54,7 +52,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
           }}
         >
           <div
-            id={TITLE_ID}
+            id={PANEL_TITLE_ID}
             style={{
               fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '18px', fontWeight: 700,
               color: theme.color.ink, flex: 1, minWidth: 0,
@@ -143,7 +141,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
         zIndex={1400}
         header={header}
         fullScreen={isMobile}
-        labelledBy={TITLE_ID}
+        labelledBy={PANEL_TITLE_ID}
       >
         {canManageAccounts ? (
           <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={tabId(tab)}>

@@ -71,6 +71,25 @@ afterEach(() => {
 });
 
 describe('CreateInvitationDialog', () => {
+  it('focuses the email field on open', () => {
+    renderDialog('esv');
+    expect(screen.getByLabelText(t.email)).toHaveFocus();
+  });
+
+  it('creates on Enter in the email field, once', async () => {
+    renderDialog('esv');
+    await userEvent.type(screen.getByLabelText(t.email), 'new@example.ch{Enter}');
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenCalledWith('create_invitation', { target_email: 'new@example.ch', scope: 'esv' });
+  });
+
+  it('moves the focus to the link when step 2 appears', async () => {
+    renderDialog('esv');
+    await create();
+    const field = await screen.findByLabelText(t.inviteLink);
+    expect(field).toHaveFocus();
+  });
+
   it('offers the ESV, then every node below it, to a super-admin', () => {
     renderDialog('esv');
     expect(optionValues()).toEqual(inviteOptionIds(invitableScopes(a, 'esv')));

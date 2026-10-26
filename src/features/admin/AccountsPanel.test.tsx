@@ -87,6 +87,7 @@ beforeEach(() => {
   state.listError = null;
   state.invitations = [];
   state.pendingCount = 0;
+  from.mockClear();
   rpc.mockReset().mockResolvedValue({ error: null });
 });
 
@@ -419,6 +420,12 @@ describe('AccountsPanel header', () => {
     expect(invitations).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('names the tablist after the panel title', async () => {
+    renderPanel();
+    await row('gau@example.ch');
+    expect(screen.getByRole('tablist', { name: t.accountsTitle })).toBeInTheDocument();
+  });
+
   it('keeps the filter out of the tablist', async () => {
     renderPanel();
     await row('gau@example.ch');
@@ -452,6 +459,7 @@ describe('AccountsPanel header', () => {
     expect(screen.queryByRole('tabpanel')).toBeNull();
     expect(screen.queryByLabelText(t.accountsFilter)).toBeNull();
     expect(state.lists).toEqual([]);
+    expect(from).not.toHaveBeenCalledWith('profiles');
   });
 
   it('titles the panel for a Teilverband editor after the accounts', async () => {
