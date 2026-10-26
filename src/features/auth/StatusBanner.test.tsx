@@ -86,7 +86,7 @@ describe('StatusBanner', () => {
           value={{
             ...value,
             signIn: async () => ({ error: null }),
-            signUp: async () => ({ error: null, confirmEmail: true }),
+            signUp: async () => ({ error: null }),
             signOut: async () => {},
           }}
         >
