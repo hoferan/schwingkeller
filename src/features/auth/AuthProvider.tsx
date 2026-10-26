@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { captureAndFormat } from '../../lib/sentry';
 import { buildTree, type AssociationTree } from '../associations/tree';
+import { signInFailure, type SignInFailure } from './authFailure';
 import type { Profile } from './profile';
 import { canWriteAssociation } from './scope';
 import { forgetAccount, useProfile } from './useProfile';
@@ -20,7 +21,7 @@ export interface AuthValue {
   // account list. RLS decides which rows it shows.
   canManageAccounts: boolean;
   canEditAssociation: (id: string | null) => boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: SignInFailure | null }>;
   // confirmEmail is true when Supabase sent a confirmation email instead of signing the user in.
   signUp: (
     email: string,
@@ -73,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn: AuthValue['signIn'] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? error.message : null };
+    return { error: error ? signInFailure(error) : null };
   };
   // The trigger on auth.users turns the association into the profile's requested Verband.
   const signUp: AuthValue['signUp'] = async (email, password, associationId) => {

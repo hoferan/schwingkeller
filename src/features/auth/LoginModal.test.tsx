@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 
 const { getSession, onAuthStateChange, signInWithPassword } = vi.hoisted(() => ({
   getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
@@ -50,51 +51,49 @@ describe('LoginModal', () => {
     expect(screen.getByLabelText(t.password)).toHaveFocus();
   });
 
-  describe('registration', () => {
-    it('offers registration when the editors flag is on', async () => {
-      setFeature('editors', true);
+  // Accounts come from invitations only (#140), so the modal has no way into a sign-up form.
+  it.each([true, false])('offers no way to register with the editors flag %s', (on) => {
+    setFeature('editors', on);
+    renderLogin();
+
+    const names = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(names).toEqual([t.cancel, t.login]);
+    expect(screen.queryByLabelText(t.passwordConfirm)).toBeNull();
+  });
+
+  describe('errors', () => {
+    const tryLogin = async () => {
       const user = userEvent.setup();
       renderLogin();
-
-      await user.click(screen.getByRole('button', { name: t.registerLink }));
-
-      expect(screen.getByText(t.registerTitle)).toBeInTheDocument();
-      expect(screen.getByLabelText(t.passwordConfirm)).toBeInTheDocument();
-    });
-
-    it('offers no registration when the editors flag is off', () => {
-      setFeature('editors', false);
-      renderLogin();
-
-      expect(screen.queryByRole('button', { name: t.registerLink })).toBeNull();
-    });
-
-    it('goes back to sign-in', async () => {
-      const user = userEvent.setup();
-      renderLogin();
-
-      await user.click(screen.getByRole('button', { name: t.registerLink }));
-      await user.click(screen.getByRole('button', { name: t.backToLogin }));
-
-      expect(screen.getByText(t.loginTitle)).toBeInTheDocument();
-      expect(screen.queryByLabelText(t.passwordConfirm)).toBeNull();
-    });
-
-    // A sign-in error left over from before the detour would read as if coming back had failed.
-    it('drops a failed sign-in error after a trip to registration and back', async () => {
-      signInWithPassword.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } });
-      const user = userEvent.setup();
-      renderLogin();
-
       await user.type(screen.getByLabelText(t.email), 'a@example.com');
-      await user.type(screen.getByLabelText(t.password), 'wrong-password');
+      await user.type(screen.getByLabelText(t.password), 'some-password');
       await user.click(screen.getByRole('button', { name: t.login }));
-      expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();
+    };
 
-      await user.click(screen.getByRole('button', { name: t.registerLink }));
-      await user.click(screen.getByRole('button', { name: t.backToLogin }));
+    it('shows one message for a wrong password and an unknown address', async () => {
+      signInWithPassword.mockResolvedValueOnce({
+        error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'),
+      });
+      await tryLogin();
 
+      expect(await screen.findByText(t.loginErrCredentials)).toBeInTheDocument();
       expect(screen.queryByText('Invalid login credentials')).toBeNull();
+    });
+
+    it('tells a rate-limited user to wait', async () => {
+      signInWithPassword.mockResolvedValueOnce({
+        error: new AuthApiError('Request rate limit reached', 429, 'over_request_rate_limit'),
+      });
+      await tryLogin();
+
+      expect(await screen.findByText(t.authErrRateLimit)).toBeInTheDocument();
+    });
+
+    it('says the service is unreachable on a network error', async () => {
+      signInWithPassword.mockResolvedValueOnce({ error: new AuthRetryableFetchError('Failed to fetch', 0) });
+      await tryLogin();
+
+      expect(await screen.findByText(t.authErrUnavailable)).toBeInTheDocument();
     });
   });
 });
