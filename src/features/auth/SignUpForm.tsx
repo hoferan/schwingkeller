@@ -50,7 +50,7 @@ export const SignUpForm = ({ email, busy, error, onSubmit, onCancel }: SignUpFor
         readOnly
         type="email"
         autoComplete="username"
-        style={{ ...inputStyle, color: theme.color.muted }}
+        style={{ ...inputStyle, background: theme.color.paper }}
       />
       <label htmlFor="signup-password" style={{ ...labelStyle, margin: '13px 0 6px' }}>{t.password}</label>
       <input
