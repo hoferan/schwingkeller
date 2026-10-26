@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Each from() call gets its own builder, so the list query can be told apart from the
@@ -388,6 +388,30 @@ describe('AccountsPanel header', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(t.adminErrStale);
     await userEvent.click(tabs()[1]);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  describe('an accounts refusal that arrives late', () => {
+    const refuseLater = async () => {
+      let refuse: (v: unknown) => void = () => {};
+      rpc.mockReturnValue(new Promise((r) => { refuse = r; }));
+      renderPanel();
+      await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.reject }));
+      await userEvent.click(tabs()[1]);
+      await act(async () => {
+        refuse({ error: { code: 'P0001', message: 'cannot reject an account that is approved' } });
+      });
+    };
+
+    it('does not show on the invitations tab', async () => {
+      await refuseLater();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('is not back when the accounts tab comes up again', async () => {
+      await refuseLater();
+      await userEvent.click(tabs()[0]);
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
   });
 
   it('moves between the tabs with the arrow keys, Home and End', async () => {

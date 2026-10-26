@@ -16,6 +16,15 @@ export const actionStyle = (kind: 'primary' | 'plain' | 'danger', busy: boolean)
   cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, whiteSpace: 'nowrap',
 });
 
+// The round count on the tab and on the top-bar button.
+export const badgeStyle: CSSProperties = {
+  minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: theme.radius.pill,
+  background: theme.color.accent, color: theme.color.accentInk, fontSize: '11px', fontWeight: 700,
+  lineHeight: '18px', textAlign: 'center', boxSizing: 'border-box',
+};
+// What a screen reader says for the number in the badge. `template` is t.accountsPendingCount.
+export const pendingCountText = (template: string, n: number) => template.replace('{n}', String(n));
+
 // Read by screen readers, not shown.
 export const visuallyHidden: CSSProperties = {
   position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden',

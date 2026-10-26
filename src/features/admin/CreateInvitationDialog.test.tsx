@@ -176,6 +176,18 @@ describe('CreateInvitationDialog', () => {
     expect(screen.getByRole('button', { name: t.inviteCreate })).toBeDisabled();
   });
 
+  it('keeps the focus on the create button while the request runs, and sends nothing more', async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderDialog('bksv');
+    await create();
+    const button = screen.getByRole('button', { name: t.inviteCreate });
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(button);
+    await userEvent.keyboard('{Enter}');
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('stays open while the request runs, then shows the link', async () => {
     let resolve: (v: unknown) => void = () => {};
     rpc.mockReturnValue(new Promise((r) => { resolve = r; }));
@@ -273,6 +285,26 @@ describe('CreateInvitationDialog', () => {
       await userEvent.click(await screen.findByRole('button', { name: t.inviteCopy }));
       expect(writeText).toHaveBeenCalledWith(link());
       expect(await screen.findByRole('button', { name: t.inviteCopied })).toBeInTheDocument();
+    });
+
+    it('goes back to Kopieren after two seconds', async () => {
+      stub('clipboard', { writeText: vi.fn().mockResolvedValue(undefined) });
+      renderDialog('bksv');
+      await create();
+      const copy = await screen.findByRole('button', { name: t.inviteCopy });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      await act(async () => {
+        fireEvent.click(copy);
+      });
+      expect(screen.getByRole('button', { name: t.inviteCopied })).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(1999);
+      });
+      expect(screen.getByRole('button', { name: t.inviteCopied })).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByRole('button', { name: t.inviteCopy })).toBeInTheDocument();
     });
 
     it('selects the link when there is no clipboard', async () => {

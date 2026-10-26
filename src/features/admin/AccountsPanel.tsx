@@ -31,7 +31,10 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
   const [chosen, setChosen] = useState<PanelTab>('accounts');
   const tab: PanelTab = canManageAccounts ? chosen : 'invitations';
   const [filter, setFilter] = useState<AccountFilter>('pending');
-  const [error, setError] = useState<AdminErrorKey | RevokeInvitationErrorKey | null>(null);
+  // The refusal and the tab it came from. A late answer to an action on the other tab stays hidden.
+  const [error, setError] = useState<{ tab: PanelTab; key: AdminErrorKey | RevokeInvitationErrorKey } | null>(null);
+  const reportFrom = (from: PanelTab) => (key: AdminErrorKey | RevokeInvitationErrorKey | null) =>
+    setError(key ? { tab: from, key } : null);
   const [creating, setCreating] = useState<{ initial?: { email: string; scope: string } } | null>(null);
 
   const select = (next: PanelTab) => {
@@ -88,7 +91,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
         {canManageAccounts && (
           <div
             style={{
-              display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: '16px', minHeight: '44px',
+              display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: '16px', rowGap: '8px', minHeight: '44px',
               padding: isMobile ? '0 12px 0 16px' : '0 18px',
             }}
           >
@@ -112,7 +115,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
           </div>
         )}
       </div>
-      {error && (
+      {error && error.tab === tab && (
         <div
           role="alert"
           style={{
@@ -120,7 +123,7 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
             borderBottom: '1px solid ' + theme.color.line,
           }}
         >
-          {t[error]}
+          {t[error.key]}
         </div>
       )}
     </>
@@ -128,9 +131,9 @@ export const AccountsPanel = ({ onClose, isMobile }: { onClose: () => void; isMo
 
   const view =
     tab === 'accounts' ? (
-      <AccountsView filter={filter} isMobile={isMobile} onError={setError} />
+      <AccountsView filter={filter} isMobile={isMobile} onError={reportFrom('accounts')} />
     ) : (
-      <InvitationsView isMobile={isMobile} onError={setError} onReinvite={(initial) => setCreating({ initial })} />
+      <InvitationsView isMobile={isMobile} onError={reportFrom('invitations')} onReinvite={(initial) => setCreating({ initial })} />
     );
 
   return (

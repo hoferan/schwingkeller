@@ -40,8 +40,11 @@ export const InvitationsView = ({ isMobile, onError, onReinvite }: InvitationsVi
     if (invitations.error) captureAndFormat(invitations.error, 'invitation list fetch failed');
   }, [invitations.error]);
 
+  // No session means no own rows: a null inviter must not match a null id.
+  const isMine = (inv: Invitation) => ownId !== null && inv.invited_by === ownId;
+
   const onRevoke = (inv: Invitation) => {
-    if (inv.invited_by === ownId) {
+    if (isMine(inv)) {
       onError(null);
       revoke.mutate(inv.id);
     } else {
@@ -49,17 +52,18 @@ export const InvitationsView = ({ isMobile, onError, onReinvite }: InvitationsVi
     }
   };
 
-  const expires = (inv: Invitation) =>
+  // "Abgelaufen" in red, else the date, which the phone card wraps in a sentence.
+  const expires = (inv: Invitation, withDate: (formatted: string) => string = (d) => d) =>
     isExpired(inv, now) ? (
       <span style={{ color: theme.color.accent }}>{t.invitationExpired}</span>
     ) : (
-      date.format(new Date(inv.expires_at))
+      withDate(date.format(new Date(inv.expires_at)))
     );
 
   const email = (inv: Invitation) => (
     <>
       {inv.email}
-      {inv.invited_by === ownId && (
+      {isMine(inv) && (
         <span style={{ color: theme.color.muted, fontWeight: 400, marginLeft: '8px', fontSize: '12px' }}>
           {t.invitationMine}
         </span>
@@ -102,11 +106,7 @@ export const InvitationsView = ({ isMobile, onError, onReinvite }: InvitationsVi
             <div style={{ fontWeight: 700, color: theme.color.ink, overflowWrap: 'anywhere' }}>{email(inv)}</div>
             <div style={{ color: theme.color.muted, marginTop: '4px', lineHeight: 1.5 }}>
               {scopeLabel(a, t, inv.association_id)} ·{' '}
-              {isExpired(inv, now) ? (
-                <span style={{ color: theme.color.accent }}>{t.invitationExpired}</span>
-              ) : (
-                t.invitationExpiresOn.replace('{date}', () => date.format(new Date(inv.expires_at)))
-              )}
+              {expires(inv, (d) => t.invitationExpiresOn.replace('{date}', () => d))}
             </div>
             <div style={{ marginTop: '10px' }}>{actions(inv)}</div>
           </li>

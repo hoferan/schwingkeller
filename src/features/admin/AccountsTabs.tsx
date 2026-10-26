@@ -1,7 +1,7 @@
 import { useRef, type CSSProperties, type KeyboardEvent } from 'react';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
-import { visuallyHidden } from './listStyles';
+import { badgeStyle, pendingCountText, visuallyHidden } from './listStyles';
 import { PANEL_TABS, PANEL_TITLE_ID, TAB_PANEL_ID, tabId, type PanelTab } from './panelTabs';
 import { usePendingCount } from './useAccounts';
 import { useInvitations } from './useInvitations';
@@ -12,12 +12,6 @@ const tabStyle = (selected: boolean): CSSProperties => ({
   fontSize: '13.5px', padding: '0 2px', minHeight: '44px', cursor: 'pointer', display: 'flex',
   alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
 });
-
-const badgeStyle: CSSProperties = {
-  minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: theme.radius.pill,
-  background: theme.color.accent, color: theme.color.accentInk, fontSize: '11px', fontWeight: 700,
-  lineHeight: '18px', textAlign: 'center', boxSizing: 'border-box',
-};
 
 // Only for editors with accounts below them, so only they ask for the pending count. Moving the
 // focus also selects the tab.
@@ -49,7 +43,7 @@ export const AccountsTabs = ({ tab, onSelect }: { tab: PanelTab; onSelect: (tab:
         {pending > 0 && (
           <>
             {' '}<span aria-hidden="true" style={badgeStyle}>{pending}</span>
-            <span style={visuallyHidden}>{t.accountsPendingCount.replace('{n}', String(pending))}</span>
+            <span style={visuallyHidden}>{pendingCountText(t.accountsPendingCount, pending)}</span>
           </>
         )}
       </>

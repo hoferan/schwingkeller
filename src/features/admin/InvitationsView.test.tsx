@@ -23,7 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
-import { TestAuthProvider } from '../auth/testing';
+import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import type { Invitation } from './invitations';
 import { InvitationsView } from './InvitationsView';
 import { scopeLabel } from './scopeLabel';
@@ -41,13 +41,13 @@ const invitation = (over: Partial<Invitation>): Invitation => ({
   ...over,
 });
 
-const renderView = (isMobile = false) => {
+const renderView = (isMobile = false, as: TestAccount = 'bksv') => {
   const onError = vi.fn();
   const onReinvite = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <TestAuthProvider as="bksv">
+      <TestAuthProvider as={as}>
         <I18nContext.Provider value={{ lang: 'de', t, setLang: vi.fn() }}>
           <InvitationsView isMobile={isMobile} onError={onError} onReinvite={onReinvite} />
         </I18nContext.Provider>
@@ -94,6 +94,31 @@ describe('InvitationsView', () => {
     expect(within(await row('bruno@example.ch')).queryByText(t.invitationMine)).not.toBeInTheDocument();
   });
 
+  it('shows an expired row on phones as expired, without a date', async () => {
+    state.rows = [invitation({ expires_at: '2020-01-01T00:00:00Z' })];
+    renderView(true);
+    const r = await row('anna@example.ch');
+    expect(r).toHaveTextContent(`${scopeLabel(a, t, 'emmental')} · ${t.invitationExpired}`);
+    expect(r).not.toHaveTextContent('01.01.2020');
+    expect(within(r).getByRole('button', { name: t.invitationReinvite })).toBeInTheDocument();
+  });
+
+  it('does not mark an invitation without an inviter as the caller’s own', async () => {
+    state.rows = [invitation({ invited_by: null })];
+    renderView();
+    expect(within(await row('anna@example.ch')).queryByText(t.invitationMine)).not.toBeInTheDocument();
+  });
+
+  it('asks before revoking an invitation without an inviter, even with no session', async () => {
+    state.rows = [invitation({ invited_by: null })];
+    renderView(false, 'signed-out');
+    const r = await row('anna@example.ch');
+    expect(within(r).queryByText(t.invitationMine)).not.toBeInTheDocument();
+    await userEvent.click(within(r).getByRole('button', { name: t.invitationRevoke }));
+    expect(screen.getByTestId('revoke-invitation-dialog')).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('offers a new invitation for an expired row', async () => {
     state.rows = [invitation({ expires_at: '2020-01-01T00:00:00Z' })];
     const { onReinvite } = renderView();
@@ -115,6 +140,7 @@ describe('InvitationsView', () => {
     await userEvent.click(within(await row('anna@example.ch')).getByRole('button', { name: t.invitationRevoke }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('revoke_invitation', { invitation_id: 'i1' }));
     expect(onError).toHaveBeenCalledWith(null);
+    expect(onError.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[0]);
     expect(screen.queryByTestId('revoke-invitation-dialog')).not.toBeInTheDocument();
   });
 

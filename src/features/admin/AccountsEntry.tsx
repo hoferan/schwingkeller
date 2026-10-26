@@ -3,6 +3,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { isFeatureOn } from '../../lib/features';
 import { theme } from '../../theme';
 import { useAuth } from '../auth/useAuth';
+import { badgeStyle, pendingCountText } from './listStyles';
 import { usePendingCount } from './useAccounts';
 
 interface AccountsEntryProps {
@@ -16,22 +17,28 @@ interface AccountsEntryProps {
 // accounts that manage others see the number of requests waiting, and only they ask the database
 // for it.
 export const AccountsEntry = (props: AccountsEntryProps) => {
+  const { t } = useTranslation();
   const { isApproved, canManageAccounts } = useAuth();
   if (!isApproved || !isFeatureOn('editors')) return null;
-  return canManageAccounts ? <PendingEntryButton {...props} /> : <EntryButton {...props} pending={0} />;
+  const title = canManageAccounts ? t.accountsTitle : t.invitationsTitle;
+  return canManageAccounts ? (
+    <PendingEntryButton {...props} title={title} />
+  ) : (
+    <EntryButton {...props} title={title} pending={0} />
+  );
 };
 
-const PendingEntryButton = (props: AccountsEntryProps) => {
+type EntryProps = AccountsEntryProps & { title: string };
+
+const PendingEntryButton = (props: EntryProps) => {
   const { data: pending = 0 } = usePendingCount();
   return <EntryButton {...props} pending={pending} />;
 };
 
-const EntryButton = ({ onOpen, isMobile, inverted, pending }: AccountsEntryProps & { pending: number }) => {
+const EntryButton = ({ onOpen, isMobile, inverted, title, pending }: EntryProps & { pending: number }) => {
   const { t } = useTranslation();
-  const { canManageAccounts } = useAuth();
-  const title = canManageAccounts ? t.accountsTitle : t.invitationsTitle;
   const ink = inverted ? theme.color.accentInk : theme.color.accent;
-  const pendingText = t.accountsPendingCount.replace('{n}', String(pending));
+  const pendingText = pendingCountText(t.accountsPendingCount, pending);
 
   return (
     <button
@@ -53,10 +60,9 @@ const EntryButton = ({ onOpen, isMobile, inverted, pending }: AccountsEntryProps
       {pending > 0 && (
         <span
           style={{
-            position: 'absolute', top: '-6px', right: '-6px', minWidth: '18px', height: '18px', padding: '0 5px',
-            borderRadius: theme.radius.pill, background: inverted ? theme.color.accentInk : theme.color.accent,
-            color: inverted ? theme.color.accent : theme.color.accentInk, fontSize: '11px', fontWeight: 700,
-            lineHeight: '18px', textAlign: 'center', boxSizing: 'border-box',
+            ...badgeStyle, position: 'absolute', top: '-6px', right: '-6px',
+            background: inverted ? theme.color.accentInk : theme.color.accent,
+            color: inverted ? theme.color.accent : theme.color.accentInk,
           }}
         >
           <span aria-hidden="true">{pending}</span>

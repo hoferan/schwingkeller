@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '../../components/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
@@ -55,6 +55,20 @@ const mailButtonStyle = {
   boxSizing: 'border-box',
 } as const;
 
+const mutedText = { color: theme.color.muted } as const;
+
+// The note under the form: the warning about an open invitation, and the one-time notice on step 2.
+const noteStyle = { ...mutedText, fontSize: '12.5px', lineHeight: 1.5 } as const;
+
+// Both steps share the Modal and the test id. Only step 1 may be dismissed from outside.
+const DialogShell = ({ onClose, children }: { onClose: () => void; children: ReactNode }) => (
+  <Modal onClose={onClose} width={400} zIndex={1500} labelledBy="create-invitation-title">
+    <div data-testid="create-invitation-dialog" style={{ padding: '22px' }}>
+      {children}
+    </div>
+  </Modal>
+);
+
 // Creates an invitation and shows its link once. The link cannot be read again afterwards.
 export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDialogProps) => {
   const { t, lang } = useTranslation();
@@ -82,7 +96,8 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
   const replacesOpen =
     typed !== '' &&
     (invitations.data ?? []).some((inv) => inv.email === typed && !isExpired(inv, new Date()));
-  const blocked = email.trim() === '' || scope === '' || create.isPending;
+  const incomplete = email.trim() === '' || scope === '';
+  const blocked = incomplete || create.isPending;
 
   // Step 2 replaces step 1 in the same Modal, whose focus effect runs on mount only. Put the focus on
   // the link, or it falls to the page when the focused button goes away.
@@ -148,171 +163,145 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
 
     return (
       // The link is shown once, so only Fertig closes this step, not Escape or the backdrop.
-      <Modal onClose={() => {}} width={400} zIndex={1500} labelledBy="create-invitation-title">
-        <div data-testid="create-invitation-dialog" style={{ padding: '22px' }}>
-          <div id="create-invitation-title" style={titleStyle}>
-            {t.inviteCreatedTitle}
-          </div>
-          <div
-            style={{
-              fontSize: '13.5px',
-              color: theme.color.muted,
-              marginTop: '6px',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {t.inviteCreatedFor
-              .replace('{email}', () => created.email)
-              .replace('{node}', () => scopeLabel(a, t, created.scope))
-              .replace('{date}', () => date)}
-          </div>
-          <label htmlFor="invitation-link" style={{ ...labelStyle, margin: '16px 0 6px' }}>
-            {t.inviteLink}
-          </label>
-          <input
-            id="invitation-link"
-            ref={linkRef}
-            readOnly
-            value={link}
-            onFocus={(e) => e.currentTarget.select()}
-            style={inputStyle}
-          />
-          <div style={{ display: 'flex', gap: '11px', marginTop: '12px', flexWrap: 'wrap' }}>
-            <button type="button" onClick={copy} style={secondaryButtonStyle}>
-              {copied ? t.inviteCopied : t.inviteCopy}
-            </button>
-            <a href={mailtoHref(created.email, message)} style={mailButtonStyle}>
-              {t.inviteSendMail}
-            </a>
-            {typeof navigator.share === 'function' && (
-              <button type="button" onClick={share} style={secondaryButtonStyle}>
-                {t.inviteShare}
-              </button>
-            )}
-          </div>
-          <span role="status" style={srOnly}>
-            {copied ? t.inviteCopied : ''}
-          </span>
-          <div
-            style={{
-              fontSize: '12.5px',
-              color: theme.color.muted,
-              marginTop: '14px',
-              lineHeight: 1.5,
-            }}
-          >
-            {t.inviteShownOnce}
-          </div>
-          <div style={{ display: 'flex', marginTop: '20px' }}>
-            <button type="button" onClick={onClose} style={primaryButtonStyle}>
-              {t.inviteDone}
-            </button>
-          </div>
+      <DialogShell onClose={() => {}}>
+        <div id="create-invitation-title" style={titleStyle}>
+          {t.inviteCreatedTitle}
         </div>
-      </Modal>
+        <div
+          style={{ ...mutedText, fontSize: '13.5px', marginTop: '6px', overflowWrap: 'anywhere' }}
+        >
+          {t.inviteCreatedFor
+            .replace('{email}', () => created.email)
+            .replace('{node}', () => scopeLabel(a, t, created.scope))
+            .replace('{date}', () => date)}
+        </div>
+        <label htmlFor="invitation-link" style={{ ...labelStyle, margin: '16px 0 6px' }}>
+          {t.inviteLink}
+        </label>
+        <input
+          id="invitation-link"
+          ref={linkRef}
+          readOnly
+          value={link}
+          onFocus={(e) => e.currentTarget.select()}
+          style={inputStyle}
+        />
+        <div style={{ display: 'flex', gap: '11px', marginTop: '12px', flexWrap: 'wrap' }}>
+          <button type="button" onClick={copy} style={secondaryButtonStyle}>
+            {copied ? t.inviteCopied : t.inviteCopy}
+          </button>
+          <a href={mailtoHref(created.email, message)} style={mailButtonStyle}>
+            {t.inviteSendMail}
+          </a>
+          {typeof navigator.share === 'function' && (
+            <button type="button" onClick={share} style={secondaryButtonStyle}>
+              {t.inviteShare}
+            </button>
+          )}
+        </div>
+        <span role="status" style={srOnly}>
+          {copied ? t.inviteCopied : ''}
+        </span>
+        <div style={{ ...noteStyle, marginTop: '14px' }}>{t.inviteShownOnce}</div>
+        <div style={{ display: 'flex', marginTop: '20px' }}>
+          <button type="button" onClick={onClose} style={primaryButtonStyle}>
+            {t.inviteDone}
+          </button>
+        </div>
+      </DialogShell>
     );
   }
 
   return (
-    <Modal onClose={dismiss} width={400} zIndex={1500} labelledBy="create-invitation-title">
-      <div data-testid="create-invitation-dialog" style={{ padding: '22px' }}>
-        <div id="create-invitation-title" style={titleStyle}>
-          {t.invite}
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-        >
-          <label htmlFor="invite-email" style={{ ...labelStyle, margin: '16px 0 6px' }}>
-            {t.email}
-          </label>
-          <input
-            id="invite-email"
-            autoFocus
-            type="email"
-            autoComplete="off"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
-          {ids.length === 1 ? (
-            <div
-              style={{
-                fontSize: '13.5px',
-                color: theme.color.ink,
-                marginTop: '14px',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {`${t.accountsScope}: ${scopeLabel(a, t, ids[0])}`}
-            </div>
-          ) : (
-            <>
-              <label htmlFor="invite-scope" style={{ ...labelStyle, margin: '14px 0 6px' }}>
-                {t.accountsScope}
-              </label>
-              <select
-                id="invite-scope"
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
-                style={inputStyle}
-              >
-                {options.own && (
-                  <option value={options.own}>{scopeLabel(a, t, options.own)}</option>
-                )}
-                {options.groups.map((g) => (
-                  <optgroup key={g.label} label={g.label}>
-                    {g.ids.map((id) => (
-                      <option key={id} value={id}>
-                        {scopeLabel(a, t, id)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </>
-          )}
-          {/* Always rendered, so a screen reader announces the text when it appears. */}
+    <DialogShell onClose={dismiss}>
+      <div id="create-invitation-title" style={titleStyle}>
+        {t.invite}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <label htmlFor="invite-email" style={{ ...labelStyle, margin: '16px 0 6px' }}>
+          {t.email}
+        </label>
+        <input
+          id="invite-email"
+          autoFocus
+          type="email"
+          autoComplete="off"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
+        />
+        {ids.length === 1 ? (
           <div
-            role="status"
             style={{
-              fontSize: '12.5px',
-              color: theme.color.muted,
-              marginTop: replacesOpen ? '12px' : 0,
-              lineHeight: 1.5,
+              fontSize: '13.5px',
+              color: theme.color.ink,
+              marginTop: '14px',
+              overflowWrap: 'anywhere',
             }}
           >
-            {replacesOpen ? t.inviteReplacesOpen : ''}
+            {`${t.accountsScope}: ${scopeLabel(a, t, ids[0])}`}
           </div>
-          {errorKey && (
-            <div
-              role="alert"
-              style={{ color: theme.color.accent, fontSize: '13px', marginTop: '12px' }}
+        ) : (
+          <>
+            <label htmlFor="invite-scope" style={{ ...labelStyle, margin: '14px 0 6px' }}>
+              {t.accountsScope}
+            </label>
+            <select
+              id="invite-scope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              style={inputStyle}
             >
-              {t[errorKey]}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
-            <button
-              type="button"
-              onClick={dismiss}
-              disabled={create.isPending}
-              style={{ ...secondaryButtonStyle, opacity: create.isPending ? 0.5 : 1 }}
-            >
-              {t.cancel}
-            </button>
-            <button
-              type="submit"
-              disabled={blocked}
-              style={{ ...primaryButtonStyle, opacity: blocked ? 0.5 : 1 }}
-            >
-              {t.inviteCreate}
-            </button>
+              {options.own && <option value={options.own}>{scopeLabel(a, t, options.own)}</option>}
+              {options.groups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.ids.map((id) => (
+                    <option key={id} value={id}>
+                      {scopeLabel(a, t, id)}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </>
+        )}
+        {/* Always rendered, so a screen reader announces the text when it appears. */}
+        <div role="status" style={{ ...noteStyle, marginTop: replacesOpen ? '12px' : 0 }}>
+          {replacesOpen ? t.inviteReplacesOpen : ''}
+        </div>
+        {errorKey && (
+          <div
+            role="alert"
+            style={{ color: theme.color.accent, fontSize: '13px', marginTop: '12px' }}
+          >
+            {t[errorKey]}
           </div>
-        </form>
-      </div>
-    </Modal>
+        )}
+        <div style={{ display: 'flex', gap: '11px', marginTop: '20px' }}>
+          <button
+            type="button"
+            onClick={dismiss}
+            disabled={create.isPending}
+            style={{ ...secondaryButtonStyle, opacity: create.isPending ? 0.5 : 1 }}
+          >
+            {t.cancel}
+          </button>
+          {/* aria-disabled while the request runs keeps the focus here. submit() ignores it either way. */}
+          <button
+            type="submit"
+            disabled={incomplete}
+            aria-disabled={create.isPending || undefined}
+            style={{ ...primaryButtonStyle, opacity: blocked ? 0.5 : 1 }}
+          >
+            {t.inviteCreate}
+          </button>
+        </div>
+      </form>
+    </DialogShell>
   );
 };
