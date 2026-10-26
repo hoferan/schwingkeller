@@ -49,3 +49,5 @@ input, select, button, textarea { font-family: inherit; }
 /* Modal animations */
 @keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* A scope chip hides its radio, so the chip shows the keyboard focus instead. */
+.scope-chip:has(input:focus-visible) { outline: 2px solid #111111; outline-offset: 2px; }

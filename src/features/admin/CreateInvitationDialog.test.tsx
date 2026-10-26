@@ -3,12 +3,15 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 
 const { from, rpc, state } = vi.hoisted(() => {
-  const state: { rows: unknown[] } = { rows: [] };
-  const from = vi.fn(() => {
+  // `rows` answers the invitation list, `approved` the approved scopes behind the counts.
+  const state: { rows: unknown[]; approved: { scope_association_id: string | null }[] } = { rows: [], approved: [] };
+  const from = vi.fn((table: string) => {
     const builder: Record<string, unknown> = {};
     builder.select = () => builder;
     builder.order = () => builder;
-    builder.then = (resolve: (v: unknown) => unknown) => resolve({ data: state.rows, error: null });
+    builder.eq = () => builder;
+    builder.then = (resolve: (v: unknown) => unknown) =>
+      resolve({ data: table === 'profiles' ? state.approved : state.rows, error: null });
     return builder;
   });
   return { from, rpc: vi.fn(), state };
@@ -22,7 +25,7 @@ import { STR } from '../../i18n/translations';
 import { associationsFor } from '../associations/useAssociations';
 import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import { CreateInvitationDialog } from './CreateInvitationDialog';
-import { inviteOptionIds, invitableScopes } from './scopeOptions';
+import { boardIds, invitableBoard } from './scopeOptions';
 import { scopeLabel } from './scopeLabel';
 
 const t = STR.de;
@@ -43,8 +46,8 @@ const renderDialog = (as: TestAccount, props: Partial<Parameters<typeof CreateIn
   return onClose;
 };
 
-const optionValues = () =>
-  Array.from((screen.getByLabelText(t.accountsScope) as HTMLSelectElement).options).map((o) => o.value);
+const radioValues = () => screen.getAllByRole('radio').map((r) => (r as HTMLInputElement).value);
+const checked = () => (screen.queryByRole('radio', { checked: true }) as HTMLInputElement | null)?.value;
 
 const stub = (key: 'share' | 'clipboard', value: unknown) =>
   Object.defineProperty(navigator, key, { configurable: true, value });
@@ -61,6 +64,7 @@ const create = async (email = 'new@example.ch') => {
 
 beforeEach(() => {
   state.rows = [];
+  state.approved = [];
   rpc.mockReset().mockResolvedValue({ data: 'tok', error: null });
 });
 
@@ -92,33 +96,51 @@ describe('CreateInvitationDialog', () => {
 
   it('offers the ESV, then every node below it, to a super-admin', () => {
     renderDialog('esv');
-    expect(optionValues()).toEqual(inviteOptionIds(invitableScopes(a, 'esv')));
-    expect(optionValues()[0]).toBe('esv');
+    expect(radioValues()).toEqual(boardIds(invitableBoard(a, 'esv')));
+    expect(radioValues()[0]).toBe('esv');
+    expect(checked()).toBe('esv');
   });
 
   it('offers a Teilverband and its Verbände, and nothing else', () => {
     renderDialog('bksv');
-    const values = optionValues();
-    expect(values).toEqual(inviteOptionIds(invitableScopes(a, 'bksv')));
+    const values = radioValues();
+    expect(values).toEqual(boardIds(invitableBoard(a, 'bksv')));
     expect(values).toHaveLength(7);
     expect(values[0]).toBe('bksv');
+    expect(checked()).toBe('bksv');
+  });
+
+  it('shows how many users each node has once they have loaded', async () => {
+    state.approved = [{ scope_association_id: 'emmental' }];
+    renderDialog('bksv');
+    expect(await screen.findByRole('radio', { name: /^Emmental.*Benutzer: 1/ })).toBeInTheDocument();
+  });
+
+  // RLS shows a Teilverband editor its own profile and those it manages, not the other editors on
+  // its own node, so a count there would always read 1.
+  it('gives no user count for a Teilverband editor’s own node', async () => {
+    state.approved = [{ scope_association_id: 'bksv' }, { scope_association_id: 'emmental' }];
+    renderDialog('bksv');
+    const whole = await screen.findByRole('radio', { name: new RegExp(`^${t.scopeWholeRegional}.*1 darunter`) });
+    expect(whole).not.toHaveAccessibleName(/Benutzer/);
+    expect(screen.getByRole('radio', { name: /^Emmental.*Benutzer: 1/ })).toBeInTheDocument();
   });
 
   it('shows the node as text when there is nothing to choose', () => {
     renderDialog('emmental');
-    expect(screen.queryByLabelText(t.accountsScope)).toBeNull();
+    expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByText(`${t.accountsScope}: ${scopeLabel(a, t, 'emmental')}`)).toBeInTheDocument();
   });
 
   it('prefills the address and node from an earlier invitation', () => {
     renderDialog('bksv', { initial: { email: 'x@y.ch', scope: 'emmental' } });
     expect((screen.getByLabelText(t.email) as HTMLInputElement).value).toBe('x@y.ch');
-    expect((screen.getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
+    expect(checked()).toBe('emmental');
   });
 
   it('falls back to the own node when the earlier one is not offered', () => {
     renderDialog('bksv', { initial: { email: 'x@y.ch', scope: 'esv' } });
-    expect((screen.getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('bksv');
+    expect(checked()).toBe('bksv');
   });
 
   describe('the warning about an open invitation', () => {
