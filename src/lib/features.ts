@@ -7,8 +7,8 @@ export type AppEnv = 'development' | 'stage' | 'production';
 export const FEATURES = {
   // Group and manage venues by Schwingerverband. Removed in #72.
   verband: { development: true, stage: true, production: true },
-  // Self-registration, and later the admin panel. Removed in #73.
-  editors: { development: true, stage: true, production: false },
+  // Sign-up by invitation, the account menu and the admin panel. Removed in #73.
+  editors: { development: true, stage: true, production: true },
 } satisfies Record<string, Record<AppEnv, boolean>>;
 
 export type Feature = keyof typeof FEATURES;
