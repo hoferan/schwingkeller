@@ -54,6 +54,35 @@ export const optionIds = (o: ScopeOptions): string[] => [
   ...o.groups.flatMap((g) => g.options.map((x) => x.id)),
 ];
 
+export interface InviteOptions {
+  own: string | null;
+  groups: { label: string; ids: string[] }[];
+}
+
+// The nodes the caller may invite an editor to. Differs from grantableScopes by including the
+// caller's own node. Mirrors public.can_invite; only the database enforces it.
+export const invitableScopes = (a: Associations, callerScope: string): InviteOptions => {
+  const caller = a.byId.get(callerScope);
+  if (!caller) return { own: null, groups: [] };
+  if (caller.level === 'federation') {
+    return {
+      own: caller.id,
+      groups: a.childrenOf(caller.id).map((r) => ({
+        label: a.nameOf(r.id),
+        ids: [r.id, ...a.childrenOf(r.id).map((c) => c.id)],
+      })),
+    };
+  }
+  const below = a.childrenOf(caller.id);
+  if (below.length === 0) return { own: caller.id, groups: [] };
+  return { own: caller.id, groups: [{ label: a.nameOf(caller.id), ids: below.map((c) => c.id) }] };
+};
+
+export const inviteOptionIds = (o: InviteOptions): string[] => [
+  ...(o.own ? [o.own] : []),
+  ...o.groups.flatMap((g) => g.ids),
+];
+
 // An account back in the queue through request_review_again keeps its old scope, which is a better
 // guess than the Verband it chose at sign-up. Nothing is preselected that the caller may not grant.
 export const defaultScopeFor = (
