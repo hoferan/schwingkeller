@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const { from, rpc, state } = vi.hoisted(() => {
@@ -116,12 +116,17 @@ describe('CreateInvitationDialog', () => {
     });
 
     it('stays away when that invitation has expired', async () => {
-      state.rows = [invitation('2000-01-01T00:00:00Z')];
+      state.rows = [
+        { ...invitation('2000-01-01T00:00:00Z'), id: 'i0', email: 'old@example.ch' },
+        invitation('2999-01-01T00:00:00Z'),
+      ];
       renderDialog('bksv');
-      await waitFor(() => expect(from).toHaveBeenCalled());
-      await userEvent.type(screen.getByLabelText(t.email), 'anna.muster@example.ch');
-      await new Promise((r) => setTimeout(r, 20));
-      expect(screen.queryByText(t.inviteReplacesOpen)).toBeNull();
+      const field = screen.getByLabelText(t.email);
+      await userEvent.type(field, 'anna.muster@example.ch');
+      await screen.findByText(t.inviteReplacesOpen);
+      await userEvent.clear(field);
+      await userEvent.type(field, 'old@example.ch');
+      await waitFor(() => expect(screen.queryByText(t.inviteReplacesOpen)).toBeNull());
     });
   });
 
@@ -132,6 +137,19 @@ describe('CreateInvitationDialog', () => {
     await screen.findByText(t.inviteCreatedTitle);
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith('create_invitation', { target_email: 'new@example.ch', scope: 'bksv' });
+  });
+
+  it('creates one invitation on two clicks before React re-renders', async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderDialog('bksv');
+    await userEvent.type(screen.getByLabelText(t.email), 'new@example.ch');
+    const button = screen.getByRole('button', { name: t.inviteCreate });
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the create button off while the address is empty', () => {
@@ -242,7 +260,9 @@ describe('CreateInvitationDialog', () => {
       renderDialog('bksv');
       await create();
       await userEvent.click(await screen.findByRole('button', { name: t.inviteCopy }));
-      expect(screen.getByLabelText(t.inviteLink)).toHaveFocus();
+      const field = screen.getByLabelText(t.inviteLink) as HTMLInputElement;
+      expect(field).toHaveFocus();
+      expect([field.selectionStart, field.selectionEnd]).toEqual([0, link().length]);
     });
 
     it('selects the link when the clipboard refuses', async () => {
@@ -251,6 +271,29 @@ describe('CreateInvitationDialog', () => {
       await create();
       await userEvent.click(await screen.findByRole('button', { name: t.inviteCopy }));
       await waitFor(() => expect(screen.getByLabelText(t.inviteLink)).toHaveFocus());
+    });
+
+    it('shows an address with replacement patterns as typed', async () => {
+      renderDialog('bksv');
+      await create("a$&b@example.ch");
+      expect(await screen.findByText(/^a\$&b@example\.ch · /)).toBeInTheDocument();
+    });
+
+    it('ignores Escape, so the link stays until Fertig', async () => {
+      const onClose = renderDialog('bksv');
+      await create();
+      await screen.findByText(t.inviteCreatedTitle);
+      await userEvent.keyboard('{Escape}');
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByText(t.inviteCreatedTitle)).toBeInTheDocument();
+    });
+
+    it('announces the copy', async () => {
+      stub('clipboard', { writeText: vi.fn().mockResolvedValue(undefined) });
+      renderDialog('bksv');
+      await create();
+      await userEvent.click(await screen.findByRole('button', { name: t.inviteCopy }));
+      await waitFor(() => expect(screen.getAllByRole('status').some((e) => e.textContent === t.inviteCopied)).toBe(true));
     });
 
     it('closes on Fertig', async () => {

@@ -31,6 +31,10 @@ const titleStyle = {
   color: theme.color.ink,
 } as const;
 
+const srOnly = {
+  position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap',
+} as const;
+
 const mailButtonStyle = {
   ...secondaryButtonStyle, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box',
 } as const;
@@ -53,6 +57,8 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
+  // Set before mutate: the pending flag reaches a render a tick later, too late for a double click.
+  const inFlight = useRef(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
@@ -62,7 +68,8 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
   const blocked = email.trim() === '' || scope === '' || create.isPending;
 
   const submit = () => {
-    if (blocked) return;
+    if (blocked || inFlight.current) return;
+    inFlight.current = true;
     setErrorKey(null);
     const target = email.trim();
     create.mutate(
@@ -74,6 +81,9 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
           setCreated({ token, email: target, scope, until });
         },
         onError: (err) => setErrorKey(createInvitationErrorKey(err)),
+        onSettled: () => {
+          inFlight.current = false;
+        },
       },
     );
   };
@@ -111,14 +121,15 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
     };
 
     return (
-      <Modal onClose={onClose} width={400} zIndex={1500} labelledBy="create-invitation-title">
+      // The link is shown once, so only Fertig closes this step, not Escape or the backdrop.
+      <Modal onClose={() => {}} width={400} zIndex={1500} labelledBy="create-invitation-title">
         <div data-testid="create-invitation-dialog" style={{ padding: '22px' }}>
           <div id="create-invitation-title" style={titleStyle}>{t.inviteCreatedTitle}</div>
           <div style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '6px', overflowWrap: 'anywhere' }}>
             {t.inviteCreatedFor
-              .replace('{email}', created.email)
-              .replace('{node}', scopeLabel(a, t, created.scope))
-              .replace('{date}', date)}
+              .replace('{email}', () => created.email)
+              .replace('{node}', () => scopeLabel(a, t, created.scope))
+              .replace('{date}', () => date)}
           </div>
           <label htmlFor="invitation-link" style={{ ...labelStyle, margin: '16px 0 6px' }}>{t.inviteLink}</label>
           <input
@@ -138,6 +149,7 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
               <button type="button" onClick={share} style={secondaryButtonStyle}>{t.inviteShare}</button>
             )}
           </div>
+          <span role="status" style={srOnly}>{copied ? t.inviteCopied : ''}</span>
           <div style={{ fontSize: '12.5px', color: theme.color.muted, marginTop: '14px', lineHeight: 1.5 }}>
             {t.inviteShownOnce}
           </div>
@@ -179,11 +191,13 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
             </select>
           </>
         )}
-        {replacesOpen && (
-          <div style={{ fontSize: '12.5px', color: theme.color.muted, marginTop: '12px', lineHeight: 1.5 }}>
-            {t.inviteReplacesOpen}
-          </div>
-        )}
+        {/* Always rendered, so a screen reader announces the text when it appears. */}
+        <div
+          role="status"
+          style={{ fontSize: '12.5px', color: theme.color.muted, marginTop: replacesOpen ? '12px' : 0, lineHeight: 1.5 }}
+        >
+          {replacesOpen ? t.inviteReplacesOpen : ''}
+        </div>
         {errorKey && (
           <div role="alert" style={{ color: theme.color.accent, fontSize: '13px', marginTop: '12px' }}>
             {t[errorKey]}
