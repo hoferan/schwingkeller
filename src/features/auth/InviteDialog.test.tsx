@@ -150,7 +150,8 @@ describe('InviteDialog', () => {
   it('shows a signed-in address with a $ pattern as typed', () => {
     lookup({ data: invitation });
     renderDialog({ session: sessionFor('a$&b@example.ch') });
-    expect(screen.getByText(/angemeldet/)).toHaveTextContent('Sie sind als a$&b@example.ch angemeldet.');
+    const text = t.inviteSignedInAs.replace('{email}', () => 'a$&b@example.ch');
+    expect(screen.getByText(text)).toBeInTheDocument();
   });
 
   it.each([

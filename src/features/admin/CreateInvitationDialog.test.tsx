@@ -183,6 +183,7 @@ describe('CreateInvitationDialog', () => {
     const button = screen.getByRole('button', { name: t.inviteCreate });
     expect(button).toHaveFocus();
     expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toBeEnabled();
     await userEvent.click(button);
     await userEvent.keyboard('{Enter}');
     expect(rpc).toHaveBeenCalledTimes(1);

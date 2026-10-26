@@ -176,10 +176,11 @@ describe('AuthProvider', () => {
   describe('signIn', () => {
     let signIn: ReturnType<typeof useAuth>['signIn'] | null = null;
     const Grab = () => {
-      signIn = useAuth().signIn;
-      return null;
+      const auth = useAuth();
+      signIn = auth.signIn;
+      return <span>scope:{String(auth.scope)}</span>;
     };
-    // Waits until the session and the profile have landed, so no update arrives outside act().
+    // Waits until the profile has landed (the scope shows up), so no update arrives outside act().
     const renderGrab = async () => {
       await act(async () => {
         render(
@@ -190,6 +191,7 @@ describe('AuthProvider', () => {
           </QueryClientProvider>,
         );
       });
+      await screen.findByText('scope:emmental');
       if (!signIn) throw new Error('signIn not exposed');
       return signIn;
     };
@@ -208,10 +210,11 @@ describe('AuthProvider', () => {
   describe('signUp', () => {
     let signUp: ReturnType<typeof useAuth>['signUp'] | null = null;
     const Grab = () => {
-      signUp = useAuth().signUp;
-      return null;
+      const auth = useAuth();
+      signUp = auth.signUp;
+      return <span>scope:{String(auth.scope)}</span>;
     };
-    // Waits until the session and the profile have landed, so no update arrives outside act().
+    // Waits until the profile has landed (the scope shows up), so no update arrives outside act().
     const renderGrab = async () => {
       await act(async () => {
         render(
@@ -222,6 +225,7 @@ describe('AuthProvider', () => {
           </QueryClientProvider>,
         );
       });
+      await screen.findByText('scope:emmental');
       if (!signUp) throw new Error('signUp not exposed');
       return signUp;
     };

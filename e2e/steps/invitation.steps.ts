@@ -1,10 +1,21 @@
 import { randomBytes } from 'node:crypto';
+import type { Page } from '@playwright/test';
 import { STR } from '../../src/i18n/translations';
 import { signInAsAdmin } from '../../test-support/local-stack';
 import { verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
+
+// Creates the invitation in the open dialog and keeps the token from the link it shows.
+const createInvitation = async (page: Page, invitation: { token?: string }) => {
+  const dialog = page.getByTestId('create-invitation-dialog');
+  await dialog.getByRole('button', { name: t.inviteCreate }).click();
+  const link = await dialog.getByLabel(t.inviteLink).inputValue();
+  const token = new URL(link).searchParams.get('invite');
+  if (!token) throw new Error(`the invitation link has no token: ${link}`);
+  invitation.token = token;
+};
 
 // The super-admin invites through the API. Scenarios that don't test the invitations panel use this
 // path; the panel has its own scenarios in invitations.feature.
@@ -62,11 +73,7 @@ When('I invite the applicant from the invitations panel', async ({ page, applica
   await page.getByRole('button', { name: new RegExp(String.raw`^\+?\s*${t.invite}$`) }).click();
   const dialog = page.getByTestId('create-invitation-dialog');
   await dialog.getByLabel(t.email).fill(applicant.email);
-  await dialog.getByRole('button', { name: t.inviteCreate }).click();
-  const link = await dialog.getByLabel(t.inviteLink).inputValue();
-  const token = new URL(link).searchParams.get('invite');
-  if (!token) throw new Error(`the invitation link has no token: ${link}`);
-  invitation.token = token;
+  await createInvitation(page, invitation);
 });
 
 When('I invite the applicant to {string} from the Einladungen tab', async ({ page, applicant, invitation }, name: string) => {
@@ -75,11 +82,7 @@ When('I invite the applicant to {string} from the Einladungen tab', async ({ pag
   const dialog = page.getByTestId('create-invitation-dialog');
   await dialog.getByLabel(t.email).fill(applicant.email);
   await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
-  await dialog.getByRole('button', { name: t.inviteCreate }).click();
-  const link = await dialog.getByLabel(t.inviteLink).inputValue();
-  const token = new URL(link).searchParams.get('invite');
-  if (!token) throw new Error(`the invitation link has no token: ${link}`);
-  invitation.token = token;
+  await createInvitation(page, invitation);
 });
 
 Then('the invitation link is shown once', async ({ page }) => {
