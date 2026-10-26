@@ -33,6 +33,11 @@ const chipStyle = (checked: boolean, whole: boolean): CSSProperties => ({
   background: checked ? theme.color.accent : theme.color.bg, color: checked ? theme.color.accentInk : theme.color.ink,
   fontSize: '13px', fontWeight: whole ? 600 : 400, lineHeight: 1.25, cursor: 'pointer',
 });
+// The radio lies transparent over the whole chip, so a click or a touch lands on it directly and a
+// screen reader finds it where the chip is drawn.
+const radioStyle: CSSProperties = {
+  position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: 'pointer',
+};
 const countStyle = (checked: boolean): CSSProperties => ({
   fontSize: '11px', fontWeight: 400, fontVariantNumeric: 'tabular-nums',
   color: checked ? theme.color.accentInk : theme.color.muted,
@@ -60,7 +65,7 @@ export const ScopeChips = ({ board, counts, value, onChange, labelledBy }: Scope
           value={id}
           checked={checked}
           onChange={() => onChange(id)}
-          style={visuallyHidden}
+          style={radioStyle}
         />
         <span>{label}</span>
         {c && (
