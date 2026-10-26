@@ -149,7 +149,7 @@ services:
       GOTRUE_HOOK_BEFORE_USER_CREATED_ENABLED: "true"
       GOTRUE_HOOK_BEFORE_USER_CREATED_URI: pg-functions://postgres/public/before_user_created
       # Production's minimum. Email confirmation stays off locally (autoconfirm below), so tests need no mailbox.
-      GOTRUE_PASSWORD_MIN_LENGTH: "10"
+      GOTRUE_PASSWORD_MIN_LENGTH: "15"
 
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated

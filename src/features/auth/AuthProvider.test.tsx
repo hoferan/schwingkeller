@@ -1,18 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { Session } from '@supabase/supabase-js';
+import { AuthApiError, type Session } from '@supabase/supabase-js';
 
-const { getSession, onAuthStateChange, signOutFn, signUpFn, single } = vi.hoisted(() => ({
+const { getSession, onAuthStateChange, refreshSession, signInFn, signOutFn, signUpFn, single } = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
+  refreshSession: vi.fn(),
+  signInFn: vi.fn(),
   signOutFn: vi.fn().mockResolvedValue({ error: null }),
   signUpFn: vi.fn(),
   single: vi.fn(),
 }));
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: { getSession, onAuthStateChange, signOut: signOutFn, signUp: signUpFn },
+    auth: { getSession, onAuthStateChange, refreshSession, signInWithPassword: signInFn, signOut: signOutFn, signUp: signUpFn },
     from: () => ({ select: () => ({ eq: () => ({ single }) }) }),
   },
 }));
@@ -171,6 +173,35 @@ describe('AuthProvider', () => {
     expect(captureException).not.toHaveBeenCalled();
   });
 
+  describe('signIn', () => {
+    let signIn: ReturnType<typeof useAuth>['signIn'] | null = null;
+    const Grab = () => {
+      signIn = useAuth().signIn;
+      return null;
+    };
+    const renderGrab = () => {
+      render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <Grab />
+          </AuthProvider>
+        </QueryClientProvider>,
+      );
+      if (!signIn) throw new Error('signIn not exposed');
+      return signIn;
+    };
+
+    it('turns a refused sign-in into a failure kind, not Supabase text', async () => {
+      signInFn.mockResolvedValue({ data: {}, error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials') });
+      expect(await renderGrab()('a@b.ch', 'wrong')).toEqual({ error: 'credentials' });
+    });
+
+    it('reports no failure when the sign-in works', async () => {
+      signInFn.mockResolvedValue({ data: {}, error: null });
+      expect(await renderGrab()('a@b.ch', 'right')).toEqual({ error: null });
+    });
+  });
+
   describe('signUp', () => {
     let signUp: ReturnType<typeof useAuth>['signUp'] | null = null;
     const Grab = () => {
@@ -189,33 +220,45 @@ describe('AuthProvider', () => {
       return signUp;
     };
 
-    it('passes the Verband as user metadata', async () => {
-      signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-      await renderGrab()('a@b.ch', 'longenough1', 'emmental');
+    beforeEach(() => {
+      refreshSession.mockReset().mockResolvedValue({ data: {}, error: null });
+    });
+
+    it('sends the invitation token and nothing else as metadata', async () => {
+      signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
+      await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok');
       expect(signUpFn).toHaveBeenCalledWith({
         email: 'a@b.ch',
-        password: 'longenough1',
-        options: { data: { association: 'emmental' }, emailRedirectTo: window.location.origin },
+        password: 'fifteen-chars-ok',
+        options: { data: { invitation: 'tok' } },
       });
     });
 
-    it('asks for email confirmation when no session comes back', async () => {
-      signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
-      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
-      expect(result).toEqual({ error: null, confirmEmail: true });
-    });
-
-    it('signs in directly when a session comes back', async () => {
+    // The response's access token still carries the used invitation (ADR 0020); a refresh issues a
+    // clean one.
+    it('refreshes the new session once', async () => {
       signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
-      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
-      expect(result).toEqual({ error: null, confirmEmail: false });
+      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
+      expect(refreshSession).toHaveBeenCalledTimes(1);
     });
 
-    it('returns the Supabase error message', async () => {
-      const error = { message: 'User already registered' };
+    it('has nothing to refresh without a session', async () => {
+      signUpFn.mockResolvedValue({ data: { session: null, user: {} }, error: null });
+      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
+      expect(refreshSession).not.toHaveBeenCalled();
+    });
+
+    it('turns a refused invitation into a failure kind and refreshes nothing', async () => {
+      const error = new AuthApiError('Sign-up requires a valid invitation.', 403, undefined);
       signUpFn.mockResolvedValue({ data: { session: null, user: null }, error });
-      const result = await renderGrab()('a@b.ch', 'longenough1', 'emmental');
-      expect(result).toEqual({ error: 'User already registered', confirmEmail: false });
+      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: 'invitation' });
+      expect(refreshSession).not.toHaveBeenCalled();
+    });
+
+    it('counts the sign-up as done when the refresh fails', async () => {
+      signUpFn.mockResolvedValue({ data: { session, user: {} }, error: null });
+      refreshSession.mockResolvedValue({ data: {}, error: new AuthApiError('x', 500, 'unexpected_failure') });
+      expect(await renderGrab()('a@b.ch', 'fifteen-chars-ok', 'tok')).toEqual({ error: null });
     });
   });
 });

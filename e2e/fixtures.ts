@@ -81,7 +81,14 @@ export const setupTest = playwrightTest.extend<SetupOptions>({
 export interface Applicant { email: string; password: string }
 
 export const test = bddTest.extend<
-  { venuePrefix: string; applicant: Applicant; posterDownload: { current?: Download }; mapZoom: { before?: number }; hoveredCluster: { count?: number } },
+  {
+    venuePrefix: string;
+    applicant: Applicant;
+    invitation: { token?: string };
+    posterDownload: { current?: Download };
+    mapZoom: { before?: number };
+    hoveredCluster: { count?: number };
+  },
   { adminDb: SupabaseClient }
 >({
   page: stubbedPage,
@@ -114,6 +121,12 @@ export const test = bddTest.extend<
     if (error) throw new Error(`could not sign in as ${applicant.email} to delete it: ${error.message}`);
     const { error: deleteError } = await client.rpc('delete_account');
     if (deleteError) throw new Error(`could not delete ${applicant.email}: ${deleteError.message}`);
+  },
+
+  // The invite step hands the token to the step that opens the link.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  invitation: async ({}, use) => {
+    await use({});
   },
 
   // The download step hands its file to the steps that check it.

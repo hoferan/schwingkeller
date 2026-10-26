@@ -49,6 +49,11 @@ vi.mock('./components/Topbar', () => ({
 vi.mock('./features/auth/useAuth', () => ({ useAuth: () => ({ canManageAccounts: mocked.canManageAccounts }) }));
 vi.mock('./features/admin/AccountsPanel', () => ({ AccountsPanel: () => <div data-testid="accounts-panel" /> }));
 vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
+vi.mock('./features/auth/InviteDialog', () => ({
+  InviteDialog: ({ token, onClose }: { token: string; onClose: () => void }) => (
+    <button data-testid="invite-dialog" onClick={onClose}>{token}</button>
+  ),
+}));
 vi.mock('./features/map/MapView', () => ({
   MapView: ({ initialFocusBounds, onOpenDetail }: { initialFocusBounds: unknown; onOpenDetail: (id: string) => void }) => (
     <div data-testid="mapview">
@@ -384,5 +389,47 @@ describe('App — account list', () => {
     mocked.canManageAccounts = true;
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
+  });
+});
+
+describe('App — invitation link', () => {
+  const openAt = (search: string) => window.history.replaceState(null, '', '/' + search);
+  afterEach(() => openAt(''));
+
+  it('opens the invitation and clears the link from the address bar', () => {
+    setFeature('editors', true);
+    openAt('?invite=tok');
+    render(<App />);
+    expect(screen.getByTestId('invite-dialog')).toHaveTextContent('tok');
+    expect(window.location.search).toBe('');
+  });
+
+  it('keeps the other parameters working', () => {
+    setFeature('editors', true);
+    setFeature('verband', true);
+    openAt('?vb=emmental&invite=tok');
+    render(<App />);
+    expect(screen.getByTestId('invite-dialog')).toBeInTheDocument();
+    expect(window.location.search).toBe('?vb=emmental');
+    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toMatchObject({ emmental: true });
+  });
+
+  // Production has no sign-up until #73, so the link does nothing there, but the token still leaves
+  // the address bar.
+  it('ignores the link with the editors flag off', () => {
+    setFeature('editors', false);
+    openAt('?invite=tok');
+    render(<App />);
+    expect(screen.queryByTestId('invite-dialog')).toBeNull();
+    expect(window.location.search).toBe('');
+  });
+
+  it('stays closed once closed', async () => {
+    setFeature('editors', true);
+    openAt('?invite=tok');
+    const { rerender } = render(<App />);
+    await userEvent.click(screen.getByTestId('invite-dialog'));
+    rerender(<App />);
+    expect(screen.queryByTestId('invite-dialog')).toBeNull();
   });
 });

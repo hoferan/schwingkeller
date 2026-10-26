@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useAuth } from './useAuth';
 import { theme } from '../../theme';
 import { useTranslation } from '../../i18n/useTranslation';
-import { isFeatureOn } from '../../lib/features';
-import {
-  inputStyle, labelStyle, linkButtonStyle, primaryButtonStyle, secondaryButtonStyle,
-} from './formStyles';
-import { RegisterForm } from './RegisterForm';
+import type { TKey } from '../../i18n/translations';
+import type { SignInFailure } from './authFailure';
+import { inputStyle, labelStyle, primaryButtonStyle, secondaryButtonStyle } from './formStyles';
+
+const SIGN_IN_MESSAGE: Record<SignInFailure, TKey> = {
+  credentials: 'loginErrCredentials',
+  rateLimit: 'authErrRateLimit',
+  unavailable: 'authErrUnavailable',
+};
 
 interface LoginModalProps {
   onClose: () => void;
@@ -19,13 +23,6 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-
-  // A sign-in error belongs to the attempt that caused it, so it goes when the form does.
-  const switchMode = (next: 'login' | 'register') => {
-    setErr('');
-    setMode(next);
-  };
 
   const doLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -37,7 +34,7 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        setErr(error);
+        setErr(t[SIGN_IN_MESSAGE[error]]);
         return;
       }
       onClose();
@@ -69,16 +66,10 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
           }}
         >
           <span style={{ fontFamily: theme.font.display, textTransform: 'uppercase', fontSize: '16px', fontWeight: 700, color: theme.color.bg }}>
-            {mode === 'register' ? t.registerTitle : t.loginTitle}
+            {t.loginTitle}
           </span>
         </div>
-        {/* The registration form is taller than a phone screen in landscape, so the body scrolls
-            below the header instead of pushing the modal off the screen. */}
-        <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>
-          {mode === 'register' ? (
-            <RegisterForm onDone={onClose} onBack={() => switchMode('login')} />
-          ) : (
-          <>
+        <div style={{ padding: '18px 20px 20px' }}>
           {/* htmlFor/id rather than bare labels: without the association the fields have no
               accessible name at all, and clicking a label does not focus its field. */}
           <label htmlFor="login-email" style={labelStyle}>{t.email}</label>
@@ -119,15 +110,6 @@ export const LoginModal = ({ onClose }: LoginModalProps) => {
               {t.login}
             </button>
           </div>
-          {isFeatureOn('editors') && (
-            <div style={{ marginTop: '14px', textAlign: 'center' }}>
-              <button type="button" onClick={() => switchMode('register')} style={linkButtonStyle}>
-                {t.registerLink}
-              </button>
-            </div>
-          )}
-          </>
-          )}
         </div>
       </div>
     </div>

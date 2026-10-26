@@ -7,6 +7,8 @@ import {
   withVenueParam,
   withCantonParam,
   withAssociationParam,
+  parseInviteParam,
+  withoutInviteParam,
 } from './permalink';
 
 describe('parseCantonParam', () => {
@@ -160,5 +162,28 @@ describe('withAssociationParam', () => {
 
   it('keeps unrelated params', () => {
     expect(withAssociationParam('/?foo=bar', 'zuerich')).toBe('/?foo=bar&vb=zuerich');
+  });
+});
+
+describe('parseInviteParam', () => {
+  it('returns the token as it stands', () => {
+    expect(parseInviteParam('?invite=abc')).toBe('abc');
+    expect(parseInviteParam('?invite=AbC')).toBe('AbC');
+  });
+
+  it('returns null without a token', () => {
+    expect(parseInviteParam('')).toBeNull();
+    expect(parseInviteParam('?invite=')).toBeNull();
+  });
+});
+
+describe('withoutInviteParam', () => {
+  it('drops only the invitation', () => {
+    expect(withoutInviteParam('/?vb=emmental&invite=abc')).toBe('/?vb=emmental');
+    expect(withoutInviteParam('/?invite=abc')).toBe('/');
+  });
+
+  it('leaves a URL without an invitation alone', () => {
+    expect(withoutInviteParam('/?vb=emmental')).toBe('/?vb=emmental');
   });
 });
