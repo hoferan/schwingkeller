@@ -1,6 +1,6 @@
 import { STR } from '../../src/i18n/translations';
 import { anonClient, createAuthUser, signInAsAdmin } from '../../test-support/local-stack';
-import { verbandId } from '../associations';
+import { verbandChip, verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
@@ -24,7 +24,7 @@ When('I open the account list', async ({ page }) => {
 
 When('I approve the applicant as {string}', async ({ page, applicant }, name: string) => {
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.approve }).click();
-  await page.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await page.getByTestId('scope-dialog').getByRole('radio', { name: verbandChip(name) }).check();
   // The row has an approve button too, so look inside the dialog.
   await page.getByTestId('scope-dialog').getByRole('button', { name: t.approve }).click();
   await expect(page.getByTestId(`account-${applicant.email}`)).toHaveCount(0);
@@ -68,7 +68,7 @@ When('I open the account list showing approved accounts', async ({ page }) => {
 When("I change the applicant's scope to {string}", async ({ page, applicant }, name: string) => {
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.changeScope }).click();
   const dialog = page.getByTestId('scope-dialog');
-  await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await dialog.getByRole('radio', { name: verbandChip(name) }).check();
   await dialog.getByRole('button', { name: t.save }).click();
   await expect(dialog).toHaveCount(0);
 });

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { STR } from '../../src/i18n/translations';
 import { signInAsAdmin } from '../../test-support/local-stack';
-import { verbandId } from '../associations';
+import { verbandChip, verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
@@ -81,7 +81,7 @@ When('I invite the applicant to {string} from the Einladungen tab', async ({ pag
   await page.getByRole('button', { name: new RegExp(String.raw`^\+?\s*${t.invite}$`) }).click();
   const dialog = page.getByTestId('create-invitation-dialog');
   await dialog.getByLabel(t.email).fill(applicant.email);
-  await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await dialog.getByRole('radio', { name: verbandChip(name) }).check();
   await createInvitation(page, invitation);
 });
 
