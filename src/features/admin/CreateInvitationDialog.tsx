@@ -14,7 +14,9 @@ import { createInvitationErrorKey, type CreateInvitationErrorKey } from './invit
 import { INVITATION_DAYS, invitationLink, isExpired } from './invitations';
 import { inviteMessage, mailtoHref } from './inviteMessage';
 import { scopeLabel } from './scopeLabel';
-import { invitableScopes, inviteOptionIds } from './scopeOptions';
+import { ScopeChips } from './ScopeChips';
+import { boardIds, invitableBoard, scopeCounts } from './scopeOptions';
+import { useApprovedScopes } from './useAccounts';
 import { useCreateInvitation, useInvitations } from './useInvitations';
 
 interface CreateInvitationDialogProps {
@@ -76,13 +78,15 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
   const { scope: callerScope } = useAuth();
   const invitations = useInvitations();
   const create = useCreateInvitation();
-  const options = invitableScopes(a, callerScope ?? '');
-  const ids = inviteOptionIds(options);
+  const approved = useApprovedScopes();
+  const board = invitableBoard(a, callerScope ?? '');
+  const ids = boardIds(board);
 
   const [email, setEmail] = useState(initial?.email ?? '');
-  const [scope, setScope] = useState(() =>
-    initial && ids.includes(initial.scope) ? initial.scope : (options.own ?? ids[0] ?? ''),
-  );
+  const [scope, setScope] = useState(() => {
+    if (initial && ids.includes(initial.scope)) return initial.scope;
+    return callerScope && ids.includes(callerScope) ? callerScope : (ids[0] ?? '');
+  });
   const [errorKey, setErrorKey] = useState<CreateInvitationErrorKey | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
@@ -248,26 +252,16 @@ export const CreateInvitationDialog = ({ onClose, initial }: CreateInvitationDia
           </div>
         ) : (
           <>
-            <label htmlFor="invite-scope" style={{ ...labelStyle, margin: '14px 0 6px' }}>
+            <div id="invite-scope-label" style={{ ...labelStyle, margin: '14px 0 6px' }}>
               {t.accountsScope}
-            </label>
-            <select
-              id="invite-scope"
+            </div>
+            <ScopeChips
+              board={board}
+              counts={approved.data ? scopeCounts(a, approved.data) : null}
               value={scope}
-              onChange={(e) => setScope(e.target.value)}
-              style={inputStyle}
-            >
-              {options.own && <option value={options.own}>{scopeLabel(a, t, options.own)}</option>}
-              {options.groups.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.ids.map((id) => (
-                    <option key={id} value={id}>
-                      {scopeLabel(a, t, id)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              onChange={setScope}
+              labelledBy="invite-scope-label"
+            />
           </>
         )}
         {/* Always rendered, so a screen reader announces the text when it appears. */}

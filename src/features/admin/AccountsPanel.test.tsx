@@ -510,7 +510,7 @@ describe('AccountsPanel header', () => {
     );
     const dialog = screen.getByTestId('create-invitation-dialog');
     expect((within(dialog).getByLabelText(t.email) as HTMLInputElement).value).toBe('anna@example.ch');
-    expect((within(dialog).getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
+    expect((within(dialog).getByRole('radio', { checked: true }) as HTMLInputElement).value).toBe('emmental');
   });
 
   it('gives the close button a 44px target', async () => {
