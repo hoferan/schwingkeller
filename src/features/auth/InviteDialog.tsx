@@ -26,7 +26,7 @@ interface InviteDialogProps {
   onClose: () => void;
 }
 
-const textStyle = { margin: 0, fontSize: '14px', color: theme.color.ink, lineHeight: 1.5, overflowWrap: 'anywhere' } as const;
+const textStyle = { marginTop: 0, marginBottom: 0, fontSize: '14px', color: theme.color.ink, lineHeight: 1.5, overflowWrap: 'anywhere' } as const;
 
 // Opens from an invitation link (?invite=, #140). Every token that isn't a live invitation gets the
 // same message, as the database answers (ADR 0020), and a dead link says so before anything asks a

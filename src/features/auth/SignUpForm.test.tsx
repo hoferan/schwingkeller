@@ -97,6 +97,14 @@ describe('SignUpForm', () => {
     expect(screen.getByRole('button', { name: t.inviteSubmit })).toBeDisabled();
   });
 
+  it('ignores Enter while busy', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({ busy: true });
+    await user.type(screen.getByLabelText(t.password), 'a'.repeat(15));
+    await user.type(screen.getByLabelText(t.passwordConfirm), 'a'.repeat(15) + '{Enter}');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('cancels', async () => {
     const user = userEvent.setup();
     const { onCancel } = renderForm();

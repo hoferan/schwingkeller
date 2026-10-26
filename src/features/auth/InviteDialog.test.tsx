@@ -188,6 +188,43 @@ describe('InviteDialog', () => {
     expect(screen.queryByRole('button', { name: t.inviteSignOut })).toBeNull();
   });
 
+  // React reuses the paragraph from the form for the welcome text, so its style has to change cleanly.
+  it('moves from the form to the welcome step without a React warning', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    lookup({ data: invitation });
+    const user = userEvent.setup();
+    renderDialog({ signUp: vi.fn().mockResolvedValue({ error: null }) });
+
+    await signUpWith(user);
+    await screen.findByText(t.inviteWelcome.replace('{node}', emmental));
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('closes on Escape', async () => {
+    lookup({ data: invitation });
+    const user = userEvent.setup();
+    const { onClose } = renderDialog();
+
+    await user.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  // Closing mid-sign-up would leave the person signed in without the welcome step.
+  it('stays open on Escape while the sign-up is being sent', async () => {
+    lookup({ data: invitation });
+    const signUp = vi.fn(() => new Promise<{ error: null }>(() => {}));
+    const user = userEvent.setup();
+    const { onClose } = renderDialog({ signUp });
+
+    await signUpWith(user);
+    await user.keyboard('{Escape}');
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('closes on Cancel without signing up', async () => {
     lookup({ data: invitation });
     const signUp = vi.fn();

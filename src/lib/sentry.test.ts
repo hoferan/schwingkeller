@@ -103,6 +103,16 @@ describe('initSentry keeps invitation tokens out of events', () => {
     expect(crumb?.data).toEqual({ url: 'https://x.app/' });
   });
 
+  it('passes a breadcrumb without data through', () => {
+    const crumb = { category: 'ui.click' };
+    expect(options().beforeBreadcrumb(crumb)).toBe(crumb);
+  });
+
+  it('passes an event without a page URL through', () => {
+    const event = {};
+    expect(options().beforeSend(event)).toBe(event);
+  });
+
   it('strips the token from the page URL of an event', () => {
     const event = options().beforeSend({ request: { url: 'https://x.app/?invite=tok' } });
     expect(event?.request?.url).toBe('https://x.app/');
