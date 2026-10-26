@@ -21,6 +21,14 @@ describe('inviteMessage', () => {
     }
   });
 
+  it.each(['esv', 'bksv', 'emmental'])('names %s without doubling the noun', (scope) => {
+    const { body } = inviteMessage('de', scope, L);
+    for (const lang of ['de', 'fr', 'it'] as const) {
+      expect(body).toContain(`: ${associationsFor(lang).nameOf(scope)}.`);
+    }
+    expect(body).not.toMatch(/Verbands Eidgen|association Association|associazione Associazione/);
+  });
+
   it('joins the three subjects in the same order', () => {
     expect(inviteMessage('it', 'emmental', L).subject).toBe(
       'Invito · Einladung · Invitation — Schwingkeller',
