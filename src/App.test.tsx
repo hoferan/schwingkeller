@@ -30,7 +30,7 @@ const mocked = vi.hoisted(() => ({
   loaded: true,
   remove: vi.fn<(id: string) => Promise<void>>(),
   capture: vi.fn((_e: unknown, fallback: string) => fallback),
-  canManageAccounts: false,
+  auth: { isApproved: false, canManageAccounts: false },
 }));
 vi.mock('./features/venues/useVenues', () => ({
   useVenues: () => ({ data: mocked.loaded ? (mocked.venues ?? [venue]) : undefined, isSuccess: mocked.loaded }),
@@ -46,7 +46,7 @@ vi.mock('./components/Topbar', () => ({
     <div data-testid="topbar"><button onClick={onOpenAccounts}>open-accounts</button></div>
   ),
 }));
-vi.mock('./features/auth/useAuth', () => ({ useAuth: () => ({ canManageAccounts: mocked.canManageAccounts }) }));
+vi.mock('./features/auth/useAuth', () => ({ useAuth: () => mocked.auth }));
 vi.mock('./features/admin/AccountsPanel', () => ({ AccountsPanel: () => <div data-testid="accounts-panel" /> }));
 vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
 vi.mock('./features/auth/InviteDialog', () => ({
@@ -362,8 +362,10 @@ describe('App — delete', () => {
 });
 
 describe('App — account list', () => {
-  beforeEach(() => { mocked.canManageAccounts = true; });
-  afterEach(() => { mocked.canManageAccounts = false; });
+  const teilverbandEditor = { isApproved: true, canManageAccounts: true };
+  const notApproved = { isApproved: false, canManageAccounts: false };
+  beforeEach(() => { mocked.auth = teilverbandEditor; });
+  afterEach(() => { mocked.auth = notApproved; });
 
   it('opens the account list from the top bar', async () => {
     render(<App />);
@@ -371,11 +373,26 @@ describe('App — account list', () => {
     expect(screen.getByTestId('accounts-panel')).toBeInTheDocument();
   });
 
+  // A Verband editor gets the panel for the invitations.
+  it('opens the panel for an approved Verband editor', async () => {
+    mocked.auth = { isApproved: true, canManageAccounts: false };
+    render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    expect(screen.getByTestId('accounts-panel')).toBeInTheDocument();
+  });
+
+  it('keeps the panel closed for an editor still waiting for approval', async () => {
+    mocked.auth = notApproved;
+    render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    expect(screen.queryByTestId('accounts-panel')).toBeNull();
+  });
+
   // Signing out with the list open must not leave it on screen.
   it('drops the account list once the rights are gone', async () => {
     const { rerender } = render(<App />);
     await userEvent.click(screen.getByText('open-accounts'));
-    mocked.canManageAccounts = false;
+    mocked.auth = notApproved;
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
   });
@@ -384,9 +401,9 @@ describe('App — account list', () => {
   it('keeps the account list closed when the rights come back', async () => {
     const { rerender } = render(<App />);
     await userEvent.click(screen.getByText('open-accounts'));
-    mocked.canManageAccounts = false;
+    mocked.auth = notApproved;
     rerender(<App />);
-    mocked.canManageAccounts = true;
+    mocked.auth = teilverbandEditor;
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
   });

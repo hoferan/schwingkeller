@@ -12,17 +12,24 @@ interface AccountsEntryProps {
   inverted: boolean;
 }
 
-// The top-bar button to the account list, with the number of requests waiting. Only accounts that
-// manage others get it, and only they ask the database for the count.
+// The top-bar button to the people panel. Every approved editor gets it, for the invitations. Only
+// accounts that manage others see the number of requests waiting, and only they ask the database
+// for it.
 export const AccountsEntry = (props: AccountsEntryProps) => {
-  const { canManageAccounts } = useAuth();
-  if (!canManageAccounts || !isFeatureOn('editors')) return null;
-  return <EntryButton {...props} />;
+  const { isApproved, canManageAccounts } = useAuth();
+  if (!isApproved || !isFeatureOn('editors')) return null;
+  return canManageAccounts ? <PendingEntryButton {...props} /> : <EntryButton {...props} pending={0} />;
 };
 
-const EntryButton = ({ onOpen, isMobile, inverted }: AccountsEntryProps) => {
-  const { t } = useTranslation();
+const PendingEntryButton = (props: AccountsEntryProps) => {
   const { data: pending = 0 } = usePendingCount();
+  return <EntryButton {...props} pending={pending} />;
+};
+
+const EntryButton = ({ onOpen, isMobile, inverted, pending }: AccountsEntryProps & { pending: number }) => {
+  const { t } = useTranslation();
+  const { canManageAccounts } = useAuth();
+  const title = canManageAccounts ? t.accountsTitle : t.invitationsTitle;
   const ink = inverted ? theme.color.accentInk : theme.color.accent;
   const pendingText = t.accountsPendingCount.replace('{n}', String(pending));
 
@@ -30,8 +37,8 @@ const EntryButton = ({ onOpen, isMobile, inverted }: AccountsEntryProps) => {
     <button
       onClick={onOpen}
       type="button"
-      title={t.accountsTitle}
-      aria-label={t.accountsTitle}
+      title={title}
+      aria-label={title}
       aria-describedby={pending > 0 ? 'accounts-pending' : undefined}
       style={{
         position: 'relative', fontSize: '12.5px', fontWeight: 600, color: ink, background: 'transparent',
@@ -42,7 +49,7 @@ const EntryButton = ({ onOpen, isMobile, inverted }: AccountsEntryProps) => {
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center' }}><Users size={13} /></span>
-      {!isMobile && t.accountsTitle}
+      {!isMobile && title}
       {pending > 0 && (
         <span
           style={{

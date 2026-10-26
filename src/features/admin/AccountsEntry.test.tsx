@@ -46,9 +46,20 @@ describe('AccountsEntry', () => {
     expect(screen.getByRole('button', { name: t.accountsTitle })).toBeInTheDocument();
   });
 
-  it.each(['emmental', 'pending', 'signed-out'] as const)('stays away for %s, without asking the database', (as) => {
+  it.each(['pending', 'signed-out'] as const)('stays away for %s, without asking the database', (as) => {
     renderEntry(as);
-    expect(screen.queryByRole('button', { name: t.accountsTitle })).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  // A Verband has no accounts below it, so its editors only get the invitations.
+  it('shows a Verband editor the invitations, without a count', () => {
+    state.count = 3;
+    renderEntry('emmental');
+    const button = screen.getByRole('button', { name: t.invitationsTitle });
+    expect(button).toHaveAttribute('title', t.invitationsTitle);
+    expect(button).not.toHaveAccessibleDescription(/Anfragen/);
+    expect(button).not.toHaveTextContent('3');
     expect(from).not.toHaveBeenCalled();
   });
 

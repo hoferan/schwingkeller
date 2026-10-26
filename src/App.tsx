@@ -103,14 +103,15 @@ function AppShell() {
   const [baseKind, setBaseKind] = useState<'map' | 'sat'>('map');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  // The account list. It renders only while the rights last, so signing out closes it.
+  // The accounts and invitations panel, for every approved editor. It renders only while the
+  // approval lasts, so signing out closes it.
   const [showAccounts, setShowAccounts] = useState(false);
-  const { canManageAccounts } = useAuth();
-  // Losing the rights closes the list for good, so the next admin on this tab opens it themselves.
-  const [hadAccountRights, setHadAccountRights] = useState(canManageAccounts);
-  if (hadAccountRights !== canManageAccounts) {
-    setHadAccountRights(canManageAccounts);
-    if (!canManageAccounts) setShowAccounts(false);
+  const { isApproved } = useAuth();
+  // Losing the approval closes the panel for good, so the next editor on this tab opens it themselves.
+  const [wasApproved, setWasApproved] = useState(isApproved);
+  if (wasApproved !== isApproved) {
+    setWasApproved(isApproved);
+    if (!isApproved) setShowAccounts(false);
   }
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(() =>
@@ -411,7 +412,7 @@ function AppShell() {
         </div>
       )}
 
-      {showAccounts && canManageAccounts && (
+      {showAccounts && isApproved && (
         <AccountsPanel onClose={() => setShowAccounts(false)} isMobile={isMobile} />
       )}
 
