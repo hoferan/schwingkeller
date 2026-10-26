@@ -70,8 +70,10 @@ describe('translations', () => {
   // The form fills in the minimum from MIN_PASSWORD_LENGTH, so the number lives in one place.
   it('leaves the minimum password length to the form', () => {
     for (const lang of LANGS) {
-      expect(STR[lang].registerErrShort).toContain('{n}');
-      expect(STR[lang].registerErrShort).not.toMatch(/\d/);
+      for (const key of ['registerErrShort', 'passwordRule'] as const) {
+        expect(STR[lang][key]).toContain('{n}');
+        expect(STR[lang][key]).not.toMatch(/\d/);
+      }
     }
   });
 });

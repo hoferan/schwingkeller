@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { captureAndFormat } from '../../lib/sentry';
 import { buildTree, type AssociationTree } from '../associations/tree';
-import { signInFailure, type SignInFailure } from './authFailure';
+import { signInFailure, signUpFailure, type AuthFailure, type SignInFailure } from './authFailure';
 import type { Profile } from './profile';
 import { canWriteAssociation } from './scope';
 import { forgetAccount, useProfile } from './useProfile';
@@ -22,12 +22,8 @@ export interface AuthValue {
   canManageAccounts: boolean;
   canEditAssociation: (id: string | null) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: SignInFailure | null }>;
-  // confirmEmail is true when Supabase sent a confirmation email instead of signing the user in.
-  signUp: (
-    email: string,
-    password: string,
-    associationId: string,
-  ) => Promise<{ error: string | null; confirmEmail: boolean }>;
+  // Signs up with an invitation token. The database decides the node from the invitation.
+  signUp: (email: string, password: string, invitation: string) => Promise<{ error: AuthFailure | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -76,15 +72,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error ? signInFailure(error) : null };
   };
-  // The trigger on auth.users turns the association into the profile's requested Verband.
-  const signUp: AuthValue['signUp'] = async (email, password, associationId) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { association: associationId }, emailRedirectTo: window.location.origin },
-    });
-    if (error) return { error: error.message, confirmEmail: false };
-    return { error: null, confirmEmail: data.session === null };
+  // The access token in the sign-up response still carries the used invitation, because GoTrue signs
+  // it before any trigger runs (ADR 0020). A refresh issues a clean one. If the refresh fails, the
+  // next automatic one does the same, so the sign-up still counts as done.
+  const signUp: AuthValue['signUp'] = async (email, password, invitation) => {
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { invitation } } });
+    if (error) return { error: signUpFailure(error) };
+    if (data.session) await supabase.auth.refreshSession();
+    return { error: null };
   };
   const signOut = async () => {
     await supabase.auth.signOut();
