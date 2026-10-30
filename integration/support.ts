@@ -1,6 +1,13 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { expect } from 'vitest';
-import { ACCOUNTS, anonClient, createAuthUser, signInAsAdmin } from '../test-support/local-stack';
+import {
+  ACCOUNTS,
+  SUPABASE_URL,
+  anonClient,
+  createAuthUser,
+  signInAsAdmin,
+  supabaseEnv,
+} from '../test-support/local-stack';
 
 // Everything the integration tests create carries these, so a sweep can find what a crashed run
 // left behind. Grisons, because the seed has no venue there, and Graubünden, its association.
@@ -167,4 +174,22 @@ export const createInvitation = async (
 export const expectNotAuthorized = (result: { error: PostgrestError | null }): void => {
   expect(result.error?.code ?? '(no error)', result.error?.message).toBe('42501');
   expect(result.error?.message).toBe('not authorized');
+};
+
+// Runs a read-only catalog query through pg-meta, which Kong opens to the service key only. The
+// tests never read or write table data this way, so no policy or grant is bypassed. Use it only
+// for the privileges themselves, which no PostgREST call can show.
+export const catalogQuery = async <T>(sql: string): Promise<T[]> => {
+  const key = supabaseEnv('SERVICE_ROLE_KEY');
+  const response = await fetch(`${SUPABASE_URL}/pg/query`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  });
+  const body = await response.text();
+  const rows: unknown = response.status === 200 ? JSON.parse(body) : undefined;
+  if (!Array.isArray(rows)) {
+    throw new Error(`catalog query failed: ${response.status} ${body}`);
+  }
+  return rows as T[];
 };
