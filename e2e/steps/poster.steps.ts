@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import QRCode from 'qrcode';
 import { STR } from '../../src/i18n/translations';
 import { POSTER_QR_OPTIONS } from '../../src/features/venues/posterLayout';
-import { Given, When, Then, expect } from '../fixtures';
+import { Given, When, Then, expect, tileZoomOf } from '../fixtures';
 import { teilverbandOf, verbandId } from '../associations';
 
 const t = STR.de;
@@ -186,7 +186,11 @@ Then('the QR code links to {string}', async ({ page, baseURL }, path: string) =>
   expect(differing, 'pixel values that differ from the expected QR code').toBe(0);
 });
 
-When('I download the poster', async ({ page, posterDownload }) => {
+When('I download the poster', async ({ page, posterDownload, tileZooms }) => {
+  // The editor closes once the file is saved, so the preview's zoom is read now.
+  const sources = await page.locator(`${PREVIEW} img.leaflet-tile`).evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src));
+  posterDownload.previewZooms = [...new Set(sources.map(tileZoomOf))];
+  posterDownload.tilesBefore = tileZooms.length;
   const started = page.waitForEvent('download', { timeout: 60_000 });
   await page.getByRole('button', { name: t.posterDownload }).click();
   posterDownload.current = await started;
@@ -202,4 +206,14 @@ Then('I get the file {string}', async ({ posterDownload }, name: string) => {
 // that came out square.
 Then('it is a {int}x{int} PNG', async ({ posterDownload }, width: number, height: number) => {
   expect(pngSize(await posterDownload.current!.path())).toEqual({ width, height });
+});
+
+// The export map is the preview drawn 1080px wide, so it has to sit log2(1080 / preview width)
+// zoom levels above the preview: 1 at the 540px preview, 2 at the 270px one on a phone. The tiles
+// requested after the download click are the export's. The download step read the preview's.
+Then(/^the export draws its map (\d+) zoom levels? above the preview$/, async ({ posterDownload, tileZooms }, levels: string) => {
+  const { previewZooms, tilesBefore } = posterDownload;
+  expect(previewZooms, 'zoom of the preview tiles').toHaveLength(1);
+  const exportZooms = [...new Set(tileZooms.slice(tilesBefore))];
+  expect(exportZooms, 'zoom of the tiles fetched for the export').toEqual([previewZooms![0]! + Number(levels)]);
 });
