@@ -48,14 +48,16 @@ export const stubMapTiles = async (page: import('@playwright/test').Page, onTile
 };
 
 // One pattern per provider, made from its TILE_URLS template, that captures the zoom of a tile URL.
+// Every regex character in the template is escaped, braces included, so the placeholders are
+// looked for in their escaped form.
 const TILE_ZOOM_PATTERNS = Object.values(TILE_URLS).map(
   (template) =>
     new RegExp(
       '^' +
         template
-          .replace(/[.?]/g, '\\$&')
-          .replace('{z}', '(\\d+)')
-          .replace(/\{[xy]\}/g, '\\d+') +
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace('\\{z\\}', '(\\d+)')
+          .replace(/\\\{[xy]\\\}/g, '\\d+') +
         '$',
     ),
 );
