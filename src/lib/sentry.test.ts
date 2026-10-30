@@ -76,3 +76,45 @@ describe('captureAndFormat', () => {
     expect(result).toBe('Import fehlgeschlagen');
   });
 });
+
+// An invitation token is a credential until it is used. history.replaceState leaves a navigation
+// breadcrumb whose `from` still has it, and every later event would carry that breadcrumb.
+describe('initSentry keeps invitation tokens out of events', () => {
+  type Options = {
+    beforeBreadcrumb: (b: { category?: string; data?: Record<string, unknown> }) => { data?: Record<string, unknown> } | null;
+    beforeSend: (e: { request?: { url?: string } }) => { request?: { url?: string } } | null;
+  };
+  const options = (): Options => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://test@sentry.io/1');
+    initSentry();
+    return vi.mocked(SentryMod.init).mock.calls[0][0] as unknown as Options;
+  };
+
+  it('strips the token from navigation breadcrumbs', () => {
+    const crumb = options().beforeBreadcrumb({
+      category: 'navigation',
+      data: { from: '/?vb=emmental&invite=tok', to: '/?vb=emmental' },
+    });
+    expect(crumb?.data).toEqual({ from: '/?vb=emmental', to: '/?vb=emmental' });
+  });
+
+  it('strips the token from request breadcrumbs', () => {
+    const crumb = options().beforeBreadcrumb({ category: 'fetch', data: { url: 'https://x.app/?invite=tok' } });
+    expect(crumb?.data).toEqual({ url: 'https://x.app/' });
+  });
+
+  it('passes a breadcrumb without data through', () => {
+    const crumb = { category: 'ui.click' };
+    expect(options().beforeBreadcrumb(crumb)).toBe(crumb);
+  });
+
+  it('passes an event without a page URL through', () => {
+    const event = {};
+    expect(options().beforeSend(event)).toBe(event);
+  });
+
+  it('strips the token from the page URL of an event', () => {
+    const event = options().beforeSend({ request: { url: 'https://x.app/?invite=tok' } });
+    expect(event?.request?.url).toBe('https://x.app/');
+  });
+});

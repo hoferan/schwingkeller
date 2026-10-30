@@ -11,7 +11,9 @@ const KEY = 'sk-sidebar-width';
 
 const setViewport = (w: number) => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
-  window.dispatchEvent(new Event('resize'));
+  act(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
 };
 
 describe('clampSidebarWidth', () => {
@@ -116,9 +118,9 @@ describe('useSidebarWidth', () => {
     localStorage.setItem(KEY, '560');
     const { result } = renderHook(() => useSidebarWidth());
     expect(result.current.width).toBe(560);
-    act(() => setViewport(1024));
+    setViewport(1024);
     expect(result.current.width).toBe(410);
-    act(() => setViewport(1440));
+    setViewport(1440);
     expect(result.current.width).toBe(560);
   });
 });

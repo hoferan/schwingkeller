@@ -26,6 +26,12 @@ export const verbandId = (name: string): CantonalId => {
   return verband.id;
 };
 
+// The accessible name of a Verband's scope chip: its name, then the user counts.
+export const verbandChip = (name: string): RegExp => {
+  verbandId(name);
+  return new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+};
+
 export const verbandIdsOf = (teilverband: RegionalId): CantonalId[] =>
   de.childrenOf(teilverband).filter(isCantonal).map((a) => a.id);
 

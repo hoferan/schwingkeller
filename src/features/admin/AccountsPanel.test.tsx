@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-// Each from() call gets its own builder, so the list query and the approved-scopes query can be
-// told apart. `lists` records the status filter of every list query, null for "all".
+// Each from() call gets its own builder, so the list query can be told apart from the
+// approved-scopes query, the pending count and the invitations. `lists` records the status filter
+// of every list query, null for "all".
 const { from, rpc, state } = vi.hoisted(() => {
-  const state: { rows: unknown[]; lists: (string | null)[]; listError: unknown } = { rows: [], lists: [], listError: null };
-  const from = vi.fn(() => {
+  const state: {
+    rows: unknown[]; lists: (string | null)[]; listError: unknown; invitations: unknown[]; pendingCount: number;
+  } = { rows: [], lists: [], listError: null, invitations: [], pendingCount: 0 };
+  const from = vi.fn((table: string) => {
     let columns = '';
     let status: string | null = null;
     const builder: Record<string, unknown> = {};
@@ -20,7 +23,9 @@ const { from, rpc, state } = vi.hoisted(() => {
     };
     builder.order = () => builder;
     builder.then = (resolve: (v: unknown) => unknown) => {
+      if (table === 'invitations') return resolve({ data: state.invitations, error: null });
       if (columns === 'scope_association_id') return resolve({ data: [], error: null });
+      if (columns === 'id') return resolve({ data: null, count: state.pendingCount, error: null });
       state.lists.push(status);
       return resolve(state.listError ? { data: null, error: state.listError } : { data: state.rows, error: null });
     };
@@ -37,8 +42,19 @@ import { STR } from '../../i18n/translations';
 import { TestAuthProvider, type TestAccount } from '../auth/testing';
 import type { Account } from './accounts';
 import { AccountsPanel } from './AccountsPanel';
+import type { Invitation } from './invitations';
 
 const t = STR.de;
+
+const invitation = (over: Partial<Invitation>): Invitation => ({
+  id: 'i1',
+  email: 'anna@example.ch',
+  association_id: 'emmental',
+  invited_by: 'someone-else',
+  created_at: '2026-10-19T08:00:00Z',
+  expires_at: '2099-10-26T08:00:00Z',
+  ...over,
+});
 
 const account = (over: Partial<Account>): Account => ({
   id: 'u2',
@@ -69,6 +85,9 @@ beforeEach(() => {
   state.rows = [account({})];
   state.lists = [];
   state.listError = null;
+  state.invitations = [];
+  state.pendingCount = 0;
+  from.mockClear();
   rpc.mockReset().mockResolvedValue({ error: null });
 });
 
@@ -268,7 +287,7 @@ describe('AccountsPanel', () => {
     renderPanel();
     await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.changeScope }));
     const dialog = screen.getByTestId('scope-dialog');
-    expect((within(dialog).getByLabelText(t.accountsScope) as HTMLSelectElement).value).toBe('emmental');
+    expect((within(dialog).getByRole('radio', { checked: true }) as HTMLInputElement).value).toBe('emmental');
   });
 
   it('asks before deleting an account', async () => {
@@ -335,5 +354,168 @@ describe('AccountsPanel', () => {
     await userEvent.click(within(screen.getByTestId('delete-account-dialog')).getByRole('button', { name: t.cancel }));
     expect(screen.queryByTestId('delete-account-dialog')).toBeNull();
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('AccountsPanel header', () => {
+  const tabs = () => within(screen.getByRole('tablist')).getAllByRole('tab');
+
+  it('opens on the accounts tab, and the invitations tab swaps the list and drops the filter', async () => {
+    state.invitations = [invitation({})];
+    renderPanel();
+    await row('gau@example.ch');
+    const [accounts, invitations] = tabs();
+    expect(tabs()).toHaveLength(2);
+    expect(accounts).toHaveAttribute('aria-selected', 'true');
+    expect(invitations).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', accounts.id);
+    expect(screen.getByLabelText(t.accountsFilter)).toBeInTheDocument();
+
+    await userEvent.click(invitations);
+    expect(invitations).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByLabelText(t.accountsFilter)).toBeNull();
+    expect(await screen.findByTestId('invitation-anna@example.ch')).toBeInTheDocument();
+    expect(screen.queryByTestId('account-gau@example.ch')).toBeNull();
+    const panel = screen.getByRole('tabpanel');
+    expect(panel).toHaveAttribute('aria-labelledby', invitations.id);
+    expect(invitations).toHaveAttribute('aria-controls', panel.id);
+  });
+
+  it('clears a shown error when the tab changes', async () => {
+    rpc.mockResolvedValue({ error: { code: 'P0001', message: 'cannot reject an account that is approved' } });
+    renderPanel();
+    await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.reject }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.adminErrStale);
+    await userEvent.click(tabs()[1]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  describe('an accounts refusal that arrives late', () => {
+    const refuseLater = async () => {
+      let refuse: (v: unknown) => void = () => {};
+      rpc.mockReturnValue(new Promise((r) => { refuse = r; }));
+      renderPanel();
+      await userEvent.click(within(await row('gau@example.ch')).getByRole('button', { name: t.reject }));
+      await userEvent.click(tabs()[1]);
+      await act(async () => {
+        refuse({ error: { code: 'P0001', message: 'cannot reject an account that is approved' } });
+      });
+    };
+
+    it('does not show on the invitations tab', async () => {
+      await refuseLater();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('is not back when the accounts tab comes up again', async () => {
+      await refuseLater();
+      await userEvent.click(tabs()[0]);
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+  });
+
+  it('moves between the tabs with the arrow keys, Home and End', async () => {
+    renderPanel();
+    await row('gau@example.ch');
+    const [accounts, invitations] = tabs();
+    expect(accounts).toHaveAttribute('tabindex', '0');
+    expect(invitations).toHaveAttribute('tabindex', '-1');
+    accounts.focus();
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(invitations).toHaveFocus();
+    expect(invitations).toHaveAttribute('aria-selected', 'true');
+    expect(invitations).toHaveAttribute('tabindex', '0');
+    expect(accounts).toHaveAttribute('tabindex', '-1');
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(accounts).toHaveFocus();
+    expect(accounts).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(invitations).toHaveFocus();
+
+    await userEvent.keyboard('{Home}');
+    expect(accounts).toHaveFocus();
+    expect(accounts).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.keyboard('{End}');
+    expect(invitations).toHaveFocus();
+    expect(invitations).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('names the tablist after the panel title', async () => {
+    renderPanel();
+    await row('gau@example.ch');
+    expect(screen.getByRole('tablist', { name: t.accountsTitle })).toBeInTheDocument();
+  });
+
+  it('keeps the filter out of the tablist', async () => {
+    renderPanel();
+    await row('gau@example.ch');
+    expect(screen.getByRole('tablist')).not.toContainElement(screen.getByLabelText(t.accountsFilter));
+  });
+
+  it('keeps the tab row 44px tall at least', async () => {
+    renderPanel(true);
+    await row('gau@example.ch');
+    expect(screen.getByRole('tablist').parentElement).toHaveStyle({ minHeight: '44px', flexWrap: 'wrap' });
+  });
+
+  it('names the counts on the tabs for screen readers, without the dot', async () => {
+    state.pendingCount = 3;
+    state.invitations = [invitation({}), invitation({ id: 'i2', email: 'bruno@example.ch' })];
+    renderPanel();
+    const invitations = await screen.findByRole('tab', { name: `${t.invitationsTitle} 2` });
+    expect(invitations).toHaveTextContent('·');
+    expect(invitations).not.toHaveAccessibleName(/·/);
+    expect(
+      await screen.findByRole('tab', { name: `${t.accountsTitle} ${t.accountsPendingCount.replace('{n}', '3')}` }),
+    ).toHaveTextContent('3');
+  });
+
+  it('shows a Verband editor the invitations only, without tabs or filter', async () => {
+    state.invitations = [invitation({})];
+    renderPanel(false, 'emmental');
+    expect(await screen.findByTestId('invitation-anna@example.ch')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: t.invitationsTitle })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryByRole('tabpanel')).toBeNull();
+    expect(screen.queryByLabelText(t.accountsFilter)).toBeNull();
+    expect(state.lists).toEqual([]);
+    expect(from).not.toHaveBeenCalledWith('profiles');
+  });
+
+  it('titles the panel for a Teilverband editor after the accounts', async () => {
+    renderPanel();
+    await row('gau@example.ch');
+    expect(screen.getByRole('dialog', { name: t.accountsTitle })).toBeInTheDocument();
+  });
+
+  it.each([false, true])('opens the create dialog from "+ Einladen" (phone: %s)', async (isMobile) => {
+    renderPanel(isMobile);
+    await row('gau@example.ch');
+    const invite = screen.getByRole('button', { name: t.invite });
+    expect(invite).toHaveTextContent(t.invite);
+    await userEvent.click(invite);
+    expect(screen.getByTestId('create-invitation-dialog')).toBeInTheDocument();
+  });
+
+  it('opens the create dialog filled in for an expired invitation', async () => {
+    state.invitations = [invitation({ expires_at: '2020-01-01T00:00:00Z' })];
+    renderPanel();
+    await userEvent.click(tabs()[1]);
+    await userEvent.click(
+      within(await screen.findByTestId('invitation-anna@example.ch')).getByRole('button', { name: t.invitationReinvite }),
+    );
+    const dialog = screen.getByTestId('create-invitation-dialog');
+    expect((within(dialog).getByLabelText(t.email) as HTMLInputElement).value).toBe('anna@example.ch');
+    expect((within(dialog).getByRole('radio', { checked: true }) as HTMLInputElement).value).toBe('emmental');
+  });
+
+  it('gives the close button a 44px target', async () => {
+    renderPanel(true);
+    await row('gau@example.ch');
+    expect(screen.getByRole('button', { name: t.close })).toHaveStyle({ minWidth: '44px', minHeight: '44px' });
   });
 });

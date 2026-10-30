@@ -1,6 +1,6 @@
 import { STR } from '../../src/i18n/translations';
 import { anonClient, createAuthUser, signInAsAdmin } from '../../test-support/local-stack';
-import { verbandId } from '../associations';
+import { verbandChip, verbandId } from '../associations';
 import { ACCOUNTS, Given, When, Then, expect } from '../fixtures';
 
 const t = STR.de;
@@ -24,7 +24,7 @@ When('I open the account list', async ({ page }) => {
 
 When('I approve the applicant as {string}', async ({ page, applicant }, name: string) => {
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.approve }).click();
-  await page.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await page.getByTestId('scope-dialog').getByRole('radio', { name: verbandChip(name) }).check();
   // The row has an approve button too, so look inside the dialog.
   await page.getByTestId('scope-dialog').getByRole('button', { name: t.approve }).click();
   await expect(page.getByTestId(`account-${applicant.email}`)).toHaveCount(0);
@@ -68,7 +68,7 @@ When('I open the account list showing approved accounts', async ({ page }) => {
 When("I change the applicant's scope to {string}", async ({ page, applicant }, name: string) => {
   await page.getByTestId(`account-${applicant.email}`).getByRole('button', { name: t.changeScope }).click();
   const dialog = page.getByTestId('scope-dialog');
-  await dialog.getByLabel(t.accountsScope).selectOption(verbandId(name));
+  await dialog.getByRole('radio', { name: verbandChip(name) }).check();
   await dialog.getByRole('button', { name: t.save }).click();
   await expect(dialog).toHaveCount(0);
 });
@@ -110,4 +110,26 @@ Then("the applicant's row offers no delete", async ({ page, applicant }) => {
   const row = page.getByTestId(`account-${applicant.email}`);
   await expect(row.getByRole('button', { name: t.suspend })).toBeVisible();
   await expect(row.getByRole('button', { name: t.delete })).toHaveCount(0);
+});
+
+// On a phone the account panel is a full-screen dialog, and its lists are cards in a list where a
+// wider screen shows table rows (AccountList.tsx and InvitationsView.tsx), so a card is a list item.
+Then('the account panel fills the screen', async ({ page }) => {
+  const viewport = page.viewportSize()!;
+  const panel = page.getByRole('dialog');
+  await expect(panel).toHaveCount(1);
+  await expect
+    .poll(async () => {
+      const box = await panel.boundingBox();
+      return box && [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)];
+    })
+    .toEqual([0, 0, viewport.width, viewport.height]);
+});
+
+Then('the applicant is listed as a card', async ({ page, applicant }) => {
+  await expect(page.getByTestId(`account-${applicant.email}`)).toHaveRole('listitem');
+});
+
+Then("the applicant's invitation is listed as a card", async ({ page, applicant }) => {
+  await expect(page.getByTestId(`invitation-${applicant.email}`)).toHaveRole('listitem');
 });

@@ -416,7 +416,7 @@ describe('consuming an invitation', () => {
   // The trigger refuses through the admin API as well: createAuthUser skips the sign-up hook, so
   // these cases reach consume_invitation whatever the hook would have said. GoTrue answers a
   // trigger exception with a 500.
-  const PASSWORD = 'int-password';
+  const PASSWORD = 'int-password-016';
   const createdWith = (email: string, invitation: unknown): Promise<string> =>
     createAuthUser(email, PASSWORD, { invitation });
 
@@ -628,7 +628,7 @@ describe('the sign-up hook', () => {
   // Public sign-up, the path the hook guards. Each refusal gets the same status and message, so a
   // caller can't tell a used token from a revoked one or from none at all.
   const REFUSAL = 'Sign-up requires a valid invitation.';
-  const PASSWORD = 'int-password';
+  const PASSWORD = 'int-password-016';
   const signUp = (email: string, data?: Record<string, unknown>) =>
     anonClient().auth.signUp({ email, password: PASSWORD, options: data ? { data } : undefined });
 
@@ -681,13 +681,13 @@ describe('the sign-up hook', () => {
     expect(await profilesWithEmail(email)).toEqual([]);
   });
 
-  // GoTrue turns down a password under its minimum (10 locally) before it calls the hook. The
+  // GoTrue turns down a password under its minimum (15, #140) before it calls the hook. The
   // invitation has to stay open, so the invited person can try again with a longer one.
   it('leaves the invitation open when GoTrue refuses the password', async () => {
     const invitation = await createInvitation(bksv, 'emmental');
     const { error } = await anonClient().auth.signUp({
       email: invitation.email,
-      password: 'too-short',
+      password: 'a'.repeat(14),
       options: { data: { invitation: invitation.token } },
     });
     expect(error?.status ?? '(no error)', error?.message).toBe(422);
@@ -699,6 +699,17 @@ describe('the sign-up hook', () => {
 
     const editor = await signUpWithInvitation(invitation.email, invitation.token);
     expect(await profileOf(esv, editor.id)).toMatchObject({ status: 'approved' });
+  });
+
+  it('accepts a password of exactly 15 characters', async () => {
+    const invitation = await createInvitation(bksv, 'emmental');
+    const { data, error } = await anonClient().auth.signUp({
+      email: invitation.email,
+      password: 'a'.repeat(15),
+      options: { data: { invitation: invitation.token } },
+    });
+    expect(error).toBeNull();
+    expect(await profileOf(esv, data.user?.id ?? '')).toMatchObject({ status: 'approved' });
   });
 
   it('accepts a valid token with the address in upper case', async () => {

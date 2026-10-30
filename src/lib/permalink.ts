@@ -1,7 +1,7 @@
 import { cantonByCode } from '../data/cantons';
 import { ASSOCIATIONS, HOME_AREAS } from '../data/associations';
 
-// The app reads three URL parameters once at startup (docs/adr/0007-url-parameters-without-a-router.md):
+// The app reads four URL parameters once at startup (docs/adr/0007-url-parameters-without-a-router.md):
 //
 // - ?venue=<id> opens that venue. When it is present, the other two are ignored, even if the id
 //   turns out not to exist.
@@ -9,6 +9,10 @@ import { ASSOCIATIONS, HOME_AREAS } from '../data/associations';
 // - ?ctn=XX opens a canton and frames its bounds. With the verband flag on, the canton is mapped to
 //   a Verband through the home areas instead (associationForCanton), and ?vb= wins when both are
 //   valid. Printed posters carry ?ctn= links, so the parameter stays.
+//
+// - ?invite=<token> opens the sign-up form for an invitation (#140). It is independent of the
+//   others and leaves the address bar as soon as it is read, so the token doesn't stay in the
+//   history or get shared along with a venue link.
 //
 // Once the app is in use, only the open venue is written back (withVenueParam).
 
@@ -83,6 +87,21 @@ export const withAssociationParam = (url: string, id: string): string => {
   params.delete('venue');
   params.delete('ctn');
   params.set('vb', id.toLowerCase());
+  const next = params.toString();
+  return next ? path + '?' + next : path;
+};
+
+// The raw token, compared as it stands: it is a random string, not a code.
+export const parseInviteParam = (search: string): string | null => {
+  const raw = new URLSearchParams(search).get('invite');
+  return raw ? raw : null;
+};
+
+// Builds the next pathname+search without `invite`, keeping everything else.
+export const withoutInviteParam = (url: string): string => {
+  const [path, search = ''] = url.split('?');
+  const params = new URLSearchParams(search);
+  params.delete('invite');
   const next = params.toString();
   return next ? path + '?' + next : path;
 };

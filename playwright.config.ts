@@ -3,7 +3,7 @@ import { defineBddConfig } from 'playwright-bdd';
 import type { SetupOptions } from './e2e/fixtures';
 import { SUPABASE_URL, supabaseEnv } from './test-support/local-stack';
 import { assertLocalTargets } from './test-support/local-only';
-import { flagTagFilter } from './test-support/flag-tags';
+import { projectTags } from './test-support/flag-tags';
 
 // End-to-end scenarios drive a real browser against the local Compose stack (see
 // docker-compose.yml): Postgres, GoTrue, PostgREST and Kong behind localhost:54321, with the venues
@@ -24,9 +24,10 @@ const VERBAND_ADMIN_STATE = 'e2e/.auth/admin-verband.json';
 
 // Feature files by role, in e2e/features/admin, editor or visitor. A scenario runs against both
 // bundles unless a tag ties it to one state of a flag, such as @verband-view or @canton-view.
-// flagTagFilter reads the state of every flag in the bundle's environment from src/lib/features.ts
-// and skips the scenarios tagged for the other one (test-support/flag-tags.ts lists the tags).
-// bddgen writes each project's tests to its own folder.
+// projectTags reads the state of every flag in the bundle's environment from src/lib/features.ts
+// and skips the scenarios tagged for the other one (test-support/flag-tags.ts lists the tags). It
+// also keeps @phone and @tablet scenarios to their own projects. bddgen writes each project's tests
+// to its own folder.
 const bddProject = (name: string, role: 'admin' | 'visitor' | 'editor', tags: string) => ({
   name,
   testDir: defineBddConfig({
@@ -71,15 +72,15 @@ export default defineConfig<SetupOptions>({
     // exercised once per bundle rather than in front of each scenario.
     { name: 'setup', testDir: './e2e', testMatch: /auth\.setup\.ts/, use: { storageStatePath: ADMIN_STATE } },
     {
-      ...bddProject('admin', 'admin', flagTagFilter('production')),
+      ...bddProject('admin', 'admin', projectTags('production')),
       use: { ...devices['Desktop Chrome'], storageState: ADMIN_STATE },
       dependencies: ['setup'],
     },
     // Visitors are anonymous: no saved session and no dependency on the sign-in setup.
-    { ...bddProject('visitor', 'visitor', flagTagFilter('production')), use: { ...devices['Desktop Chrome'] } },
+    { ...bddProject('visitor', 'visitor', projectTags('production')), use: { ...devices['Desktop Chrome'] } },
     // Editors sign in through the form in each scenario, since every scenario needs a different
     // account: no saved session and no setup dependency.
-    { ...bddProject('editor', 'editor', flagTagFilter('production')), use: { ...devices['Desktop Chrome'] } },
+    { ...bddProject('editor', 'editor', projectTags('production')), use: { ...devices['Desktop Chrome'] } },
 
     // The same against the bundle built like a deploy preview.
     {
@@ -89,17 +90,40 @@ export default defineConfig<SetupOptions>({
       use: { baseURL: VERBAND_BASE_URL, storageStatePath: VERBAND_ADMIN_STATE },
     },
     {
-      ...bddProject('admin-verband', 'admin', flagTagFilter('stage')),
+      ...bddProject('admin-verband', 'admin', projectTags('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL, storageState: VERBAND_ADMIN_STATE },
       dependencies: ['setup-verband'],
     },
     {
-      ...bddProject('visitor-verband', 'visitor', flagTagFilter('stage')),
+      ...bddProject('visitor-verband', 'visitor', projectTags('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
     },
     {
-      ...bddProject('editor-verband', 'editor', flagTagFilter('stage')),
+      ...bddProject('editor-verband', 'editor', projectTags('stage')),
       use: { ...devices['Desktop Chrome'], baseURL: VERBAND_BASE_URL },
+    },
+
+    // Phone (Pixel 7, 412px) and tablet (Galaxy Tab S4, 712px) layouts, both Chromium presets with
+    // touch, so CI still installs one browser. They run only the scenarios tagged @phone or
+    // @tablet. The tablet needs no admin or editor project: at 712px the poster still previews at
+    // 540px and the accounts panel isn't full-screen, so those would repeat the desktop runs. The
+    // phone editor runs on the stage bundle, the one where the editors flag is on.
+    {
+      ...bddProject('phone-visitor', 'visitor', projectTags('production', 'phone')),
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      ...bddProject('phone-admin', 'admin', projectTags('production', 'phone')),
+      use: { ...devices['Pixel 7'], storageState: ADMIN_STATE },
+      dependencies: ['setup'],
+    },
+    {
+      ...bddProject('phone-editor', 'editor', projectTags('stage', 'phone')),
+      use: { ...devices['Pixel 7'], baseURL: VERBAND_BASE_URL },
+    },
+    {
+      ...bddProject('tablet-visitor', 'visitor', projectTags('production', 'tablet')),
+      use: { ...devices['Galaxy Tab S4'] },
     },
   ],
 

@@ -49,7 +49,7 @@ export const DeleteOwnAccountDialog = ({ email, onClose, onDeleted }: DeleteOwnA
         <div
           style={{ fontSize: '13.5px', color: theme.color.muted, marginTop: '8px', lineHeight: 1.5, overflowWrap: 'anywhere' }}
         >
-          {t.deleteOwnBody.replace('{email}', email)}
+          {t.deleteOwnBody.replace('{email}', () => email)}
         </div>
         <label htmlFor="delete-own-password" style={{ ...labelStyle, marginTop: '16px' }}>
           {t.deleteOwnPassword}

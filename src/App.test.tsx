@@ -30,7 +30,7 @@ const mocked = vi.hoisted(() => ({
   loaded: true,
   remove: vi.fn<(id: string) => Promise<void>>(),
   capture: vi.fn((_e: unknown, fallback: string) => fallback),
-  canManageAccounts: false,
+  auth: { isApproved: false, canManageAccounts: false },
 }));
 vi.mock('./features/venues/useVenues', () => ({
   useVenues: () => ({ data: mocked.loaded ? (mocked.venues ?? [venue]) : undefined, isSuccess: mocked.loaded }),
@@ -46,9 +46,14 @@ vi.mock('./components/Topbar', () => ({
     <div data-testid="topbar"><button onClick={onOpenAccounts}>open-accounts</button></div>
   ),
 }));
-vi.mock('./features/auth/useAuth', () => ({ useAuth: () => ({ canManageAccounts: mocked.canManageAccounts }) }));
+vi.mock('./features/auth/useAuth', () => ({ useAuth: () => mocked.auth }));
 vi.mock('./features/admin/AccountsPanel', () => ({ AccountsPanel: () => <div data-testid="accounts-panel" /> }));
 vi.mock('./features/auth/StatusBanner', () => ({ StatusBanner: () => null }));
+vi.mock('./features/auth/InviteDialog', () => ({
+  InviteDialog: ({ token, onClose }: { token: string; onClose: () => void }) => (
+    <button data-testid="invite-dialog" onClick={onClose}>{token}</button>
+  ),
+}));
 vi.mock('./features/map/MapView', () => ({
   MapView: ({ initialFocusBounds, onOpenDetail }: { initialFocusBounds: unknown; onOpenDetail: (id: string) => void }) => (
     <div data-testid="mapview">
@@ -357,8 +362,10 @@ describe('App — delete', () => {
 });
 
 describe('App — account list', () => {
-  beforeEach(() => { mocked.canManageAccounts = true; });
-  afterEach(() => { mocked.canManageAccounts = false; });
+  const teilverbandEditor = { isApproved: true, canManageAccounts: true };
+  const notApproved = { isApproved: false, canManageAccounts: false };
+  beforeEach(() => { mocked.auth = teilverbandEditor; });
+  afterEach(() => { mocked.auth = notApproved; });
 
   it('opens the account list from the top bar', async () => {
     render(<App />);
@@ -366,11 +373,26 @@ describe('App — account list', () => {
     expect(screen.getByTestId('accounts-panel')).toBeInTheDocument();
   });
 
+  // A Verband editor gets the panel for the invitations.
+  it('opens the panel for an approved Verband editor', async () => {
+    mocked.auth = { isApproved: true, canManageAccounts: false };
+    render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    expect(screen.getByTestId('accounts-panel')).toBeInTheDocument();
+  });
+
+  it('keeps the panel closed for an editor still waiting for approval', async () => {
+    mocked.auth = notApproved;
+    render(<App />);
+    await userEvent.click(screen.getByText('open-accounts'));
+    expect(screen.queryByTestId('accounts-panel')).toBeNull();
+  });
+
   // Signing out with the list open must not leave it on screen.
   it('drops the account list once the rights are gone', async () => {
     const { rerender } = render(<App />);
     await userEvent.click(screen.getByText('open-accounts'));
-    mocked.canManageAccounts = false;
+    mocked.auth = notApproved;
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
   });
@@ -379,10 +401,52 @@ describe('App — account list', () => {
   it('keeps the account list closed when the rights come back', async () => {
     const { rerender } = render(<App />);
     await userEvent.click(screen.getByText('open-accounts'));
-    mocked.canManageAccounts = false;
+    mocked.auth = notApproved;
     rerender(<App />);
-    mocked.canManageAccounts = true;
+    mocked.auth = teilverbandEditor;
     rerender(<App />);
     expect(screen.queryByTestId('accounts-panel')).toBeNull();
+  });
+});
+
+describe('App — invitation link', () => {
+  const openAt = (search: string) => window.history.replaceState(null, '', '/' + search);
+  afterEach(() => openAt(''));
+
+  it('opens the invitation and clears the link from the address bar', () => {
+    setFeature('editors', true);
+    openAt('?invite=tok');
+    render(<App />);
+    expect(screen.getByTestId('invite-dialog')).toHaveTextContent('tok');
+    expect(window.location.search).toBe('');
+  });
+
+  it('keeps the other parameters working', () => {
+    setFeature('editors', true);
+    setFeature('verband', true);
+    openAt('?vb=emmental&invite=tok');
+    render(<App />);
+    expect(screen.getByTestId('invite-dialog')).toBeInTheDocument();
+    expect(window.location.search).toBe('?vb=emmental');
+    expect(JSON.parse(screen.getByTestId('expanded-state').textContent!)).toMatchObject({ emmental: true });
+  });
+
+  // Production has no sign-up until #73, so the link does nothing there, but the token still leaves
+  // the address bar.
+  it('ignores the link with the editors flag off', () => {
+    setFeature('editors', false);
+    openAt('?invite=tok');
+    render(<App />);
+    expect(screen.queryByTestId('invite-dialog')).toBeNull();
+    expect(window.location.search).toBe('');
+  });
+
+  it('stays closed once closed', async () => {
+    setFeature('editors', true);
+    openAt('?invite=tok');
+    const { rerender } = render(<App />);
+    await userEvent.click(screen.getByTestId('invite-dialog'));
+    rerender(<App />);
+    expect(screen.queryByTestId('invite-dialog')).toBeNull();
   });
 });
