@@ -9,6 +9,10 @@ const t = STR.de;
 const PEEK_HEIGHT = 116;
 const OPEN_SHARE = 0.8;
 
+// The tablet panel's width (TABLET_PANEL_WIDTH in Sidebar.tsx). Closed, it sits that far left of
+// the screen, and a drag has to travel a quarter of it to flip the panel.
+const PANEL_WIDTH = 344;
+
 type Point = { x: number; y: number };
 
 // Drags a finger from one point to another through the browser's own touch input, so the app's
@@ -87,4 +91,29 @@ Then('the sign-in button shows its icon without a label', async ({ page }) => {
 
 Then('the map legend is closed', async ({ page }) => {
   await expect(page.getByRole('button', { name: t.legendShow })).toHaveAttribute('aria-expanded', 'false');
+});
+
+// The panel slides in from the left, so its left edge is 0 when open and -PANEL_WIDTH when closed.
+const panelLeft = async (page: Page) => Math.round((await sheet(page).boundingBox())?.x ?? NaN);
+
+Then('the venue panel is open', async ({ page }) => {
+  await expect.poll(() => panelLeft(page)).toBe(0);
+});
+
+Then('the venue panel is closed', async ({ page }) => {
+  await expect.poll(() => panelLeft(page)).toBe(-PANEL_WIDTH);
+});
+
+When('I tap the tab of the venue panel', async ({ page }) => {
+  await page.getByTestId('sidebar-tablet-tab').tap();
+});
+
+When('I drag the venue panel open', async ({ page }) => {
+  const from = await centreOf(page, 'sidebar-tablet-tab');
+  await swipe(page, from, { x: from.x + PANEL_WIDTH / 2, y: from.y });
+});
+
+When('I drag the venue panel closed', async ({ page }) => {
+  const from = await centreOf(page, 'sidebar-tablet-tab');
+  await swipe(page, from, { x: from.x - PANEL_WIDTH / 2, y: from.y });
 });
