@@ -95,7 +95,10 @@ coverage and a compile-only build. `e2e` runs the Gherkin feature files in
 builds two bundles and serves them with Vite, in CI and locally alike: one
 with `VITE_APP_ENV=production` on port 4173, which has production's feature
 flag values, and one with `VITE_APP_ENV=stage` on 4174, which has stage's.
-Each bundle gets an admin, a visitor and an editor project. A scenario runs
+Each bundle gets an admin, a visitor and an editor project at desktop size.
+Four more run only the scenarios tagged `@phone` (Pixel 7: visitor and admin
+on 4173, editor on 4174) or `@tablet` (Galaxy Tab S4: visitor on 4173), and
+the desktop projects skip both tags. A scenario runs
 against both unless a tag ties it to one state of a flag, such as
 `@verband-view`, `@canton-view` or `@editors`. Each project's tag filter
 comes from `src/lib/features.ts` through `test-support/flag-tags.ts`, so
