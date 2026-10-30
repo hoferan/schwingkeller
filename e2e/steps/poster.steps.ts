@@ -73,6 +73,24 @@ Then('the preview is {int} pixels wide', async ({ page }, width: number) => {
   await expect.poll(async () => Math.round((await page.locator(PREVIEW).boundingBox())?.width ?? 0)).toBe(width);
 });
 
+// The preview map's zoom: the level in its tiles' URLs, plus the scale Leaflet gives the tile layer
+// at a fractional zoom (log2 of it). Read once the map has settled on one tile level.
+Then('the preview shows the map at zoom {int}', async ({ page }, zoom: number) => {
+  await expect
+    .poll(async () => {
+      const layers = await page.locator(`${PREVIEW} .leaflet-tile-container`).evaluateAll((els) =>
+        els
+          .filter((el) => el.querySelector('img.leaflet-tile-loaded'))
+          .map((el) => ({
+            src: el.querySelector('img.leaflet-tile')!.getAttribute('src')!,
+            scale: Number(/scale\(([\d.]+)\)/.exec((el as HTMLElement).style.transform)?.[1] ?? 1),
+          })));
+      if (layers.length !== 1) return NaN;
+      return tileZoomOf(layers[0].src)! + Math.log2(layers[0].scale);
+    })
+    .toBe(zoom);
+});
+
 Then('the formats square, portrait and landscape are offered', async ({ page }) => {
   for (const name of Object.values(FORMATS)) {
     await expect(page.getByRole('button', { name })).toBeVisible();

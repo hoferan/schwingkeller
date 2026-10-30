@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { venueBounds, POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
+import { venueBounds, POSTER_FIT_PADDING, POSTER_MAX_EXPORT_ZOOM } from './posterFraming';
 import type { Venue } from './types';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -7,9 +7,13 @@ const v = (over: Partial<Venue>): Venue => ({
   indoor: true, outdoor: false, person: '', phone: '', website: '', photos: [], association_id: 'emmental', ...over,
 });
 
-describe('POSTER_MAX_DEFAULT_ZOOM', () => {
-  it('is a town/neighborhood-level zoom', () => {
-    expect(POSTER_MAX_DEFAULT_ZOOM).toBe(14);
+describe('default framing constants', () => {
+  it('caps the export at a town/neighbourhood-level zoom', () => {
+    expect(POSTER_MAX_EXPORT_ZOOM).toBe(15);
+  });
+
+  it('pads the fit by 40 poster px', () => {
+    expect(POSTER_FIT_PADDING).toBe(40);
   });
 });
 
