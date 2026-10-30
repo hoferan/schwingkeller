@@ -371,6 +371,10 @@ services:
         # rather than blindly re-applying — the old init only ran 0001 and skipped
         # the rest, which left venue_photos missing and PostgREST returning 400.
         psql -v ON_ERROR_STOP=1 -c "create table if not exists public.schema_migrations (filename text primary key, applied_at timestamptz not null default now());"
+        # The tracker exists only locally, and PostgREST exposes every table in public. Nothing reads
+        # it through the API, so the API roles get no rights on it. This runs on every start, so a
+        # volume created before it gets the same.
+        psql -v ON_ERROR_STOP=1 -c "revoke all on public.schema_migrations from anon, authenticated, service_role;"
         # One-time bootstrap: a DB migrated before this tracker existed (e.g. head
         # table venue_photos already present) is recorded as up-to-date so its
         # non-idempotent data steps are not re-run on the next start.
