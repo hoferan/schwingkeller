@@ -67,6 +67,12 @@ Given('I open the poster editor for Verband {string}', async ({ page }, name: st
   await openPosterEditor(page, id);
 });
 
+// The preview is 540px wide from a 700px screen up and 270px below (previewSizeFor in
+// PosterEditorModal.tsx).
+Then('the preview is {int} pixels wide', async ({ page }, width: number) => {
+  await expect.poll(async () => Math.round((await page.locator(PREVIEW).boundingBox())?.width ?? 0)).toBe(width);
+});
+
 Then('the formats square, portrait and landscape are offered', async ({ page }) => {
   for (const name of Object.values(FORMATS)) {
     await expect(page.getByRole('button', { name })).toBeVisible();
