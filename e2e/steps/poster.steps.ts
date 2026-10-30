@@ -193,13 +193,19 @@ Then('the QR code links to {string}', async ({ page, baseURL }, path: string) =>
 });
 
 When('I download the poster', async ({ page, posterDownload, tileZooms }) => {
-  // The editor closes once the file is saved, so the preview's zoom is read now.
-  const sources = await page.locator(`${PREVIEW} img.leaflet-tile`).evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src));
+  // The editor closes once the file is saved, so the preview's zoom is read now. Every tile on the
+  // page has to have loaded first: the stub notes a tile when its request reaches it, which can be
+  // later than the img appears, and a late preview tile would count as one of the export's.
+  const previewTiles = page.locator(`${PREVIEW} img.leaflet-tile`);
+  await expect(previewTiles.first()).toBeVisible();
+  await expect(page.locator('img.leaflet-tile:not(.leaflet-tile-loaded)')).toHaveCount(0);
+  const sources = await previewTiles.evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src));
   posterDownload.previewZooms = [...new Set(sources.map(tileZoomOf))];
   posterDownload.tilesBefore = tileZooms.length;
   const started = page.waitForEvent('download', { timeout: 60_000 });
   await page.getByRole('button', { name: t.posterDownload }).click();
   posterDownload.current = await started;
+  posterDownload.tilesAfter = tileZooms.length;
 });
 
 Then('I get the file {string}', async ({ posterDownload }, name: string) => {
@@ -216,10 +222,11 @@ Then('it is a {int}x{int} PNG', async ({ posterDownload }, width: number, height
 
 // The export map is the preview drawn 1080px wide, so it has to sit log2(1080 / preview width)
 // zoom levels above the preview: 1 at the 540px preview, 2 at the 270px one on a phone. The tiles
-// requested after the download click are the export's. The download step read the preview's.
+// requested between the download click and the file are the export's. The download step read the
+// preview's.
 Then(/^the export draws its map (\d+) zoom levels? above the preview$/, async ({ posterDownload, tileZooms }, levels: string) => {
-  const { previewZooms, tilesBefore } = posterDownload;
+  const { previewZooms, tilesBefore, tilesAfter } = posterDownload;
   expect(previewZooms, 'zoom of the preview tiles').toHaveLength(1);
-  const exportZooms = [...new Set(tileZooms.slice(tilesBefore))];
+  const exportZooms = [...new Set(tileZooms.slice(tilesBefore, tilesAfter))];
   expect(exportZooms, 'zoom of the tiles fetched for the export').toEqual([previewZooms![0]! + Number(levels)]);
 });

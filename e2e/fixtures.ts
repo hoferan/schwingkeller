@@ -109,7 +109,7 @@ export const test = bddTest.extend<
     venuePrefix: string;
     applicant: Applicant;
     invitation: { token?: string };
-    posterDownload: { current?: Download; previewZooms?: (number | undefined)[]; tilesBefore?: number };
+    posterDownload: { current?: Download; previewZooms?: (number | undefined)[]; tilesBefore?: number; tilesAfter?: number };
     tileZooms: number[];
     mapZoom: { before?: number };
     hoveredCluster: { count?: number };
