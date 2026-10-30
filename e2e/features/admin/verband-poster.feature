@@ -17,3 +17,4 @@ Feature: Poster for a Verband
     When I download the poster
     Then I get the file "schwingkeller-freiburg.png"
     And it is a 1080x1080 PNG
+    And the export draws its map 1 zoom level above the preview

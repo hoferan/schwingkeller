@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flagTagFilter } from './flag-tags';
+import { flagTagFilter, projectTags } from './flag-tags';
 
 const flags = {
   verband: { development: true, stage: true, production: false },
@@ -25,5 +25,22 @@ describe('flagTagFilter', () => {
 
   it('is empty when nothing needs skipping', () => {
     expect(flagTagFilter('development', flags, { editors: { on: '@editors' } })).toBe('');
+  });
+});
+
+describe('projectTags', () => {
+  it('keeps the phone and tablet scenarios out of a desktop project', () => {
+    expect(projectTags('production', undefined, flags, tags)).toBe(
+      'not @verband-view and not @editors and not @phone and not @tablet',
+    );
+  });
+
+  it('runs only the scenarios for its layout in a phone or tablet project', () => {
+    expect(projectTags('production', 'phone', flags, tags)).toBe('not @verband-view and not @editors and @phone');
+  });
+
+  it('starts with the layout when no flag needs skipping', () => {
+    expect(projectTags('stage', 'tablet', flags, {})).toBe('@tablet');
+    expect(projectTags('stage', undefined, flags, {})).toBe('not @phone and not @tablet');
   });
 });

@@ -33,16 +33,42 @@ const TILE_ORIGINS = Object.values(TILE_URLS).map((url) => new URL(url).origin);
 // crossOrigin: 'anonymous' precisely so the canvas stays untainted, and a stubbed response without
 // that header taints it — canvas.toBlob() then throws SecurityError and the failure looks like
 // anything but a missing header.
-export const stubMapTiles = async (page: import('@playwright/test').Page) => {
+export const stubMapTiles = async (page: import('@playwright/test').Page, onTile?: (url: string) => void) => {
   for (const origin of TILE_ORIGINS) {
-    await page.route(`${origin}/**`, (route) =>
-      route.fulfill({
+    await page.route(`${origin}/**`, (route) => {
+      onTile?.(route.request().url());
+      return route.fulfill({
         status: 200,
         contentType: 'image/png',
         headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' },
         body: STUB_TILE,
-      }));
+      });
+    });
   }
+};
+
+// One pattern per provider, made from its TILE_URLS template, that captures the zoom of a tile URL.
+// Every regex character in the template is escaped, braces included, so the placeholders are
+// looked for in their escaped form.
+const TILE_ZOOM_PATTERNS = Object.values(TILE_URLS).map(
+  (template) =>
+    new RegExp(
+      '^' +
+        template
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace('\\{z\\}', '(\\d+)')
+          .replace(/\\\{[xy]\\\}/g, '\\d+') +
+        '$',
+    ),
+);
+
+// The zoom level in a tile URL, or undefined for a URL that isn't a tile.
+export const tileZoomOf = (url: string): number | undefined => {
+  for (const pattern of TILE_ZOOM_PATTERNS) {
+    const match = pattern.exec(url);
+    if (match) return Number(match[1]);
+  }
+  return undefined;
 };
 
 // Nominatim is a volunteer service with a published rate limit of one request a second, so a test
@@ -85,13 +111,29 @@ export const test = bddTest.extend<
     venuePrefix: string;
     applicant: Applicant;
     invitation: { token?: string };
-    posterDownload: { current?: Download };
+    posterDownload: { current?: Download; previewZooms?: (number | undefined)[]; tilesBefore?: number; tilesAfter?: number };
+    tileZooms: number[];
     mapZoom: { before?: number };
     hoveredCluster: { count?: number };
   },
   { adminDb: SupabaseClient }
 >({
-  page: stubbedPage,
+  // Like stubbedPage, and it also notes the zoom of every tile the page asks for, so a poster step
+  // can tell which zoom the export was drawn at.
+  page: async ({ page, tileZooms }, use) => {
+    await stubMapTiles(page, (url) => {
+      const zoom = tileZoomOf(url);
+      if (zoom !== undefined) tileZooms.push(zoom);
+    });
+    await stubGeocoding(page);
+    await use(page);
+  },
+
+  // The zoom of each tile request, in the order the page made them.
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter
+  tileZooms: async ({}, use) => {
+    await use([]);
+  },
 
   // One sign-in per worker rather than per test.
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the fixture-args parameter

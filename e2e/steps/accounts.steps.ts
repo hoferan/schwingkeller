@@ -111,3 +111,25 @@ Then("the applicant's row offers no delete", async ({ page, applicant }) => {
   await expect(row.getByRole('button', { name: t.suspend })).toBeVisible();
   await expect(row.getByRole('button', { name: t.delete })).toHaveCount(0);
 });
+
+// On a phone the account panel is a full-screen dialog, and its lists are cards in a list where a
+// wider screen shows table rows (AccountList.tsx and InvitationsView.tsx), so a card is a list item.
+Then('the account panel fills the screen', async ({ page }) => {
+  const viewport = page.viewportSize()!;
+  const panel = page.getByRole('dialog');
+  await expect(panel).toHaveCount(1);
+  await expect
+    .poll(async () => {
+      const box = await panel.boundingBox();
+      return box && [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)];
+    })
+    .toEqual([0, 0, viewport.width, viewport.height]);
+});
+
+Then('the applicant is listed as a card', async ({ page, applicant }) => {
+  await expect(page.getByTestId(`account-${applicant.email}`)).toHaveRole('listitem');
+});
+
+Then("the applicant's invitation is listed as a card", async ({ page, applicant }) => {
+  await expect(page.getByTestId(`invitation-${applicant.email}`)).toHaveRole('listitem');
+});
