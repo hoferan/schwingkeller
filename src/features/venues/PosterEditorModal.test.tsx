@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nContext } from '../../i18n/useTranslation';
@@ -59,7 +59,6 @@ vi.mock('leaflet', () => ({
 import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
 import { boundsForCanton } from '../../data/cantonBounds';
-import { POSTER_MAX_DEFAULT_ZOOM } from './posterFraming';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
 import { computeChromeLayout } from './posterCanvas';
@@ -159,7 +158,7 @@ describe('default framing', () => {
 
   it('frames the map with setView (not fitBounds) when the canton has exactly one venue', () => {
     renderEditor(); // default: 1 venue at (46.9, 7.4)
-    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 14, { animate: false });
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
   });
 
@@ -198,7 +197,7 @@ describe('default framing', () => {
     await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
 
     expect(fakeMap.setView).toHaveBeenCalledTimes(2);
-    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], POSTER_MAX_DEFAULT_ZOOM, { animate: false });
+    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], 14, { animate: false });
   });
 
   it('caps the zoom after fitBounds overshoots for tightly clustered venues', () => {
@@ -210,7 +209,7 @@ describe('default framing', () => {
     renderEditor({ venues: venues2 });
 
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
-    expect(fakeMap.setZoom).toHaveBeenCalledWith(POSTER_MAX_DEFAULT_ZOOM, { animate: false });
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(14, { animate: false });
   });
 });
 
@@ -644,5 +643,66 @@ describe('venues that change while the editor is open', () => {
     expect(vi.mocked(L.marker).mock.calls.map(([ll]) => ll)).toEqual([[46.9, 7.4], [46.95, 7.45]]);
     expect(fakeMap.setView).not.toHaveBeenCalled();
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+});
+
+// Below 700px the preview is 270px, a quarter of the poster. The default framing has to cover the
+// same part of the map as at 540px: 40 poster px of padding (10 here) and an export zoom of at
+// most 15, so a preview zoom of at most 13.
+describe('default framing on a phone-width preview', () => {
+  const desktopWidth = window.innerWidth;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeMap.latLngToContainerPoint.mockImplementation(() => ({ x: 50, y: 50 }));
+    window.innerWidth = 412;
+  });
+  afterEach(() => { window.innerWidth = desktopWidth; });
+
+  const venues2 = [v({ id: '1', lat: 46.9, lng: 7.4 }), v({ id: '2', lat: 46.95, lng: 7.45 })];
+
+  it('opens a single venue one zoom level lower than at 540', () => {
+    renderEditor();
+    expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 13, { animate: false });
+  });
+
+  it('pads the home bounds fallback by a quarter of the poster padding', () => {
+    renderEditor({ venues: [] });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [10, 10], animate: false });
+  });
+
+  it('pads the venue fit at the preview scale', () => {
+    renderEditor({ venues: venues2 });
+    // 10 + headerH(190)*0.25 and 10 + footerH(46)*0.25.
+    expect(fakeMap.fitBounds.mock.calls[0][1]).toEqual({
+      paddingTopLeft: [10, 57.5],
+      paddingBottomRight: [10, 21.5],
+      animate: false,
+    });
+  });
+
+  it('caps a tight cluster one zoom level lower than at 540', () => {
+    fakeMap.getZoom.mockReturnValueOnce(16);
+    renderEditor({ venues: venues2 });
+    expect(fakeMap.setZoom).toHaveBeenCalledWith(13, { animate: false });
+  });
+
+  it('keeps the QR side clear at the preview scale', () => {
+    // Poster (970, 906) under the bottom-right QR code, a quarter of that in the preview.
+    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) =>
+      ll[0] === 46.95 ? { x: 242, y: 226 } : { x: 50, y: 50 });
+    renderEditor({ venues: venues2 });
+    // The QR backing reaches 186 poster px in from the right edge, 46.5 preview px.
+    expect(fakeMap.fitBounds.mock.calls[1][1]).toEqual({
+      paddingTopLeft: [10, 57.5],
+      paddingBottomRight: [10 + 46.5, 21.5],
+      animate: false,
+    });
+  });
+
+  it('resets to the same framing as on mount', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole('button', { name: STR.de.posterResetFraming }));
+    expect(fakeMap.setView).toHaveBeenLastCalledWith([46.9, 7.4], 13, { animate: false });
   });
 });
