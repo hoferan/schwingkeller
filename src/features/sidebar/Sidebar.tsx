@@ -8,12 +8,9 @@ import type { GeoStatus } from '../geo/useGeolocation';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { theme } from '../../theme';
-import { isFeatureOn } from '../../lib/features';
 import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark } from '../associations/AssociationMark';
 import { AssociationGroups } from './AssociationGroups';
-import { CantonGroups } from './CantonGroups';
-import { canPrintCantonPoster } from './posterRights';
 import { CantonArms, VenueRow } from './VenueRow';
 import { useSidebarWidth } from './useSidebarWidth';
 
@@ -22,7 +19,7 @@ interface SidebarProps {
   search: string;
   onSearch: (s: string) => void;
   expanded: Record<string, boolean>;
-  // Takes a canton code or an association node id.
+  // Takes an association node id.
   onToggleGroup: (key: string) => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -87,8 +84,7 @@ export const Sidebar = ({
   onGeneratePoster,
 }: SidebarProps) => {
   const { t, lang } = useTranslation();
-  const { isApproved, isSuperAdmin, canEditAssociation } = useAuth();
-  const verband = isFeatureOn('verband');
+  const { isApproved, canEditAssociation } = useAuth();
   const associations = useAssociations();
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -326,8 +322,8 @@ export const Sidebar = ({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isMobile, isTablet, sidebarOpen, onSetSidebarOpen]);
 
-  // With the verband flag on, a query also matches the venue's Verband and Teilverband by name, and
-  // the Teilverband by its abbreviation, in the current language.
+  // A query also matches the venue's Verband and Teilverband by name, and the Teilverband by its
+  // abbreviation, in the current language.
   const associationText = (v: Venue): string => {
     const regional = associations.regionalOf(v.association_id);
     return [
@@ -336,10 +332,10 @@ export const Sidebar = ({
       regional ? (associations.shortOf(regional.id) ?? '') : '',
     ].join(' ');
   };
-  const list = filterVenues(venues, search, verband ? associationText : undefined);
+  const list = filterVenues(venues, search, associationText);
   const searching = search.trim() !== '';
   const totalText = `${list.length} ${t.unitTotal}`;
-  const flat = sortMode !== 'canton' && sortMode !== 'association';
+  const flat = sortMode !== 'association';
   const noResults = searching && list.length === 0;
   const flatList = flat ? flatSorted(list, sortMode, userPosition) : [];
   const sectionLabel =
@@ -347,12 +343,7 @@ export const Sidebar = ({
       ? t.byName
       : sortMode === 'distance'
         ? t.byDistance
-        : sortMode === 'association'
-          ? t.byAssociation
-          : t.byCanton;
-  const groupedMode = verband
-    ? (['association', t.sortAssociation] as const)
-    : (['canton', t.sortCanton] as const);
+        : t.byAssociation;
 
   // Mobile: bottom drawer, free-dragged while dragHeight is set, snapped to peek/open otherwise.
   // Desktop/tablet: fixed-width column.
@@ -586,7 +577,7 @@ export const Sidebar = ({
 
       <div style={{ padding: '0 15px 10px', flex: 'none' }} role="radiogroup" aria-label={t.sortBy}>
         <div style={{ display: 'flex', gap: '2px', background: theme.color.paper, padding: '4px', borderRadius: theme.radius.pill }}>
-          {([groupedMode, ['name', t.sortName], ['distance', t.sortDistance]] as const)
+          {([['association', t.sortAssociation], ['name', t.sortName], ['distance', t.sortDistance]] as const)
             .filter(([mode]) => !(mode === 'distance' && geoStatus === 'unsupported'))
             .map(([mode, label]) => {
               const active = sortMode === mode;
@@ -636,7 +627,7 @@ export const Sidebar = ({
         className="sk-scroll"
         style={{ flex: '1 1 auto', overflowY: 'auto', padding: '0 14px 22px' }}
       >
-        {!flat && verband && (
+        {!flat && (
           <AssociationGroups
             list={list}
             filtering={searching}
@@ -646,18 +637,6 @@ export const Sidebar = ({
             onSelect={onSelect}
             canPrintPoster={canEditAssociation}
             reservePosterSpace={isApproved}
-            onGeneratePoster={onGeneratePoster}
-          />
-        )}
-        {!flat && !verband && (
-          <CantonGroups
-            list={list}
-            filtering={searching}
-            canPrintPoster={(code) => canPrintCantonPoster(venues, code, canEditAssociation, isSuperAdmin)}
-            expanded={expanded}
-            onToggle={onToggleGroup}
-            selectedId={selectedId}
-            onSelect={onSelect}
             onGeneratePoster={onGeneratePoster}
           />
         )}
@@ -671,7 +650,7 @@ export const Sidebar = ({
               leading={
                 <>
                   <CantonArms code={v.canton} size="row" />
-                  {verband && <AssociationMark id={v.association_id} />}
+                  <AssociationMark id={v.association_id} />
                 </>
               }
               trailing={
