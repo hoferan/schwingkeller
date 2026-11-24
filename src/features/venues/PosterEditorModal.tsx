@@ -29,11 +29,8 @@ interface PosterEditorModalProps {
   onError?: (err: unknown) => void;
 }
 
-// The live preview map is locked to a power-of-2 fraction of POSTER_SIZE (1080): 540 on wider
-// screens, 270 on small ones. That makes the export zoom exactly previewZoom + log2(1080/size)
-// — an INTEGER (1 or 2) — so the off-screen capture uses whole-number Leaflet zoom levels. Whole
-// zooms are what the tile-capture assumes; a fractional zoom makes Leaflet CSS-scale the tile pane,
-// which the capture can't reproduce (misframed export + missing-tile black bars).
+// The live preview map is half or a quarter of POSTER_SIZE (1080): 540 from a 700px screen up, 270
+// below. The export then draws log2(1080/size) zoom levels above the preview, 1 or 2 (exportView).
 const previewSizeFor = (w: number): number => (w >= 700 ? 540 : 270);
 
 // Default framing for the live editor map: fit tightly to the subject's venues (not its whole home

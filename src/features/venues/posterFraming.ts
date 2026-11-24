@@ -23,7 +23,8 @@ export const venueBounds = (venues: Venue[]): L.LatLngBounds | null => {
 export interface PosterView { center: [number, number]; zoom: number }
 
 // Projects a point to pixels at a zoom level. The editor and the export pass Leaflet's
-// map.project, which both maps compute the same way because they share the CRS.
+// map.project. Neither map sets a crs, so both use Leaflet's default and project the same way. A
+// map that sets its own would need the other to match.
 export type PosterProjector = (latlng: [number, number], zoom: number) => { x: number; y: number };
 
 export interface PosterPin { x: number; y: number; text: string }

@@ -48,9 +48,8 @@ const SCALE_RE = /scale\((-?\d+(?:\.\d+)?)\)/;
 // pins posterPinPoints places around the view centre to within the half pixel Leaflet rounds its
 // pixel origin by. That only holds because the capture map in generatePoster.ts sets its view
 // exactly once with no prior setView/pan/zoom and fadeAnimation: false, so the tile layer and the
-// pins share the same origin. If the
-// capture map's setup ever gains an initial view or an animated transition before the final
-// view, this alignment can silently break.
+// pins share the same origin. If the capture map's setup ever gains an initial view or an animated
+// transition before the final view, this alignment can silently break.
 export const extractTileDraws = (tilePane: HTMLElement): TileDraw[] => {
   const imgs = tilePane.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded');
   const tiles: TileDraw[] = [];

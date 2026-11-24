@@ -32,8 +32,6 @@ export const waitForTilesLoad = (layer: OnceEmitter, timeoutMs: number): Promise
 
 export interface GeneratePosterResult { blob: Blob; filename: string }
 
-export type { PosterView };
-
 export interface GeneratePosterOptions {
   baseKind: BaseKind;
   // Exact framing from the editor: `center` is the preview map's center and `zoom` is already
