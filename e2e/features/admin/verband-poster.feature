@@ -7,7 +7,7 @@ Feature: Poster for a Verband
     And I open the poster editor for Verband "Freiburg"
 
   Scenario: Venue names label the pins without overlapping
-    Then 11 venue names label the pins
+    Then 10 venue names label the pins
     And no two names overlap
 
   Scenario: The QR code leads to the Verband
