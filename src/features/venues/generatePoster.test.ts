@@ -275,7 +275,7 @@ describe('generatePosterBlob', () => {
     );
   });
 
-  it("labels each of the canton's pins with its venue name by default", async () => {
+  it("labels each of the Verband's pins with its venue name by default", async () => {
     await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     expect(drawPinLabelsMock).toHaveBeenCalledWith(

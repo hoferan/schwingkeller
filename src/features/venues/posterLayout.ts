@@ -36,7 +36,7 @@ export const POSTER_LAYOUT = {
   markDot: 64, // a Verband's dot, centred in the wappen slot
   markRing: 6, // white ring around the dot, so black BKSV shows on the dark band
   badgeEdge: 3, // white edge around the Teilverband badge, for the same reason
-  titleGap: 10, // vertical gap between title and count pill
+  titleGap: 10, // vertical gap between title and badge
   titleFont: 56,
   titleBaselineY: 110, // canvas text baseline (canvas-only)
   pillFont: 24,

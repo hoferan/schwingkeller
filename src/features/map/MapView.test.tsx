@@ -73,7 +73,7 @@ describe('MapView initial canton focus', () => {
     expect(() => renderMap(BE_BOUNDS)).not.toThrow();
   });
 
-  it('flies to the canton once the container gets a size', () => {
+  it('flies to the focus bounds once the container gets a size', () => {
     setContainerSize(0, 0);
     const flyToBounds = vi.spyOn(L.Map.prototype, 'flyToBounds');
     renderMap(BE_BOUNDS);
@@ -86,7 +86,7 @@ describe('MapView initial canton focus', () => {
     expect(flyToBounds).toHaveBeenCalledWith(BE_BOUNDS, { padding: [40, 40], maxZoom: 15, duration: 0.8 });
   });
 
-  it('flies to the canton right away when the container already has a size', () => {
+  it('flies to the focus bounds right away when the container already has a size', () => {
     setContainerSize(800, 600);
     const flyToBounds = vi.spyOn(L.Map.prototype, 'flyToBounds');
     renderMap(BE_BOUNDS);

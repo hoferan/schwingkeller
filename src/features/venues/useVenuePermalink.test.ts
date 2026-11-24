@@ -124,4 +124,14 @@ describe('useVenuePermalink — groups', () => {
   it("expands the venue's Teilverband and Verband", () => {
     expect(expandedBy(venue({ association_id: 'emmental' }))).toEqual({ bksv: true, emmental: true });
   });
+
+  // The database only stores cantonal ids, so any other id has no group of its own to open.
+  it('opens a venue whose association is not a cantonal Verband without expanding a group', () => {
+    const openDetail = vi.fn();
+    const setExpanded = vi.fn();
+    const v = venue({ association_id: 'bksv' as Venue['association_id'] });
+    renderPermalink({ venueParam: v.id, venues: [v], venuesLoaded: true, detailId: null, openDetail, setExpanded });
+    expect(openDetail).toHaveBeenCalledWith(v.id);
+    expect(setExpanded).not.toHaveBeenCalled();
+  });
 });

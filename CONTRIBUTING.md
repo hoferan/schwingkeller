@@ -83,8 +83,8 @@ npm run test:e2e
 
 Locally the suite runs against the Compose stack started above, as in CI. Playwright builds and
 serves two production bundles: one on port 4173 with production's feature flag values, which shows
-what visitors see today, and one on 4174 built with `VITE_APP_ENV=stage`, which has the Verband
-view on. Each bundle has an admin and a visitor project (`admin` and `visitor`, `admin-verband` and
+what visitors see today, and one on 4174 built with `VITE_APP_ENV=stage`, which has stage's flag
+values. Each bundle has an admin and a visitor project (`admin` and `visitor`, `admin-verband` and
 `visitor-verband`). The dev server on 5173 keeps the development flags. `npm run test:e2e` first
 runs `bddgen`, which compiles the feature files into Playwright tests and fails the run if a step
 has no definition, then runs Playwright.
@@ -93,8 +93,8 @@ To add a scenario, write it in the feature file for its capability, run `npx bdd
 whatever steps it reports missing in `e2e/steps`. Keep the scenario itself at the level of user
 behavior; edge cases and error paths belong in a unit or an integration test instead.
 
-A scenario runs against both bundles. If it only holds in one view, tag it `@canton-view` (the
-canton grouping, 4173 only) or `@verband-view` (the Verband view, 4174 only).
+A scenario runs against both bundles. If it only holds with a flag in one state, tag it with that
+state's tag from `test-support/flag-tags.ts`, such as `@editors`.
 `npx playwright test --list` shows which projects pick it up.
 
 ### Scenarios that write
@@ -105,7 +105,7 @@ afterwards, including when the scenario fails. The add-venue step accepts only `
 (`e2e/db.ts`), a canton the seed leaves empty, because other scenarios count the seed's cantons
 exactly, Fribourg above all, and a venue in flight would throw those counts off. A total that can
 include such a venue changes while another worker is mid-write: the overall count, Graubünden's, and
-with the verband flag on NOSV's. Never assert on those; search for your own record instead.
+NOSV's. Never assert on those; search for your own record instead.
 
 Cleanup reaches Postgres through PostgREST as the signed-in admin, not with the service-role key,
 so a policy that stopped permitting a write would fail the scenario rather than be bypassed. A run
