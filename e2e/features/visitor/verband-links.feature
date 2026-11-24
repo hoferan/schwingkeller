@@ -1,4 +1,3 @@
-@verband-view
 Feature: Links to a Verband
   A shared or printed link opens the map on a Verband.
 

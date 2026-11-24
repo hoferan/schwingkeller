@@ -1,4 +1,3 @@
-@verband-view
 Feature: Finding a Schwingkeller by Verband
   With the Verband view, the sidebar groups venues by Teilverband and Verband, and the search
   knows their names.

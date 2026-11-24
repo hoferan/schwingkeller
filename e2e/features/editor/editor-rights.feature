@@ -1,4 +1,3 @@
-@verband-view
 Feature: What each editor level may edit
   An editor works on the venues of their own Verband or Teilverband. Everything else stays read-only.
 

@@ -53,7 +53,6 @@ import { forwardGeocode } from '../venues/geocoding';
 import { supabase } from '../../lib/supabase';
 import type { Venue } from '../venues/types';
 import { TestAuthProvider, type TestAccount } from '../auth/testing';
-import { setFeature } from '../../test/features';
 
 const makeClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -479,11 +478,7 @@ describe('EditForm association and address', () => {
     expect((await savedPayload()).association_id).toBe('emmental');
   });
 
-  it.each([
-    ['on', true],
-    ['off', false],
-  ])('saves the chosen association with the flag %s', async (_label, on) => {
-    setFeature('verband', on);
+  it('saves the chosen association', async () => {
     renderWith(null);
     expect(document.getElementById('venue-association')).not.toBeNull();
     fireEvent.change(screen.getByLabelText(STR.de.name), { target: { value: 'Neue Halle' } });

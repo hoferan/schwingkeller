@@ -109,8 +109,8 @@ const GroupHeader = ({ id, level, open, onToggle, mark, name, count }: GroupHead
   </button>
 );
 
-// The sidebar grouped by Teilverband, then Verband, shown while the verband flag is on. A venue
-// sits under the association stored on it, so a club across a canton border shows its own arms.
+// The sidebar grouped by Teilverband, then Verband. A venue sits under the association stored on
+// it, so a club across a canton border shows its own arms.
 export const AssociationGroups = ({
   list,
   filtering,

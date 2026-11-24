@@ -2,12 +2,11 @@ import { STR } from '../../src/i18n/translations';
 import { TIP_FADE_MS, TIP_SHOW_DELAY_MS } from '../../src/features/map/pinNames';
 import { anonClient } from '../../test-support/local-stack';
 import { When, Then, expect } from '../fixtures';
-import { E2E_PREFIX } from '../db';
 
 const t = STR.de;
 
-// The groups that hold venue rows start collapsed (cantons with the verband flag off, Verbände with
-// it on); a search, a filter or a ?ctn= link expands them. Positive list checks therefore come first
+// The groups that hold venue rows start collapsed; a search, a filter or a ?vb= or ?ctn= link
+// expands them. Positive list checks therefore come first
 // in a scenario, and a "does not show" check only runs once a positive one has proved the list is
 // in the state under test.
 const rows = (page: import('@playwright/test').Page) => page.getByTestId('venue-row');
@@ -36,7 +35,7 @@ Then('the list says that nothing was found', async ({ page }) => {
   await expect(page.getByText(t.noResults)).toBeVisible();
 });
 
-// A visitor finds it by searching, which also expands its canton. Selecting a row flies the map to
+// A visitor finds it by searching, which also expands its Verband. Selecting a row flies the map to
 // its marker and, once that finishes, opens the marker's popup.
 const selectFromList = async (page: import('@playwright/test').Page, name: string) => {
   await page.getByPlaceholder(t.search).fill(name);
@@ -163,7 +162,7 @@ const tileZoom = async (page: import('@playwright/test').Page) => {
   return levels.length === 1 ? levels[0] : -1;
 };
 
-// MapView opens on the whole country at zoom 8, and a canton link flies in from there.
+// MapView opens on the whole country at zoom 8, and a canton or Verband link flies in from there.
 const COUNTRY_ZOOM = 8;
 
 // The zoom once the map is at rest. Partway through a flight the tiles can show a single level for
@@ -183,7 +182,7 @@ const restingZoom = async (page: import('@playwright/test').Page, pin: import('@
 };
 
 When('I click the pin of {string}', async ({ page, mapZoom }, name: string) => {
-  // The pin is clicked once the canton link's flight has landed.
+  // The pin is clicked once the link's flight has landed.
   mapZoom.before = await restingZoom(page, pinOf(page, name));
   await pinOf(page, name).click();
 });
@@ -296,33 +295,12 @@ When('I follow a shared link to canton {string}', async ({ page }, canton: strin
   await page.goto(`/?ctn=${canton}`);
 });
 
-// Only a ?ctn= link pre-expands a canton (App.tsx), so its venues are listed and every other
-// canton's stay collapsed. The venue picked to prove that is deliberate, not the first one found:
-// parallel admin scenarios write transient [e2e] venues into GR, and one of those could otherwise
-// get picked and then vanish mid-run when its own scenario cleans up, so it is excluded and the
-// remaining candidates are sorted by name for a stable choice.
-Then('the venues of canton {string} are shown', async ({ page }, canton: string) => {
-  const { data, error } = await anonClient().from('venues').select('name, canton');
-  if (error) throw new Error(`reading venues failed: ${error.message}`);
-  const inside = data.filter((v) => v.canton === canton).map((v) => v.name as string);
-  const outside = data
-    .filter((v) => v.canton !== canton && !(v.name as string).startsWith(E2E_PREFIX))
-    .map((v) => v.name as string)
-    .sort()[0];
-  expect(inside.length).toBeGreaterThan(0);
-  expect(outside, 'no venue outside that canton to check against').toBeDefined();
-  for (const name of inside) {
-    await expect(rows(page).filter({ hasText: name })).toHaveCount(1);
-  }
-  await expect(rows(page).filter({ hasText: outside! })).toHaveCount(0);
-});
-
 Then('there is no button to add a venue', async ({ page }) => {
-  // "I visit the map" waited for the canton list, so an admin control would be rendered by now.
+  // "I visit the map" waited for the venues, so an admin control would be rendered by now.
   await expect(page.getByRole('button', { name: t.add })).toHaveCount(0);
 });
 
-Then('no canton offers a poster', async ({ page }) => {
+Then('no Verband offers a poster', async ({ page }) => {
   await expect(page.locator('[data-testid^="generate-poster-"]')).toHaveCount(0);
 });
 
