@@ -10,6 +10,7 @@ import {
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { PosterGenerationError, type PosterSubject } from './posterSubject';
+import type { PosterView } from './posterFraming';
 
 export { PosterGenerationError };
 
@@ -31,7 +32,7 @@ export const waitForTilesLoad = (layer: OnceEmitter, timeoutMs: number): Promise
 
 export interface GeneratePosterResult { blob: Blob; filename: string }
 
-export interface PosterView { center: [number, number]; zoom: number }
+export type { PosterView };
 
 export interface GeneratePosterOptions {
   baseKind: BaseKind;
