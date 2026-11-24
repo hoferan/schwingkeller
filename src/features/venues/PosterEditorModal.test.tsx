@@ -465,6 +465,17 @@ describe('venue name labels', () => {
     fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(13));
   });
 
+  it('places the labels around the middle of a portrait poster', async () => {
+    const user = userEvent.setup();
+    renderEditor({ venues: labelled });
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
+
+    // The portrait poster is 1620 tall, so the first pin moves from y=200 to y=470, clear of the
+    // header, and its name goes beside it instead of beneath.
+    expect(screen.getAllByTestId('poster-preview-label')[0]).toHaveAttribute('data-slot', 'right');
+  });
+
   it('sends the export the view the labels were placed from', async () => {
     const user = userEvent.setup();
     renderEditor({ venues: labelled });

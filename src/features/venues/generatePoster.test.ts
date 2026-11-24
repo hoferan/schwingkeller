@@ -304,6 +304,13 @@ describe('generatePosterBlob', () => {
     fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(12.25));
   });
 
+  it('centres the pins on a portrait poster vertically on its own height', async () => {
+    // Every point projects to the centre's pixel, so each pin lands mid-poster: y = 1620 / 2.
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'portrait' });
+
+    expect(drawPinMock).toHaveBeenCalledWith(expect.anything(), 540, 810);
+  });
+
   it("projects from the capture map's own centre and zoom when no view is given", async () => {
     await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
