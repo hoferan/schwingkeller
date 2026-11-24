@@ -5,10 +5,10 @@ import { ASSOCIATIONS, HOME_AREAS } from '../data/associations';
 //
 // - ?venue=<id> opens that venue. When it is present, the other two are ignored, even if the id
 //   turns out not to exist.
-// - ?vb=<id> opens a Teilverband or Verband and frames its venues. It needs the verband flag.
-// - ?ctn=XX opens a canton and frames its bounds. With the verband flag on, the canton is mapped to
-//   a Verband through the home areas instead (associationForCanton), and ?vb= wins when both are
-//   valid. Printed posters carry ?ctn= links, so the parameter stays.
+// - ?vb=<id> opens a Teilverband or Verband and frames its venues.
+// - ?ctn=XX is the old canton link. It opens the canton's Verband through the home areas
+//   (associationForCanton), and ?vb= wins when both are valid. Printed posters and afls.ch carry
+//   ?ctn= links, so the parameter stays.
 //
 // - ?invite=<token> opens the sign-up form for an invitation (#140). It is independent of the
 //   others and leaves the address bar as soon as it is read, so the token doesn't stay in the
@@ -40,9 +40,9 @@ export const parseAssociationParam = (search: string): string | null => {
   return node && node.level !== 'federation' ? node.id : null;
 };
 
-// Where an old ?ctn= link lands with the verband flag on. A canton that is home to one Verband goes
-// to it, AR and AI to appenzell, OW and NW to ob-nidwalden. Bern is home to several Gaue and the
-// canton doesn't say which, so it goes to their Teilverband.
+// Where an old ?ctn= link lands. A canton that is home to one Verband goes to it, AR and AI to
+// appenzell, OW and NW to ob-nidwalden. Bern is home to several Gaue and the canton doesn't say
+// which, so it goes to their Teilverband.
 export const associationForCanton = (code: string): string | null => {
   const ids = [...new Set(HOME_AREAS.filter((h) => h.canton === code).map((h) => h.associationId))];
   if (ids.length === 0) return null;
@@ -63,18 +63,6 @@ export const withVenueParam = (url: string, id: string | null): string => {
   } else {
     params.delete('venue');
   }
-  const next = params.toString();
-  return next ? path + '?' + next : path;
-};
-
-// Inverse of withVenueParam: sets ?ctn=<code> (uppercased) and clears any
-// `venue` or `vb` param. Used to build the poster QR link back to the canton view.
-export const withCantonParam = (url: string, code: string): string => {
-  const [path, search = ''] = url.split('?');
-  const params = new URLSearchParams(search);
-  params.delete('venue');
-  params.delete('vb');
-  params.set('ctn', code.toUpperCase());
   const next = params.toString();
   return next ? path + '?' + next : path;
 };

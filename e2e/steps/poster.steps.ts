@@ -50,16 +50,11 @@ const readRects = (page: Page, selector: string, frameSelector?: string) =>
 // poster is drawn over map tiles (stubbed here).
 
 const openPosterEditor = async (page: Page, id: string) => {
-  // Venues arrive from PostgREST, and the canton rows only render once they do. The Verband rows
-  // render at once, but only inside an open Teilverband.
+  // The Verband rows render at once, but only inside an open Teilverband.
   await expect(page.getByTestId(`generate-poster-${id}`)).toBeVisible();
   await page.getByTestId(`generate-poster-${id}`).click();
   await expect(page.getByText(t.posterEditorTitle, { exact: false })).toBeVisible();
 };
-
-Given('I open the poster editor for canton {string}', async ({ page }, canton: string) => {
-  await openPosterEditor(page, canton);
-});
 
 Given('I open the poster editor for Verband {string}', async ({ page }, name: string) => {
   const id = verbandId(name);

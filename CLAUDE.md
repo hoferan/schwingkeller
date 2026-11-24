@@ -100,7 +100,7 @@ Four more run only the scenarios tagged `@phone` (Pixel 7: visitor and admin
 on 4173, editor on 4174) or `@tablet` (Galaxy Tab S4: visitor on 4173), and
 the desktop projects skip both tags. A scenario runs
 against both unless a tag ties it to one state of a flag, such as
-`@verband-view`, `@canton-view` or `@editors`. Each project's tag filter
+`@editors`. Each project's tag filter
 comes from `src/lib/features.ts` through `test-support/flag-tags.ts`, so
 switching a flag needs no change to the config. Unit tests set a flag with
 `setFeature` from `src/test/features.ts`, never by stubbing `VITE_APP_ENV`. The suite never tests the Compose dev server

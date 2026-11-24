@@ -1,4 +1,4 @@
-@phone @verband-view
+@phone
 Feature: Poster for a Verband on a phone
   Below 700px the poster editor previews the poster at 270px instead of 540px, so the export is
   drawn two zoom levels above the preview instead of one. The preview places the names from the

@@ -30,7 +30,7 @@ describe('isFeatureOn', () => {
     'reads the "%s" column of the table',
     (env) => {
       vi.stubEnv('VITE_APP_ENV', env);
-      expect(isFeatureOn('verband')).toBe(FEATURES.verband[env]);
+      expect(isFeatureOn('editors')).toBe(FEATURES.editors[env]);
     },
   );
 });

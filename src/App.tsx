@@ -21,10 +21,9 @@ import { theme } from './theme';
 import {
   associationForCanton, parseAssociationParam, parseCantonParam, parseInviteParam, parseVenueParam, withoutInviteParam,
 } from './lib/permalink';
-import { boundsForCanton } from './data/cantonBounds';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
-import { posterSubjectFor, type PosterTarget } from './features/venues/posterSubject';
+import { associationPosterSubject } from './features/venues/posterSubject';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
@@ -66,10 +65,10 @@ function AppShell() {
   const isTablet = mode === 't';
 
   // Cross-cutting UI state.
-  // Parsed once at startup. ?venue= takes precedence over the others. With the verband flag on, a
-  // ?ctn= link lands on its Verband or Teilverband instead of the canton. ?invite= stands apart: it
-  // opens the sign-up dialog with the editors flag on, and leaves the address bar either way. See
-  // src/lib/permalink.ts and docs/adr/0007-url-parameters-without-a-router.md.
+  // Parsed once at startup. ?venue= takes precedence over the others. An old ?ctn= link lands on its
+  // Verband or Teilverband. ?invite= stands apart: it opens the sign-up dialog with the editors flag
+  // on, and leaves the address bar either way. See src/lib/permalink.ts and
+  // docs/adr/0007-url-parameters-without-a-router.md.
   const [inviteToken, setInviteToken] = useState<string | null>(() =>
     isFeatureOn('editors') ? parseInviteParam(window.location.search) : null,
   );
@@ -78,26 +77,20 @@ function AppShell() {
     window.history.replaceState(window.history.state, '', withoutInviteParam(window.location.pathname + window.location.search));
   }, []);
   const [venueParam] = useState<string | null>(() => parseVenueParam(window.location.search));
-  const [ctnParam] = useState<string | null>(() =>
-    venueParam || isFeatureOn('verband') ? null : parseCantonParam(window.location.search),
-  );
   const [vbParam] = useState<string | null>(() => {
-    if (venueParam || !isFeatureOn('verband')) return null;
+    if (venueParam) return null;
     const search = window.location.search;
     const code = parseCantonParam(search);
     return parseAssociationParam(search) ?? (code ? associationForCanton(code) : null);
   });
   const [search, setSearch] = useState('');
-  // Keyed by canton code or association id. Every group starts closed, and a permalink opens only
-  // its own path: its canton with the flag off, its Teilverband and Verband with the flag on. afls.ch
-  // embeds the map with ?ctn=fr, and Freiburg's venues should sit near the top of the list.
+  // Keyed by association id. Every group starts closed, and a permalink opens only its own path: its
+  // Teilverband and Verband. afls.ch embeds the map with ?ctn=fr, and Freiburg's venues should sit
+  // near the top of the list.
   const associations = useAssociations();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-    const open: string[] = [];
-    if (ctnParam) open.push(ctnParam);
-    if (vbParam) open.push(...expandedKeysFor(vbParam, associations));
-    return Object.fromEntries(open.map((key) => [key, true]));
-  });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    vbParam ? Object.fromEntries(expandedKeysFor(vbParam, associations).map((key) => [key, true])) : {},
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [baseKind, setBaseKind] = useState<'map' | 'sat'>('map');
@@ -114,9 +107,7 @@ function AppShell() {
     if (!isApproved) setShowAccounts(false);
   }
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>(() =>
-    isFeatureOn('verband') ? 'association' : 'canton',
-  );
+  const [sortMode, setSortMode] = useState<SortMode>('association');
   const geo = useGeolocation();
 
   // Edit-form state. `editOpen` controls whether the form should exist at all;
@@ -132,7 +123,7 @@ function AppShell() {
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [posterTarget, setPosterTarget] = useState<PosterTarget | null>(null);
+  const [posterId, setPosterId] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
   const showFlash = (kind: 'ok' | 'err', text: string) => {
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
@@ -152,13 +143,12 @@ function AppShell() {
   }, [geo.status]);
 
   const detailVenue = detailId ? venues.find((v) => v.id === detailId) ?? null : null;
-  // A canton's box is known at once. A Verband is framed to its venues, so its box waits for them;
-  // MapView flies to the first bounds it gets and ignores later ones.
+  // A Verband is framed to its venues, so its box waits for them. MapView flies to the first bounds
+  // it gets and ignores later ones.
   const initialFocusBounds = useMemo(() => {
-    if (ctnParam) return boundsForCanton(ctnParam);
     if (vbParam && venuesLoaded) return boundsForAssociation(vbParam, venues, associations);
     return null;
-  }, [ctnParam, vbParam, venuesLoaded, venues, associations]);
+  }, [vbParam, venuesLoaded, venues, associations]);
 
   // ---- layout styles (prototype renderVals ~624-631) ----
   const mainStyle: CSSProperties = { position: 'relative', flex: '1 1 auto', display: 'flex', minHeight: 0 };
@@ -265,18 +255,18 @@ function AppShell() {
   // venues loaded opens once they have. The id is checked on click, where an unknown one can still
   // be reported.
   const posterSubject = useMemo(
-    () => (posterTarget && venuesLoaded ? posterSubjectFor(posterTarget, venues, associations) : null),
-    [posterTarget, venuesLoaded, venues, associations],
+    () => (posterId && venuesLoaded ? associationPosterSubject(posterId, venues, associations) : null),
+    [posterId, venuesLoaded, venues, associations],
   );
-  const openPosterEditor = (target: PosterTarget) => {
+  const openPosterEditor = (id: string) => {
     try {
-      posterSubjectFor(target, venues, associations);
-      setPosterTarget(target);
+      associationPosterSubject(id, venues, associations);
+      setPosterId(id);
     } catch (err) {
       showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
     }
   };
-  const closePosterEditor = () => setPosterTarget(null);
+  const closePosterEditor = () => setPosterId(null);
   const savePoster = (blob: Blob, filename: string) => {
     downloadBlob(filename, blob);
     closePosterEditor();
@@ -380,7 +370,6 @@ function AppShell() {
         <PosterEditorModal
           subject={posterSubject}
           initialBaseKind={baseKind}
-          unitLabel={t.unitTotal}
           onClose={closePosterEditor}
           onSave={savePoster}
           onError={(err) => showFlash('err', captureAndFormat(err, t.posterGenerateFailed))}

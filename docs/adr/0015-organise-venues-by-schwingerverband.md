@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-08
+status: accepted
+date: 2026-11-24
 decision-makers: André Hofer
 ---
 
@@ -52,8 +52,8 @@ Chosen option: store a node of the ESV tree on each venue.
   Verband's home cantons.
 * A Verband poster shows the Verband's name, its dot and its Teilverband's badge, and no venue
   count. A poster hangs for months, and a printed count is wrong once a venue is added or closed;
-  the pins already show the venues. Canton posters keep their count until the canton view goes
-  (#72).
+  the pins already show the venues. The canton poster, the last one with a count, went with the
+  canton view in #72.
 * Identifiers in the schema and the code are English: `associations`, `association_id`, and the
   levels `federation`, `regional` and `cantonal`. Values stay German, because the slugs,
   abbreviations and names are proper names and the slugs appear on posters and in URLs. The levels
@@ -78,8 +78,9 @@ Chosen option: store a node of the ESV tree on each venue.
 * Bad, because Bernese venues need a one-off reverse-geocoding backfill to find their Gau.
 * Bad, because tree ids end up on printed posters and in URLs, so they can't be renamed once
   shipped.
-* The canton and Verband views both run until the switch, behind the flag from
-  [ADR 0017](0017-feature-flags-from-one-registry.md).
+* The canton and Verband views ran side by side behind the flag from
+  [ADR 0017](0017-feature-flags-from-one-registry.md) until the switch in #71. #72 removed the
+  canton view and the flag.
 
 ### Confirmation
 

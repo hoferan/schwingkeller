@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 
@@ -13,11 +13,9 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
 import type { Venue } from '../venues/types';
-import type { PosterTarget } from '../venues/posterSubject';
 import type { SortMode } from '../venues/grouping';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
-import { setFeature } from '../../test/features';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'BE', address: '3000 Bern', lat: 0, lng: 0,
@@ -27,8 +25,8 @@ const v = (over: Partial<Venue>): Venue => ({
 // Distances: venue '1' Emmental in BE, '2'/'3' in LU. Given coords so distance is meaningful.
 const venues = [
   v({ id: '1', name: 'Emmental', canton: 'BE', lat: 46.9, lng: 7.6 }),
-  v({ id: '2', name: 'Willisau', canton: 'LU', lat: 47.1, lng: 8.0 }),
-  v({ id: '3', name: 'Allmend', canton: 'LU', lat: 47.05, lng: 8.3 }),
+  v({ id: '2', name: 'Willisau', canton: 'LU', lat: 47.1, lng: 8.0, association_id: 'luzern' }),
+  v({ id: '3', name: 'Allmend', canton: 'LU', lat: 47.05, lng: 8.3, association_id: 'luzern' }),
 ];
 
 interface HarnessProps {
@@ -43,7 +41,7 @@ interface HarnessProps {
   geoStatus?: GeoStatus;
   onRequestLocation?: () => void;
   onAdd?: () => void;
-  onGeneratePoster?: (target: PosterTarget) => void;
+  onGeneratePoster?: (id: string) => void;
   onSelect?: (id: string) => void;
   expandedInit?: Record<string, boolean>;
 }
@@ -55,7 +53,7 @@ const Harness = ({
   onToggleSidebar = () => {},
   onSetSidebarOpen = () => {},
   venuesData = venues,
-  sortModeInit = 'canton',
+  sortModeInit = 'association',
   userPosition = null,
   geoStatus = 'idle',
   onRequestLocation = () => {},
@@ -106,42 +104,26 @@ const renderSidebar = (props: HarnessProps = {}, lang: Lang = 'de', as: TestAcco
 
 const renderAdminSidebar = (props: HarnessProps = {}) => renderSidebar(props, 'de', 'esv');
 
+// The Teilverband rows render once the sidebar is up.
+const listReady = () => screen.findByTestId('group-bksv');
+
 describe('Sidebar', () => {
-  // These tests describe the canton view, which stays until #72 removes it with the verband flag.
-  beforeEach(() => { setFeature('verband', false); });
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders canton group names', async () => {
-    renderSidebar();
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
-    expect(screen.getByText('Luzern')).toBeInTheDocument();
-  });
-
-  it('shows the empty-state message for a canton with no venues when expanded', async () => {
-    renderSidebar();
-    // Zug has no venues in the fixture, but must still render as one of all 26 cantons.
-    await waitFor(() => expect(screen.getByText('Zug')).toBeInTheDocument());
-    expect(screen.queryByText(STR.de.cantonEmpty)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Zug'));
-
-    await waitFor(() => expect(screen.getByText(STR.de.cantonEmpty)).toBeInTheDocument());
-  });
-
   it('does not show the no-results banner when idle with no venues at all', async () => {
     renderSidebar({ venuesData: [] });
-    // Empty cantons still render when idle (not searching), even with zero venues overall.
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    // The Teilverbände still render when idle (not searching), even with zero venues overall.
+    await listReady();
     expect(screen.queryByText(STR.de.noResults)).not.toBeInTheDocument();
   });
 
   it('filters venues as the user types in the search box', async () => {
     const user = userEvent.setup();
     renderSidebar();
-    await waitFor(() => expect(screen.getByText('Luzern')).toBeInTheDocument());
+    await listReady();
     // Groups start collapsed, so no venue rows are visible yet.
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
 
@@ -150,19 +132,19 @@ describe('Sidebar', () => {
 
     await waitFor(() => expect(screen.getByText('Willisau')).toBeInTheDocument());
     expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
-    expect(screen.queryByText('Bern')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('group-bksv')).not.toBeInTheDocument();
   });
 
   it('offers no Innen or Aussen filter', async () => {
     renderSidebar();
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     expect(screen.queryByRole('button', { name: 'Innen' })).toBeNull();
     expect(screen.queryByRole('button', { name: STR.de.outdoor })).toBeNull();
   });
 
   it('hides the add section without approval', async () => {
     renderSidebar();
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     expect(screen.queryByTestId('admin-section')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: STR.de.add })).not.toBeInTheDocument();
   });
@@ -177,7 +159,7 @@ describe('Sidebar', () => {
     ['signed-out', false],
   ])('shows the add section for %s: %s', async (as, shown) => {
     renderSidebar({}, 'de', as);
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     expect(!!screen.queryByTestId('admin-section')).toBe(shown);
   });
 
@@ -217,7 +199,7 @@ describe('Sidebar', () => {
   it('closes the mobile drawer on tap outside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
 
     fireEvent.pointerDown(document.body);
 
@@ -226,7 +208,7 @@ describe('Sidebar', () => {
 
   it('keeps the full handle and header visible when the mobile sheet is collapsed', async () => {
     renderSidebar({ isMobile: true, sidebarOpen: false });
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     const sheet = screen.getByTestId('sidebar-root');
     // 116px = handle zone (8px+4px+8px = 20px) + header block (18px padding top/bottom = 36px,
     // + 19px/1.15 title line ≈ 21.85px, + 10px gap, + 12px/"normal" count-pill line + 12px
@@ -236,14 +218,14 @@ describe('Sidebar', () => {
 
   it('renders the tablet panel off-screen to the left when collapsed', async () => {
     renderSidebar({ isTablet: true, sidebarOpen: false });
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     const panel = screen.getByTestId('sidebar-root');
     expect(panel.style.left).toBe('-344px');
   });
 
   it('slides the tablet panel fully into view when open', async () => {
     renderSidebar({ isTablet: true, sidebarOpen: true });
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     const panel = screen.getByTestId('sidebar-root');
     expect(panel.style.left).toBe('0px');
   });
@@ -261,7 +243,7 @@ describe('Sidebar', () => {
   it('closes the tablet panel on tap outside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
 
     fireEvent.pointerDown(document.body);
 
@@ -271,7 +253,7 @@ describe('Sidebar', () => {
   it('does not close the tablet panel on tap inside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isTablet: true, sidebarOpen: true, onSetSidebarOpen });
-    const bern = await screen.findByText('Bern');
+    const bern = await listReady();
 
     fireEvent.pointerDown(bern);
 
@@ -343,7 +325,7 @@ describe('Sidebar', () => {
   it('does not close the mobile drawer on tap inside it', async () => {
     const onSetSidebarOpen = vi.fn();
     renderSidebar({ isMobile: true, sidebarOpen: true, onSetSidebarOpen });
-    const bern = await screen.findByText('Bern');
+    const bern = await listReady();
 
     fireEvent.pointerDown(bern);
 
@@ -534,12 +516,12 @@ describe('Sidebar', () => {
     expect(screen.getByText(STR.de.sortDistance)).toBeInTheDocument();
   });
 
-  it('flattens the list when sorting by name (no canton expand needed)', async () => {
+  it('flattens the list when sorting by name (no group to expand)', async () => {
     const user = userEvent.setup();
     renderSidebar();
     await waitFor(() => expect(screen.getByText(STR.de.sortName)).toBeInTheDocument());
     await user.click(screen.getByText(STR.de.sortName));
-    // All venue names visible without expanding any canton group:
+    // All venue names visible without expanding any group:
     expect(screen.getByText('Allmend')).toBeInTheDocument();
     expect(screen.getByText('Emmental')).toBeInTheDocument();
     expect(screen.getByText('Willisau')).toBeInTheDocument();
@@ -558,7 +540,7 @@ describe('Sidebar', () => {
     const user = userEvent.setup();
     renderSidebar({ userPosition: { lat: 46.95, lng: 7.45 } });
     await waitFor(() => expect(screen.getByText(STR.de.sortDistance)).toBeInTheDocument());
-    // No badges in canton mode:
+    // No badges in the grouped list:
     expect(screen.queryByText(/km$/)).not.toBeInTheDocument();
     await user.click(screen.getByText(STR.de.sortDistance));
     // Nearest (Emmental, closest to origin) appears with a km badge:
@@ -571,25 +553,19 @@ describe('Sidebar', () => {
     expect(screen.queryByText(STR.de.sortDistance)).not.toBeInTheDocument();
   });
 
-  it('labels the list section by canton in canton sort mode', async () => {
-    renderSidebar({ sortModeInit: 'canton' });
-    await waitFor(() => expect(screen.getByText(STR.de.byCanton)).toBeInTheDocument());
-    expect(screen.queryByText(STR.de.byName)).not.toBeInTheDocument();
-  });
-
   it('relabels the list section when sorting by name', async () => {
     renderSidebar({ sortModeInit: 'name' });
     await waitFor(() => expect(screen.getByText(STR.de.byName)).toBeInTheDocument());
-    expect(screen.queryByText(STR.de.byCanton)).not.toBeInTheDocument();
+    expect(screen.queryByText(STR.de.byAssociation)).not.toBeInTheDocument();
   });
 
   it('relabels the list section when sorting by distance', async () => {
     renderSidebar({ sortModeInit: 'distance', userPosition: { lat: 46.95, lng: 7.45 } });
     await waitFor(() => expect(screen.getByText(STR.de.byDistance)).toBeInTheDocument());
-    expect(screen.queryByText(STR.de.byCanton)).not.toBeInTheDocument();
+    expect(screen.queryByText(STR.de.byAssociation)).not.toBeInTheDocument();
   });
 
-  it('selects a venue when its row is clicked in the canton list', async () => {
+  it('selects a venue when its row is clicked in the grouped list', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     renderSidebar({ onSelect });
@@ -608,7 +584,7 @@ describe('Sidebar', () => {
     renderSidebar({ sortModeInit: 'name', onSelect });
 
     const rows = await screen.findAllByTestId('venue-row');
-    // The flat list shows every venue, alphabetically, without expanding a canton first.
+    // The flat list shows every venue, alphabetically, without expanding a group first.
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringContaining('Allmend'),
       expect.stringContaining('Emmental'),
@@ -621,51 +597,20 @@ describe('Sidebar', () => {
 
   it('shows the total count only once (header pill, not the section header)', async () => {
     renderSidebar();
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     // "3 Schwingkeller" (venues fixture has 3) must appear exactly once — the dark header pill.
     expect(screen.getAllByText(`3 ${STR.de.unitTotal}`)).toHaveLength(1);
   });
 
   it('does not show a generate-poster icon for non-admins', async () => {
     renderSidebar();
-    await waitFor(() => expect(screen.getByText('Bern')).toBeInTheDocument());
+    await listReady();
     expect(screen.queryByRole('button', { name: STR.de.generatePoster })).not.toBeInTheDocument();
   });
 
-  it('shows the generate-poster icon even for a canton with zero venues when admin', async () => {
-    renderAdminSidebar();
-    const row = (await screen.findByText('Zug')).closest('div')!;
-    expect(
-      await within(row).findByRole('button', { name: STR.de.generatePoster }),
-    ).toBeInTheDocument();
-  });
-
-  it('tags each generate-poster button with its canton code, so a browser test can address one', async () => {
-    renderAdminSidebar();
-    await screen.findByText('Bern');
-
-    expect(screen.getByTestId('generate-poster-BE')).toHaveAccessibleName(STR.de.generatePoster);
-    expect(screen.getByTestId('generate-poster-FR')).toBeInTheDocument();
-  });
-
-  it('calls onGeneratePoster with the canton code and does not toggle the group', async () => {
-    const user = userEvent.setup();
-    const onGeneratePoster = vi.fn();
-    renderAdminSidebar({ onGeneratePoster });
-    const row = (await screen.findByText('Bern')).closest('div')!;
-    const button = await within(row).findByRole('button', { name: STR.de.generatePoster });
-
-    await user.click(button);
-
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'canton', code: 'BE' });
-    expect(screen.queryByText('Emmental')).not.toBeInTheDocument();
-  });
 });
 
 describe('Sidebar width handle', () => {
-  // The handle doesn't depend on the verband flag; with it off the sidebar shows the canton list,
-  // whose names the tests wait for.
-  beforeEach(() => { setFeature('verband', false); });
   afterEach(() => {
     localStorage.clear();
   });
@@ -676,7 +621,7 @@ describe('Sidebar width handle', () => {
 
   it('shows a handle on the desktop column, at the default width', async () => {
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     expect(handle()).toHaveAttribute('aria-orientation', 'vertical');
     expect(handle()).toHaveAttribute('aria-valuenow', '344');
     expect(handle()).toHaveAttribute('aria-valuemin', '280');
@@ -686,24 +631,24 @@ describe('Sidebar width handle', () => {
 
   it('shows no handle on the tablet panel or the mobile drawer', async () => {
     const { unmount } = renderSidebar({ isTablet: true });
-    await screen.findByText('Bern');
+    await listReady();
     expect(screen.queryByRole('separator')).toBeNull();
     unmount();
     renderSidebar({ isMobile: true });
-    await screen.findByText('Bern');
+    await listReady();
     expect(screen.queryByRole('separator')).toBeNull();
   });
 
   it('starts at the width stored by an earlier visit', async () => {
     localStorage.setItem('sk-sidebar-width', '400');
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     expect(columnWidth()).toBe('400px');
   });
 
   it('follows a pointer drag and stores the width when the drag ends', async () => {
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 344 });
     fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 390 });
     expect(columnWidth()).toBe('390px');
@@ -714,14 +659,14 @@ describe('Sidebar width handle', () => {
 
   it('ignores pointer moves when no drag is going on', async () => {
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 390 });
     expect(columnWidth()).toBe('344px');
   });
 
   it('keeps a dragged width within the range', async () => {
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 344 });
     fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 900 });
     expect(columnWidth()).toBe('410px');
@@ -731,7 +676,7 @@ describe('Sidebar width handle', () => {
 
   it('widens and narrows with the arrow keys', async () => {
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     fireEvent.keyDown(handle(), { key: 'ArrowRight' });
     expect(columnWidth()).toBe('360px');
     expect(localStorage.getItem('sk-sidebar-width')).toBe('360');
@@ -743,15 +688,14 @@ describe('Sidebar width handle', () => {
   it('goes back to the default width on a double-click', async () => {
     localStorage.setItem('sk-sidebar-width', '400');
     renderSidebar();
-    await screen.findByText('Bern');
+    await listReady();
     fireEvent.doubleClick(handle());
     expect(columnWidth()).toBe('344px');
     expect(localStorage.getItem('sk-sidebar-width')).toBe('344');
   });
 });
 
-// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
-describe('Sidebar with the verband flag', () => {
+describe('Sidebar grouped by Verband', () => {
   const REGIONAL_OPEN = { bksv: true, isv: true, nosv: true, nwsv: true, swsv: true };
   const flagVenues = [
     v({ id: 'f1', name: 'Halle Düdingen', canton: 'FR', association_id: 'freiburg', indoor: true, outdoor: false }),
@@ -775,10 +719,12 @@ describe('Sidebar with the verband flag', () => {
     expect(screen.queryByText('Bern')).toBeNull();
   });
 
-  it('offers Verband instead of Kanton in the sort control and labels the section', async () => {
+  it('offers Verband, name and distance sorting and labels the section', async () => {
     renderFlagged();
     expect(await screen.findByRole('radio', { name: STR.de.sortAssociation })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('radio', { name: STR.de.sortCanton })).toBeNull();
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      STR.de.sortAssociation, STR.de.sortName, STR.de.sortDistance,
+    ]);
     expect(screen.getByText(STR.de.byAssociation)).toBeInTheDocument();
   });
 
@@ -796,11 +742,12 @@ describe('Sidebar with the verband flag', () => {
     expect(rowNames()).toEqual([expect.stringContaining('Keller Langnau')]);
   });
 
+  // The venue sits in Aargau but belongs to the Zürcher Verband, so only its canton matches.
   it('finds venues by canton name', async () => {
     const user = userEvent.setup();
-    renderFlagged();
-    await user.type(screen.getByPlaceholderText(STR.de.search), 'Luzern');
-    expect(rowNames()).toEqual([expect.stringContaining('Keller Willisau')]);
+    renderFlagged({ venuesData: [...flagVenues, v({ id: 'z1', name: 'Keller Dietikon', canton: 'AG', association_id: 'zuerich' })] });
+    await user.type(screen.getByPlaceholderText(STR.de.search), 'Aargau');
+    expect(rowNames()).toEqual([expect.stringContaining('Keller Dietikon')]);
   });
 
   it('finds venues by the French abbreviation in French', async () => {
@@ -833,18 +780,18 @@ describe('Sidebar with the verband flag', () => {
     });
   });
 
-  it('asks admins for a Verband poster from its row with the flag on', async () => {
+  it('asks admins for a Verband poster from its row', async () => {
     const user = userEvent.setup();
     const onGeneratePoster = vi.fn();
     renderAdminSidebar({
       venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN, onGeneratePoster,
     });
     await user.click(await screen.findByTestId('generate-poster-freiburg'));
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(onGeneratePoster).toHaveBeenCalledWith('freiburg');
     expect(screen.queryByTestId('generate-poster-FR')).toBeNull();
   });
 
-  it('shows non-admins no poster button with the flag on', async () => {
+  it('shows non-admins no poster button', async () => {
     renderFlagged();
     expect(await screen.findByTestId('group-freiburg')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: STR.de.generatePoster })).toBeNull();

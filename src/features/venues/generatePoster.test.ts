@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Venue } from './types';
-import { boundsForCanton } from '../../data/cantonBounds';
 
 const { tileLayerOnceMock, createTileLayerMock, fakeMap } = vi.hoisted(() => {
   const tileLayerOnceMock = vi.fn();
@@ -54,7 +53,7 @@ vi.mock('./posterCanvas', async () => {
 
 import L from 'leaflet';
 import { generatePosterBlob, waitForTilesLoad } from './generatePoster';
-import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
+import { associationPosterSubject } from './posterSubject';
 import { associationsFor } from '../associations/useAssociations';
 import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import { POSTER_SIZE } from './posterLayout';
@@ -66,8 +65,9 @@ const v = (over: Partial<Venue>): Venue => ({
 const venues = [
   v({ id: '1', canton: 'BE', name: 'Bern Ost' }),
   v({ id: '2', canton: 'BE', name: 'Thun' }),
-  v({ id: '3', canton: 'LU', name: 'Luzern' }),
+  v({ id: '3', canton: 'LU', name: 'Luzern', association_id: 'luzern' }),
 ];
+const emmental = (vs: Venue[]) => associationPosterSubject('emmental', vs, associationsFor('de'));
 
 describe('waitForTilesLoad', () => {
   afterEach(() => vi.useRealTimers());
@@ -110,18 +110,18 @@ describe('generatePosterBlob', () => {
     });
   });
 
-  it("builds the tile layer for the given base kind and fits the map to the canton's bounds by default", async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+  it("builds the tile layer for the given base kind and fits the map to the home bounds by default", async () => {
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     // 'anonymous' so the tile <img>s are fetched as CORS requests — otherwise drawing them
     // onto the export canvas taints it and canvas.toBlob() throws a SecurityError in the browser.
     expect(createTileLayerMock).toHaveBeenCalledWith('map', 'anonymous');
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [40, 40] });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS.emmental, { padding: [40, 40] });
     expect(fakeMap.setView).not.toHaveBeenCalled();
   });
 
-  it("plots a pin for each of the canton's venues and none from other cantons", async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+  it("plots a pin for each of the Verband's venues and none from other Verbände", async () => {
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     // Fixture has 2 BE venues and 1 LU venue — only the 2 BE ones should be projected/drawn,
     // plus the view centre they are placed around.
@@ -130,11 +130,11 @@ describe('generatePosterBlob', () => {
     expect(drawTilesMock).toHaveBeenCalledTimes(1);
   });
 
-  it('returns a PNG blob and the lowercase-canton filename', async () => {
-    const result = await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'sat', unitLabel: 'Schwingkeller' });
+  it('returns a PNG blob named after the Verband', async () => {
+    const result = await generatePosterBlob(emmental(venues), { baseKind: 'sat' });
 
     expect(createTileLayerMock).toHaveBeenCalledWith('sat', 'anonymous');
-    expect(result.filename).toBe('schwingkeller-be.png');
+    expect(result.filename).toBe('schwingkeller-emmental.png');
     expect(result.blob.type).toBe('image/png');
   });
 
@@ -146,7 +146,7 @@ describe('generatePosterBlob', () => {
       configurable: true,
     });
     try {
-      const result = await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+      const result = await generatePosterBlob(emmental(venues), { baseKind: 'map' });
       expect(awaited).toBe(true); // the fonts.ready promise was awaited before encoding
       expect(result.blob.type).toBe('image/png');
     } finally {
@@ -156,7 +156,7 @@ describe('generatePosterBlob', () => {
   });
 
   it('tears down the off-screen map and detaches the container on success', async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     expect(fakeMap.remove).toHaveBeenCalledTimes(1);
     expect(document.body.children.length).toBe(0);
@@ -166,7 +166,7 @@ describe('generatePosterBlob', () => {
     vi.useFakeTimers();
     tileLayerOnceMock.mockImplementation(() => {}); // 'load' never fires
 
-    const promise = generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    const promise = generatePosterBlob(emmental(venues), { baseKind: 'map' });
     vi.advanceTimersByTime(8000);
 
     await expect(promise).rejects.toThrow('[TILE_TIMEOUT]');
@@ -176,7 +176,7 @@ describe('generatePosterBlob', () => {
   });
 
   describe('for a Verband', () => {
-    const opts = { baseKind: 'map', unitLabel: 'Schwingkeller' } as const;
+    const opts = { baseKind: 'map' } as const;
     const fr = [
       v({ id: 'f1', canton: 'FR', association_id: 'freiburg' }),
       v({ id: 'f2', canton: 'FR', association_id: 'freiburg' }),
@@ -186,7 +186,6 @@ describe('generatePosterBlob', () => {
 
     it('names the file after the subject id', async () => {
       expect((await generatePosterBlob(freiburg(fr), opts)).filename).toBe('schwingkeller-freiburg.png');
-      expect((await generatePosterBlob(cantonPosterSubject('FR', fr), opts)).filename).toBe('schwingkeller-fr.png');
     });
 
     it('loads no image for an association mark', async () => {
@@ -194,12 +193,11 @@ describe('generatePosterBlob', () => {
       expect(loadImageMock).not.toHaveBeenCalled();
     });
 
-    it('passes the association mark and a null count to the overlay', async () => {
+    it('passes the association mark to the overlay', async () => {
       await generatePosterBlob(freiburg(fr), opts);
       expect(drawPosterOverlayMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
         name: 'Freiburg',
-        count: null,
-        mark: { kind: 'association', tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } },
+        mark: { tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } },
       }));
     });
 
@@ -217,8 +215,8 @@ describe('generatePosterBlob', () => {
   });
 
   it('uses setView (not fitBounds) when an explicit view is supplied', async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', view: { center: [46.9, 7.4], zoom: 11 },
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', view: { center: [46.9, 7.4], zoom: 11 },
     });
     expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 11);
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
@@ -228,7 +226,7 @@ describe('generatePosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
     expect(heightSpy).toHaveBeenCalledWith(POSTER_SIZE);
@@ -241,8 +239,8 @@ describe('generatePosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'portrait',
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', aspectRatio: 'portrait',
     });
 
     expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
@@ -253,8 +251,8 @@ describe('generatePosterBlob', () => {
   });
 
   it('accepts a fractional view zoom without snapping, for soft-zoom framing', async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', view: { center: [46.9, 7.4], zoom: 12.25 },
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', view: { center: [46.9, 7.4], zoom: 12.25 },
     });
     // zoomSnap: 0 lets the off-screen map hold the editor's exact fractional zoom — otherwise
     // Leaflet would snap it to a whole level and the export would show a different area.
@@ -266,8 +264,8 @@ describe('generatePosterBlob', () => {
     const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, 'width', 'set');
     const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, 'height', 'set');
 
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'landscape',
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', aspectRatio: 'landscape',
     });
 
     expect(widthSpy).toHaveBeenCalledWith(POSTER_SIZE);
@@ -277,8 +275,8 @@ describe('generatePosterBlob', () => {
     );
   });
 
-  it("labels each of the canton's pins with its venue name by default", async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+  it("labels each of the Verband's pins with its venue name by default", async () => {
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     expect(drawPinLabelsMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -292,7 +290,7 @@ describe('generatePosterBlob', () => {
     // One degree is 2^zoom px, so the venues' offsets from the centre survive unrounded.
     fakeMap.project.mockImplementation(([lat, lng]: [number, number], z: number) => ({ x: lng * 2 ** z, y: -lat * 2 ** z }));
     const view = { center: [46.8, 7.3] as [number, number], zoom: 12.25 };
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller', view });
+    await generatePosterBlob(emmental(venues), { baseKind: 'map', view });
 
     const scale = 2 ** 12.25;
     const expected = { x: 540 + 0.1 * scale, y: 540 - 0.1 * scale };
@@ -306,13 +304,13 @@ describe('generatePosterBlob', () => {
 
   it('centres the pins on a portrait poster vertically on its own height', async () => {
     // Every point projects to the centre's pixel, so each pin lands mid-poster: y = 1620 / 2.
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller', aspectRatio: 'portrait' });
+    await generatePosterBlob(emmental(venues), { baseKind: 'map', aspectRatio: 'portrait' });
 
     expect(drawPinMock).toHaveBeenCalledWith(expect.anything(), 540, 810);
   });
 
   it("projects from the capture map's own centre and zoom when no view is given", async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(emmental(venues), { baseKind: 'map' });
 
     expect(fakeMap.project).toHaveBeenCalledWith([46.9, 7.4], 10);
     fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(10));
@@ -321,7 +319,7 @@ describe('generatePosterBlob', () => {
   it('hands the label layout the same points it drew', async () => {
     fakeMap.project.mockImplementation(([lat, lng]: [number, number]) => ({ x: lng * 100, y: -lat * 100 }));
     const spread = [v({ id: '1', name: 'Bern Ost', lat: 46.95 }), v({ id: '2', name: 'Thun', lat: 46.75, lng: 7.6 })];
-    await generatePosterBlob(cantonPosterSubject('BE', spread), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+    await generatePosterBlob(emmental(spread), { baseKind: 'map' });
 
     const drawn = drawPinMock.mock.calls.map(([, x, y]) => [x, y]);
     const labelled = drawPinLabelsMock.mock.calls[0][1].map((p: { x: number; y: number }) => [p.x, p.y]);
@@ -334,8 +332,8 @@ describe('generatePosterBlob', () => {
     loadImageMock.mockImplementation((src: string) =>
       Promise.resolve(src.startsWith('data:') ? ({} as HTMLImageElement) : null));
 
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', qrDataUrl: 'data:image/png;base64,x',
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', qrDataUrl: 'data:image/png;base64,x',
     });
 
     const [, , opts] = drawPinLabelsMock.mock.calls[0];
@@ -348,8 +346,8 @@ describe('generatePosterBlob', () => {
   });
 
   it('draws no labels when showLabels is false', async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller', showLabels: false,
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map', showLabels: false,
     });
 
     expect(drawPinMock).toHaveBeenCalledTimes(2);
@@ -357,8 +355,8 @@ describe('generatePosterBlob', () => {
   });
 
   it('forwards the chrome position/style/size and QR corner options to drawPosterOverlay', async () => {
-    await generatePosterBlob(cantonPosterSubject('BE', venues), {
-      baseKind: 'map', unitLabel: 'Schwingkeller',
+    await generatePosterBlob(emmental(venues), {
+      baseKind: 'map',
       headerPosition: 'bottom', footerPosition: 'top', chromeStyle: 'light', chromeSize: 'compact',
       qrCorner: 'top-left',
     });

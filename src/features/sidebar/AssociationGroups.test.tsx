@@ -7,7 +7,6 @@ import { STR } from '../../i18n/translations';
 import { wappenUrl } from '../../data/cantons';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
-import type { PosterTarget } from '../venues/posterSubject';
 import { AssociationGroups } from './AssociationGroups';
 
 const v = (over: Partial<Venue>): Venue => ({
@@ -31,7 +30,7 @@ interface HarnessProps {
   expandedInit?: Record<string, boolean>;
   canPrintPoster?: (associationId: string) => boolean;
   reservePosterSpace?: boolean;
-  onGeneratePoster?: (target: PosterTarget) => void;
+  onGeneratePoster?: (id: string) => void;
 }
 
 const Harness = ({
@@ -208,7 +207,7 @@ describe('AssociationGroups', () => {
     renderGroups({ ...ALL_RIGHTS, onGeneratePoster });
     await user.click(screen.getByTestId('generate-poster-freiburg'));
     expect(onGeneratePoster).toHaveBeenCalledTimes(1);
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(onGeneratePoster).toHaveBeenCalledWith('freiburg');
     expect(screen.getByTestId('group-freiburg')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('Halle Düdingen')).toBeNull();
   });
@@ -219,7 +218,7 @@ describe('AssociationGroups', () => {
     renderGroups({ ...ALL_RIGHTS, onGeneratePoster });
     screen.getByTestId('generate-poster-freiburg').focus();
     await user.keyboard('{Enter}');
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(onGeneratePoster).toHaveBeenCalledWith('freiburg');
     expect(screen.getByTestId('group-freiburg')).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -228,7 +227,7 @@ describe('AssociationGroups', () => {
     const onGeneratePoster = vi.fn();
     renderGroups({ ...ALL_RIGHTS, filtering: true, onGeneratePoster });
     await user.click(screen.getByTestId('generate-poster-freiburg'));
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(onGeneratePoster).toHaveBeenCalledWith('freiburg');
     expect(screen.getByText('Halle Düdingen')).toBeInTheDocument();
   });
 

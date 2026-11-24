@@ -1,4 +1,4 @@
-import { CANTONS, cantonByCode } from '../../data/cantons';
+import { cantonByCode } from '../../data/cantons';
 import type { Venue } from './types';
 import type { LatLng } from './distance';
 import { sortByDistance } from './distance';
@@ -19,20 +19,7 @@ export const filterVenues = (
   });
 };
 
-export interface CantonGroup { code: string; name: string; count: number; venues: Venue[] }
-
-export const groupByCanton = (venues: Venue[], includeEmpty = false): CantonGroup[] => {
-  const by: Record<string, Venue[]> = {};
-  venues.forEach((v) => { (by[v.canton] = by[v.canton] ?? []).push(v); });
-  const source = includeEmpty ? CANTONS : CANTONS.filter((c) => by[c.code]);
-  return source
-    .map((c) => ({
-      code: c.code, name: c.name, count: (by[c.code] ?? []).length, venues: by[c.code] ?? [],
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
-};
-
-export type SortMode = 'canton' | 'association' | 'name' | 'distance';
+export type SortMode = 'association' | 'name' | 'distance';
 
 export const flatSorted = (
   venues: Venue[],

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export const SIDEBAR_DEFAULT_WIDTH = 344;
-// Below this the sort pill and the canton rows (name, count, poster button, chevron) start to crowd.
+// Below this the sort pill and the Verband rows (name, count, poster button, chevron) start to crowd.
 export const SIDEBAR_MIN_WIDTH = 280;
 const MAX_VIEWPORT_SHARE = 0.4;
 const KEY = 'sk-sidebar-width';

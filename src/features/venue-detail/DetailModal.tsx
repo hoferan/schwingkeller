@@ -3,7 +3,6 @@ import { Modal } from '../../components/Modal';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../../i18n/useTranslation';
 import { wappenUrl } from '../../data/cantons';
-import { isFeatureOn } from '../../lib/features';
 import { RegionalBadge } from '../associations/AssociationMark';
 import { useAssociations } from '../associations/useAssociations';
 import type { Venue } from '../venues/types';
@@ -47,7 +46,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
   const { canEditAssociation } = useAuth();
   const { t } = useTranslation();
   const associations = useAssociations();
-  const association = isFeatureOn('verband') ? venue.association_id : null;
+  const association = venue.association_id;
 
   const wappen = wappenUrl(venue.canton);
   // Venues saved before the form trimmed its fields can hold a contact field of spaces.
@@ -58,7 +57,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
   const websiteUrl = 'https://' + website.replace(/^https?:\/\//, '');
   const hasPhotos = venue.photos.length > 0;
   const hasContact = !!(person || phone || website);
-  const regionalId = association ? associations.regionalOf(association)?.id : undefined;
+  const regionalId = associations.regionalOf(association)?.id;
   const close = (
     <button onClick={onClose} aria-label={t.close} style={closeButton(hasPhotos)}>
       <X size={16} />
@@ -106,7 +105,7 @@ export const DetailModal = ({ venue, onClose, onNavigate, onShare, onEdit, onDel
               <span style={{ marginTop: '1px', display: 'flex' }}><MapPin size={13} /></span>
               <span>{venue.address}</span>
             </div>
-            {association && regionalId && (
+            {regionalId && (
               <div
                 data-testid="venue-association"
                 style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '6px', color: theme.color.muted, fontSize: '13px' }}

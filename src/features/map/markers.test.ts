@@ -5,7 +5,6 @@ import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
 import type { Venue } from '../venues/types';
 import type { CantonalId } from '../../data/associations';
-import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: '1', name: 'Emmental', canton: 'BE', address: '3550 Langnau', lat: 46.9, lng: 7.7,
@@ -30,27 +29,12 @@ describe('markers html', () => {
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-describe('pins with the verband flag off', () => {
-  it('draws every pin in the accent red, whatever the association', () => {
-    setFeature('verband', false);
-    expect(pinIcon(false, 'emmental').html).toBe(pinIcon(false, 'luzern').html);
-    expect(pinIcon(false, 'emmental').html).toContain(theme.color.accent);
-    expect(pinIcon(true, 'emmental').html).toContain(theme.color.accent);
-  });
-
-  it('still marks the selected pin as a teardrop', () => {
-    setFeature('verband', false);
-    expect(pinIcon(true, 'emmental').html).toContain('<path');
-    expect(pinIcon(false, 'emmental').html).not.toContain('<path');
-  });
-});
-
-// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
-describe('pins with the verband flag on', () => {
+describe('pins', () => {
   it('fills a pin with its Teilverband colour', () => {
     const { html } = pinIcon(false, 'emmental');
     expect(html).toContain('#1A1A1A');
     expect(html).not.toContain(theme.color.accent);
+    expect(html).not.toContain('<path');
   });
 
   it('draws each pin as a single SVG', () => {
@@ -107,22 +91,13 @@ describe('clusterRing', () => {
 });
 
 describe('cluster icon', () => {
-  it('stays a red disc with the count when the flag is off', () => {
-    setFeature('verband', false);
-    const icon = clusterHtml(['emmental', 'freiburg']);
-    expect(icon.html).toContain('background:' + theme.color.accent);
-    expect(icon.html).toContain('>2<');
-    expect(icon.html).not.toContain('conic-gradient');
-    expect(icon.iconSize).toEqual([34, 34]);
-  });
-
   // The outer element carries the white edge and the ring, the inner one the white centre and count.
   const parts = (html: string) => {
     const [outer, inner] = [...html.matchAll(/<div style="([^"]*)"/g)].map((m) => m[1]);
     return { outer, inner };
   };
 
-  it('draws a cluster like a pin with a number when the flag is on', () => {
+  it('draws a cluster like a pin with a number', () => {
     const icon = clusterHtml(['emmental', 'freiburg']);
     const { outer, inner } = parts(icon.html);
     expect(outer).toContain('background:' + clusterRing(['emmental', 'freiburg']));
@@ -151,8 +126,7 @@ describe('cluster icon', () => {
 
   // Oswald's line box reaches much further above the baseline than below, so a centred line box
   // sets the digits low. Trimmed to cap height and baseline, the count centres on its digits.
-  it.each([['off', false], ['on', true]] as const)('trims the count to its digits with the flag %s', (_, on) => {
-    setFeature('verband', on);
+  it('trims the count to its digits', () => {
     expect(clusterHtml(['emmental', 'freiburg']).html).toContain('<span style="text-box:trim-both cap alphabetic;">2</span>');
   });
 });

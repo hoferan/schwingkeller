@@ -3,7 +3,7 @@ import { createTileLayer, TILE_ATTRIBUTION, type BaseKind } from '../map/tileLay
 import {
   POSTER_SIZE, posterFilename, createOffscreenContainer, loadImage,
   extractTileDraws, drawTiles, drawPin, drawPinLabels, drawPosterOverlay,
-  computeChromeLayout, qrRect, labelObstacles, type OverlayMark,
+  computeChromeLayout, qrRect, labelObstacles,
 } from './posterCanvas';
 import {
   posterHeightFor, chromeLayoutFor,
@@ -38,7 +38,6 @@ export interface GeneratePosterOptions {
   // scaled up by log2(POSTER_SIZE / previewWidthPx), so this larger canvas covers the identical
   // ground area the preview showed. Falls back to the subject's home bounds when absent.
   view?: PosterView;
-  unitLabel: string;
   title?: string;
   showHeader?: boolean;
   showFooter?: boolean;
@@ -57,7 +56,7 @@ export const generatePosterBlob = async (
   options: GeneratePosterOptions,
 ): Promise<GeneratePosterResult> => {
   const {
-    baseKind, view, unitLabel, title, qrDataUrl,
+    baseKind, view, title, qrDataUrl,
     aspectRatio = 'square',
     chromeStyle = 'solid',
     // Defaulted here rather than left to drawPosterOverlay, because the label placement below
@@ -84,10 +83,6 @@ export const generatePosterBlob = async (
     }
     await waitForTilesLoad(tileLayer, TILE_LOAD_TIMEOUT_MS);
 
-    const mark: OverlayMark =
-      subject.mark.kind === 'arms'
-        ? { kind: 'arms', img: await loadImage(subject.mark.url, 'anonymous') }
-        : subject.mark;
     const qrImg = qrDataUrl ? await loadImage(qrDataUrl) : null;
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready.catch(() => undefined);
@@ -125,9 +120,7 @@ export const generatePosterBlob = async (
     drawPosterOverlay(ctx, {
       name: subject.name,
       title,
-      mark,
-      count: subject.count,
-      unitLabel,
+      mark: subject.mark,
       attribution: TILE_ATTRIBUTION[baseKind],
       posterHeight,
       showHeader,

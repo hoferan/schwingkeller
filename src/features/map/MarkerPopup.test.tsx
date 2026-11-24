@@ -5,7 +5,6 @@ import type { Venue } from '../venues/types';
 import { MarkerPopup } from './MarkerPopup';
 import { associationsFor } from '../associations/useAssociations';
 import { theme } from '../../theme';
-import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: '1',
@@ -98,7 +97,6 @@ describe('MarkerPopup', () => {
     expect(screen.getByRole('button', { name: STR.de.details })).toHaveStyle({ height: '40px' });
   });
 
-  // VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
   it('shows the Teilverband badge before the Verband, with the full name on hover', () => {
     popup({ ...venue, association_id: 'freiburg' });
     const badge = screen.getByText('SWSV');
@@ -111,13 +109,5 @@ describe('MarkerPopup', () => {
     popup({ ...venue, association_id: 'freiburg' }, 'fr');
     expect(screen.getByText('ARLS')).toBeInTheDocument();
     expect(screen.getByText('Fribourg')).toBeInTheDocument();
-  });
-
-  describe('with the verband flag off', () => {
-    it('shows no Verband line', () => {
-      setFeature('verband', false);
-      popup(venue);
-      expect(screen.queryByText('BKSV')).toBeNull();
-    });
   });
 });

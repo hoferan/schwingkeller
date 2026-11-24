@@ -23,7 +23,6 @@ import { usePosterQr } from './usePosterQr';
 interface PosterEditorModalProps {
   subject: PosterSubject;
   initialBaseKind: BaseKind;
-  unitLabel: string;
   onClose: () => void;
   onSave: (blob: Blob, filename: string) => void;
   onError?: (err: unknown) => void;
@@ -137,7 +136,7 @@ const labelElement = (label: PlacedLabel): HTMLDivElement => {
 };
 
 export const PosterEditorModal = ({
-  subject, initialBaseKind, unitLabel, onClose, onSave, onError,
+  subject, initialBaseKind, onClose, onSave, onError,
 }: PosterEditorModalProps) => {
   const { t } = useTranslation();
   const { venues, mark } = subject;
@@ -335,7 +334,6 @@ export const PosterEditorModal = ({
       const { blob, filename } = await generatePosterBlob(subject, {
         baseKind,
         view,
-        unitLabel,
         title,
         showHeader,
         showFooter,
@@ -367,7 +365,7 @@ export const PosterEditorModal = ({
     position: 'absolute', left: 0, right: 0,
     zIndex: 800, pointerEvents: 'none', display: 'flex', alignItems: 'center',
   };
-  // A header pill, the count or a Teilverband badge; each sets its own background.
+  // The Teilverband badge in the header; it sets its own background.
   const pillStyle: React.CSSProperties = {
     flex: 'none', fontFamily: theme.font.display, fontWeight: 700, color: theme.color.accentInk,
     fontSize: cqw(CL.pillFont), height: cqw(CL.pillH), lineHeight: cqw(CL.pillH),
@@ -475,31 +473,20 @@ export const PosterEditorModal = ({
             <div ref={labelsElRef} style={{ position: 'absolute', inset: 0, zIndex: 700, pointerEvents: 'none' }} />
             {showHeader && chrome.headerY !== null && (
               <div data-testid="poster-preview-header" style={{ ...band, top: cqw(chrome.headerY), height: cqw(CL.headerH), background: chromeColors.fill ?? 'transparent', ...bandTextStyle, gap: cqw(CL.wappenGap), paddingLeft: cqw(CL.padX), paddingRight: cqw(CL.padX) }}>
-                {mark.kind === 'arms' ? (
-                  <img src={mark.url} alt="" style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), objectFit: 'contain', flex: 'none' }} />
-                ) : (
-                  // The dot sits centred in the arms' slot, so the title starts where it does on a
-                  // canton poster. Its ring is a box shadow, the same white as on the canvas.
-                  <div style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span data-testid="poster-preview-mark" aria-hidden="true" style={{ width: cqw(CL.markDot), height: cqw(CL.markDot), borderRadius: '50%', background: mark.tint, boxShadow: `0 0 0 ${cqw(CL.markRing)} ${theme.color.bg}`, flex: 'none' }} />
-                  </div>
-                )}
-                {/* Compact: pills inline next to the title (band too short to stack); normal: stacked. */}
+                {/* The dot sits centred in the mark slot. Its ring is a box shadow, the same white as
+                    on the canvas. */}
+                <div style={{ width: cqw(CL.wappenW), height: cqw(CL.wappenH), flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span data-testid="poster-preview-mark" aria-hidden="true" style={{ width: cqw(CL.markDot), height: cqw(CL.markDot), borderRadius: '50%', background: mark.tint, boxShadow: `0 0 0 ${cqw(CL.markRing)} ${theme.color.bg}`, flex: 'none' }} />
+                </div>
+                {/* Compact: the badge inline next to the title (band too short to stack); normal: stacked. */}
                 <div style={{ display: 'flex', flexDirection: chromeSize === 'compact' ? 'row' : 'column', alignItems: chromeSize === 'compact' ? 'center' : undefined, gap: cqw(chromeSize === 'compact' ? CL.pillPadX : CL.titleGap), minWidth: 0 }}>
                   <div style={{ fontFamily: theme.font.display, fontWeight: 700, textTransform: 'uppercase', fontSize: cqw(CL.titleFont), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {title || subject.name}
                   </div>
                   <div style={{ alignSelf: chromeSize === 'compact' ? 'center' : 'flex-start', flex: 'none', display: 'flex', gap: cqw(CL.pillPadX) }}>
-                    {mark.kind === 'association' && (
-                      <span style={{ ...pillStyle, background: mark.badge.colour, boxShadow: `0 0 0 ${cqw(CL.badgeEdge)} ${theme.color.bg}` }}>
-                        {mark.badge.text}
-                      </span>
-                    )}
-                    {subject.count !== null && (
-                      <span style={{ ...pillStyle, background: theme.color.accent }}>
-                        {subject.count} {unitLabel}
-                      </span>
-                    )}
+                    <span style={{ ...pillStyle, background: mark.badge.colour, boxShadow: `0 0 0 ${cqw(CL.badgeEdge)} ${theme.color.bg}` }}>
+                      {mark.badge.text}
+                    </span>
                   </div>
                 </div>
               </div>

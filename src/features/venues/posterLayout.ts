@@ -33,10 +33,10 @@ export const POSTER_LAYOUT = {
   wappenW: 64,
   wappenH: 80,
   wappenGap: 24, // gap between the wappen and the title/pill column
-  markDot: 64, // a Verband's dot in the arms slot, as wide as the arms
+  markDot: 64, // a Verband's dot, centred in the wappen slot
   markRing: 6, // white ring around the dot, so black BKSV shows on the dark band
   badgeEdge: 3, // white edge around the Teilverband badge, for the same reason
-  titleGap: 10, // vertical gap between title and count pill
+  titleGap: 10, // vertical gap between title and badge
   titleFont: 56,
   titleBaselineY: 110, // canvas text baseline (canvas-only)
   pillFont: 24,
@@ -89,11 +89,11 @@ const CHROME_LAYOUT_NORMAL: ChromeLayoutConstants = CHROME_KEYS.reduce((acc, key
   return acc;
 }, {} as ChromeLayoutConstants);
 
-// "Compact" reduces the bands' footprint without scaling any content: fonts, pill, Wappen, and QR
-// keep their normal size (scaling them down made the chrome illegible — smoke-test finding); only
-// the band heights and the vertical anchors inside them change. The count pill moves inline next
-// to the canton name (drawPosterOverlay/preview branch on chromeSize for that), which is what
-// lets the header drop to Wappen height + inset.
+// "Compact" reduces the bands' footprint without scaling any content: fonts, pill, mark slot, and
+// QR keep their normal size (scaling them down made the chrome illegible — smoke-test finding);
+// only the band heights and the vertical anchors inside them change. The badge moves inline next
+// to the title (drawPosterOverlay/preview branch on chromeSize for that), which is what lets the
+// header drop to the slot's height + inset.
 const CHROME_LAYOUT_COMPACT: ChromeLayoutConstants = {
   ...CHROME_LAYOUT_NORMAL,
   headerH: 120, // wappenH (80) + 2 * wappenY inset

@@ -35,6 +35,3 @@ export const CANTON_BOUNDS: Record<string, CantonBounds> = {
   GE: [[46.12855, 5.9559], [46.36458, 6.31028]],
   JU: [[47.15041, 6.84073], [47.50447, 7.55835]],
 };
-
-export const boundsForCanton = (code: string): CantonBounds | null =>
-  CANTON_BOUNDS[code] ?? null;

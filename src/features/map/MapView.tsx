@@ -15,7 +15,6 @@ import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
-import { isFeatureOn } from '../../lib/features';
 import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, placeTip, TIP_FADE_MS, TIP_SHOW_DELAY_MS, type NamePin, type TipExtents } from './pinNames';
 import type { LabelRect } from '../../lib/labelPlacement';
 
@@ -565,10 +564,10 @@ export function MapView({
     });
   }, [registerFitAll]);
 
-  // Apply the initial canton-focus bounds once, the first time they're
-  // available (venues load async, but these bounds don't depend on venues —
-  // they can arrive as early as the first render). Never re-fires, so a
-  // later re-render can't re-snap the view while the user is browsing.
+  // Apply the initial Verband-focus bounds once, the first time they're
+  // available. They frame the Verband's venues, so they arrive once the venues
+  // have loaded. Never re-fires, so a later re-render can't re-snap the view
+  // while the user is browsing.
   // Deferred via whenReady: calling flyToBounds before Leaflet's internal
   // load state is established throws inside Leaflet's own animation code
   // (TypeError reading '_leaflet_pos') and silently aborts the fly.
@@ -617,7 +616,7 @@ export function MapView({
             {t.satView}
           </button>
         </div>
-        {isFeatureOn('verband') && <MapLegend isMobile={isMobile} />}
+        <MapLegend isMobile={isMobile} />
       </div>
       <div ref={fitAllRef} style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button

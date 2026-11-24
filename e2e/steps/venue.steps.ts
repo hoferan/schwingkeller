@@ -33,8 +33,6 @@ Then('exactly one venue with its name is stored', async ({ adminDb, venuePrefix 
 });
 
 Then('it is stored with the association {string}', async ({ adminDb, venuePrefix }, associationId: string) => {
-  // The form has the association field whether the verband flag is on or off, so this runs in both
-  // views.
   const associationOf = async () => {
     const { data, error } = await adminDb.from('venues').select('association_id').like('name', `${venuePrefix}%`);
     if (error) throw new Error(`reading the new venue failed: ${error.message}`);

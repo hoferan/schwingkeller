@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Camera, ChevronRight } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import type { PosterTarget } from '../venues/posterSubject';
 import { groupByAssociation } from '../associations/grouping';
 import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark, RegionalBadge } from '../associations/AssociationMark';
@@ -22,7 +21,7 @@ interface AssociationGroupsProps {
   canPrintPoster: (associationId: string) => boolean;
   // Approved editors get a column for the poster button, filled or empty, so chevrons line up.
   reservePosterSpace: boolean;
-  onGeneratePoster: (target: PosterTarget) => void;
+  onGeneratePoster: (id: string) => void;
 }
 
 const posterButtonStyle: CSSProperties = {
@@ -110,8 +109,8 @@ const GroupHeader = ({ id, level, open, onToggle, mark, name, count }: GroupHead
   </button>
 );
 
-// The sidebar grouped by Teilverband, then Verband, shown while the verband flag is on. A venue
-// sits under the association stored on it, so a club across a canton border shows its own arms.
+// The sidebar grouped by Teilverband, then Verband. A venue sits under the association stored on
+// it, so a club across a canton border shows its own arms.
 export const AssociationGroups = ({
   list,
   filtering,
@@ -180,7 +179,7 @@ export const AssociationGroups = ({
                     {canPrintPoster(a.id) ? (
                       <button
                         type="button"
-                        onClick={() => onGeneratePoster({ kind: 'association', id: a.id })}
+                        onClick={() => onGeneratePoster(a.id)}
                         aria-label={t.generatePoster}
                         title={t.generatePoster}
                         data-testid={`generate-poster-${a.id}`}

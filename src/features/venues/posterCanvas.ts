@@ -229,18 +229,16 @@ export const drawPinLabels = (
   });
 };
 
-// The header's left slot as the overlay draws it: the arms already loaded, or a Verband's dot and
-// its Teilverband's badge.
-export type OverlayMark =
-  | { kind: 'arms'; img: HTMLImageElement | null }
-  | { kind: 'association'; tint: string; badge: { text: string; colour: string } };
+// The header's left slot: a Verband's dot in its colour, and its Teilverband's badge.
+export interface PosterMark {
+  tint: string;
+  badge: { text: string; colour: string };
+}
 
 export interface PosterOverlayOptions {
   name: string;
   title?: string;
-  mark: OverlayMark;
-  count: number | null; // null draws no count pill
-  unitLabel: string;
+  mark: PosterMark;
   attribution: string;
   posterHeight: number;
   showHeader?: boolean;
@@ -278,7 +276,7 @@ const drawMarkDot = (
   ctx.fill();
 };
 
-// A header pill (the count or a Teilverband badge) with its left edge at x. A non-zero `edge`
+// The Teilverband badge, a header pill with its left edge at x. A non-zero `edge`
 // draws a white border that wide around it. Returns the pill's width without the border.
 const drawPill = (
   ctx: CanvasRenderingContext2D, x: number, top: number, text: string, fill: string,
@@ -304,7 +302,7 @@ const drawPill = (
 
 export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOverlayOptions): void => {
   const {
-    name, title, mark, count, unitLabel, attribution, posterHeight, qrImg,
+    name, title, mark, attribution, posterHeight, qrImg,
     showHeader = true, showFooter = true,
     headerPosition = 'top', footerPosition = 'bottom',
     chromeStyle = 'solid', chromeSize = 'normal', qrCorner = 'bottom-right',
@@ -323,32 +321,18 @@ export const drawPosterOverlay = (ctx: CanvasRenderingContext2D, opts: PosterOve
       ctx.fillRect(0, y, POSTER_SIZE, CL.headerH);
     }
 
-    let textX = CL.padX;
-    if (mark.kind === 'arms' && mark.img) {
-      ctx.drawImage(mark.img, CL.wappenX, y + CL.wappenY, CL.wappenW, CL.wappenH);
-      textX = CL.padX + CL.wappenW + CL.wappenGap;
-    }
-    if (mark.kind === 'association') {
-      drawMarkDot(ctx, mark.tint, CL.wappenX + CL.wappenW / 2, y + CL.wappenY + CL.wappenH / 2, CL);
-      textX = CL.padX + CL.wappenW + CL.wappenGap;
-    }
+    drawMarkDot(ctx, mark.tint, CL.wappenX + CL.wappenW / 2, y + CL.wappenY + CL.wappenH / 2, CL);
+    const textX = CL.padX + CL.wappenW + CL.wappenGap;
 
     const titleText = (title || name).toUpperCase();
     ctx.fillStyle = LABEL_COLORS.text;
     ctx.font = `700 ${CL.titleFont}px Oswald, sans-serif`;
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(titleText, textX, y + CL.titleBaselineY);
-    // Compact: the pills sit inline after the title (the band is too short to stack them).
+    // Compact: the badge sits inline after the title (the band is too short to stack it).
     const titleWidth = chromeSize === 'compact' ? ctx.measureText(titleText).width : 0;
-    let pillX = chromeSize === 'compact' ? textX + titleWidth + CL.pillPadX : textX;
-
-    if (mark.kind === 'association') {
-      const { text, colour } = mark.badge;
-      pillX += drawPill(ctx, pillX, y + CL.pillY, text, colour, CL, CL.badgeEdge) + CL.pillPadX;
-    }
-    if (count !== null) {
-      drawPill(ctx, pillX, y + CL.pillY, `${count} ${unitLabel}`, theme.color.accent, CL, 0);
-    }
+    const pillX = chromeSize === 'compact' ? textX + titleWidth + CL.pillPadX : textX;
+    drawPill(ctx, pillX, y + CL.pillY, mark.badge.text, mark.badge.colour, CL, CL.badgeEdge);
   }
 
   if (qrImg) {

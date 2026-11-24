@@ -4,8 +4,8 @@ import { TILE_URLS, TILE_MAX_ZOOM, TILE_ATTRIBUTION, type BaseKind } from './til
 export { TILE_URLS, TILE_MAX_ZOOM, TILE_ATTRIBUTION };
 export type { BaseKind };
 
-// `crossOrigin` is only needed when the tiles will be drawn onto a canvas for export (the canton
-// poster capture): without it the tile <img>s are fetched non-CORS and taint the canvas, so
+// `crossOrigin` is only needed when the tiles will be drawn onto a canvas for export (the poster
+// capture): without it the tile <img>s are fetched non-CORS and taint the canvas, so
 // canvas.toBlob() throws a SecurityError. The live map leaves it unset — it never exports.
 export const createTileLayer = (
   kind: BaseKind,

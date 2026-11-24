@@ -23,7 +23,7 @@ const ADMIN_STATE = 'e2e/.auth/admin.json';
 const VERBAND_ADMIN_STATE = 'e2e/.auth/admin-verband.json';
 
 // Feature files by role, in e2e/features/admin, editor or visitor. A scenario runs against both
-// bundles unless a tag ties it to one state of a flag, such as @verband-view or @canton-view.
+// bundles unless a tag ties it to one state of a flag, such as @editors.
 // projectTags reads the state of every flag in the bundle's environment from src/lib/features.ts
 // and skips the scenarios tagged for the other one (test-support/flag-tags.ts lists the tags). It
 // also keeps @phone and @tablet scenarios to their own projects. bddgen writes each project's tests

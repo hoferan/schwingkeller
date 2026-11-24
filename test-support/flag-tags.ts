@@ -5,7 +5,6 @@ type FlagTags = { on?: string; off?: string };
 // A scenario that needs one state of a flag carries that state's tag. A flag without e2e
 // scenarios of its own has no entry.
 export const FLAG_TAGS: Partial<Record<Feature, FlagTags>> = {
-  verband: { on: '@verband-view', off: '@canton-view' },
   editors: { on: '@editors' },
 };
 

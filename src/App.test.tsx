@@ -5,7 +5,6 @@ import { STR } from './i18n/translations';
 import type { Venue } from './features/venues/types';
 import type { CantonalId } from './data/associations';
 import { ASSOCIATION_HOME_BOUNDS } from './data/associationBounds';
-import { boundsForCanton } from './data/cantonBounds';
 import { setFeature } from './test/features';
 
 // App is the composition root. We stub the heavy children/hooks and drive the poster-editor wiring
@@ -64,13 +63,13 @@ vi.mock('./features/map/MapView', () => ({
 }));
 vi.mock('./features/sidebar/Sidebar', () => ({
   Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
-    onGeneratePoster: (target: { kind: 'canton'; code: string } | { kind: 'association'; id: string }) => void;
+    onGeneratePoster: (id: string) => void;
     expanded: Record<string, boolean>; sortMode: string;
   }) => (
     <div>
-      <button onClick={() => onGeneratePoster({ kind: 'canton', code: 'BE' })}>gen-poster</button>
-      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'freiburg' })}>gen-poster-vb</button>
-      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'nope' })}>gen-poster-bad</button>
+      <button onClick={() => onGeneratePoster('emmental')}>gen-poster</button>
+      <button onClick={() => onGeneratePoster('freiburg')}>gen-poster-vb</button>
+      <button onClick={() => onGeneratePoster('nope')}>gen-poster-bad</button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
       <span data-testid="sort-mode">{sortMode}</span>
     </div>
@@ -98,25 +97,12 @@ import App from './App';
 import { VenueChangeRefusedError } from './features/venues/api';
 
 describe('App — sidebar default state', () => {
-  it('starts with no canton expanded with the flag off', () => {
-    setFeature('verband', false);
+  it('starts with every Teilverband closed', () => {
     render(<App />);
     expect(screen.getByTestId('expanded-state')).toHaveTextContent('{}');
   });
 
-  it('sorts by canton by default with the flag off', () => {
-    setFeature('verband', false);
-    render(<App />);
-    expect(screen.getByTestId('sort-mode')).toHaveTextContent('canton');
-  });
-
-  // VITE_APP_ENV unset reads as development, where the verband flag is on.
-  it('starts with every Teilverband closed with the flag on', () => {
-    render(<App />);
-    expect(screen.getByTestId('expanded-state')).toHaveTextContent('{}');
-  });
-
-  it('sorts by association by default with the flag on', () => {
+  it('sorts by association by default', () => {
     render(<App />);
     expect(screen.getByTestId('sort-mode')).toHaveTextContent('association');
   });
@@ -145,113 +131,100 @@ describe('App — permalinks', () => {
     openAt('');
   });
 
-  describe('with the verband flag on', () => {
-    it("expands BKSV and Emmental for ?vb=emmental and frames Emmental's venues", () => {
-      openAt('?vb=emmental');
-      render(<App />);
-      expect(expandedState()).toEqual({ bksv: true, emmental: true });
-      expect(focusBounds()).toEqual([[46.95, 7.6], [47.05, 7.8]]);
-    });
-
-    it('reads ?vb= case-insensitively', () => {
-      openAt('?vb=EMMENTAL');
-      render(<App />);
-      expect(expandedState()).toMatchObject({ emmental: true });
-    });
-
-    it('frames the home bounds for ?vb=berner-jura, which has no venues', () => {
-      openAt('?vb=berner-jura');
-      render(<App />);
-      expect(expandedState()).toMatchObject({ bksv: true, 'berner-jura': true });
-      expect(focusBounds()).toEqual(ASSOCIATION_HOME_BOUNDS['berner-jura']);
-    });
-
-    it('frames all venues of a Teilverband for ?vb=bksv', () => {
-      openAt('?vb=bksv');
-      render(<App />);
-      expect(expandedState()).toEqual({ bksv: true });
-      expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
-    });
-
-    it('ignores an unknown ?vb= id', () => {
-      openAt('?vb=nowhere');
-      render(<App />);
-      expect(expandedState()).toEqual({});
-      expect(focusBounds()).toBeNull();
-    });
-
-    it('lands ?ctn=BE on BKSV', () => {
-      openAt('?ctn=BE');
-      render(<App />);
-      expect(expandedState()).toEqual({ bksv: true });
-      expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
-    });
-
-    it('lands ?ctn=AI on Appenzell', () => {
-      openAt('?ctn=ai');
-      render(<App />);
-      expect(expandedState()).toEqual({ nosv: true, appenzell: true });
-      expect(focusBounds()).toEqual([[47.33, 9.41], [47.33, 9.41]]);
-    });
-
-    // afls.ch embeds the map with ?ctn=fr.
-    it('lands ?ctn=fr on Freiburg and leaves the other Teilverbände closed', () => {
-      openAt('?ctn=fr');
-      render(<App />);
-      expect(expandedState()).toEqual({ swsv: true, freiburg: true });
-    });
-
-    it("lands ?ctn=ZH on Zürich and frames its venues, including one outside the canton", () => {
-      openAt('?ctn=ZH');
-      render(<App />);
-      expect(expandedState()).toMatchObject({ nosv: true, zuerich: true });
-      expect(focusBounds()).toEqual([[47.4, 8.5], [47.45, 8.6]]);
-    });
-
-    it('prefers ?vb= over ?ctn=', () => {
-      openAt('?ctn=ZH&vb=emmental');
-      render(<App />);
-      expect(expandedState()).toEqual({ bksv: true, emmental: true });
-    });
-
-    it('lets ?venue= beat ?vb=', () => {
-      openAt('?venue=e1&vb=zuerich');
-      render(<App />);
-      expect(expandedState()).not.toHaveProperty('zuerich');
-      expect(focusBounds()).toBeNull();
-    });
+  it("expands BKSV and Emmental for ?vb=emmental and frames Emmental's venues", () => {
+    openAt('?vb=emmental');
+    render(<App />);
+    expect(expandedState()).toEqual({ bksv: true, emmental: true });
+    expect(focusBounds()).toEqual([[46.95, 7.6], [47.05, 7.8]]);
   });
 
-  describe('with the verband flag off', () => {
-    beforeEach(() => { setFeature('verband', false); });
+  it('reads ?vb= case-insensitively', () => {
+    openAt('?vb=EMMENTAL');
+    render(<App />);
+    expect(expandedState()).toMatchObject({ emmental: true });
+  });
 
-    it.each(['BE', 'AI', 'ZH'])('opens canton %s for ?ctn= and frames its bounds, as before', (code) => {
-      openAt('?ctn=' + code.toLowerCase());
-      render(<App />);
-      expect(expandedState()).toEqual({ [code]: true });
-      expect(focusBounds()).toEqual(boundsForCanton(code));
-    });
+  it('frames the home bounds for ?vb=berner-jura, which has no venues', () => {
+    openAt('?vb=berner-jura');
+    render(<App />);
+    expect(expandedState()).toMatchObject({ bksv: true, 'berner-jura': true });
+    expect(focusBounds()).toEqual(ASSOCIATION_HOME_BOUNDS['berner-jura']);
+  });
 
-    it('ignores ?vb=', () => {
-      openAt('?vb=emmental');
-      render(<App />);
-      expect(expandedState()).toEqual({});
-      expect(focusBounds()).toBeNull();
-    });
+  it('frames all venues of a Teilverband for ?vb=bksv', () => {
+    openAt('?vb=bksv');
+    render(<App />);
+    expect(expandedState()).toEqual({ bksv: true });
+    expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
+  });
 
-    it('lets ?venue= beat ?ctn=', () => {
-      openAt('?venue=e1&ctn=BE');
-      render(<App />);
-      expect(expandedState()).toEqual({});
-      expect(focusBounds()).toBeNull();
-    });
+  it('ignores an unknown ?vb= id', () => {
+    openAt('?vb=nowhere');
+    render(<App />);
+    expect(expandedState()).toEqual({});
+    expect(focusBounds()).toBeNull();
+  });
+
+  it('lands ?ctn=BE on BKSV', () => {
+    openAt('?ctn=BE');
+    render(<App />);
+    expect(expandedState()).toEqual({ bksv: true });
+    expect(focusBounds()).toEqual([[46.6, 7.6], [47.05, 7.9]]);
+  });
+
+  it('lands ?ctn=AI on Appenzell', () => {
+    openAt('?ctn=ai');
+    render(<App />);
+    expect(expandedState()).toEqual({ nosv: true, appenzell: true });
+    expect(focusBounds()).toEqual([[47.33, 9.41], [47.33, 9.41]]);
+  });
+
+  // afls.ch embeds the map with ?ctn=fr.
+  it('lands ?ctn=fr on Freiburg and leaves the other Teilverbände closed', () => {
+    openAt('?ctn=fr');
+    render(<App />);
+    expect(expandedState()).toEqual({ swsv: true, freiburg: true });
+  });
+
+  it("lands ?ctn=ZH on Zürich and frames its venues, including one outside the canton", () => {
+    openAt('?ctn=ZH');
+    render(<App />);
+    expect(expandedState()).toMatchObject({ nosv: true, zuerich: true });
+    expect(focusBounds()).toEqual([[47.4, 8.5], [47.45, 8.6]]);
+  });
+
+  it('prefers ?vb= over ?ctn=', () => {
+    openAt('?ctn=ZH&vb=emmental');
+    render(<App />);
+    expect(expandedState()).toEqual({ bksv: true, emmental: true });
+  });
+
+  it('lets ?venue= beat ?vb=', () => {
+    openAt('?venue=e1&vb=zuerich');
+    render(<App />);
+    expect(expandedState()).not.toHaveProperty('zuerich');
+    expect(focusBounds()).toBeNull();
+  });
+
+  it('ignores an unknown ?ctn= code', () => {
+    openAt('?ctn=xx');
+    render(<App />);
+    expect(expandedState()).toEqual({});
+    expect(focusBounds()).toBeNull();
+  });
+
+  it('lets ?venue= beat ?ctn=', () => {
+    openAt('?venue=e1&ctn=BE');
+    render(<App />);
+    expect(expandedState()).toEqual({});
+    expect(focusBounds()).toBeNull();
   });
 });
 
 describe('App — poster editor wiring', () => {
   beforeEach(() => { localStorage.clear(); mocked.loaded = true; });
 
-  it('opens the poster editor for the canton the sidebar requests', async () => {
+  it('opens the poster editor for the Verband the sidebar requests', async () => {
     const user = userEvent.setup();
     render(<App />);
     expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument();
@@ -259,7 +232,7 @@ describe('App — poster editor wiring', () => {
     await user.click(screen.getByText('gen-poster'));
 
     expect(await screen.findByTestId('poster-editor')).toBeInTheDocument();
-    expect(screen.getByText('editor:BE')).toBeInTheDocument();
+    expect(screen.getByText('editor:emmental')).toBeInTheDocument();
   });
 
   it('opens a poster asked for before the venues loaded once they have, with the venues in it', async () => {
@@ -279,7 +252,7 @@ describe('App — poster editor wiring', () => {
     mocked.venues = null;
   });
 
-  it('opens the poster editor for the Verband the sidebar requests', async () => {
+  it('opens the poster editor for another Verband', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -423,7 +396,6 @@ describe('App — invitation link', () => {
 
   it('keeps the other parameters working', () => {
     setFeature('editors', true);
-    setFeature('verband', true);
     openAt('?vb=emmental&invite=tok');
     render(<App />);
     expect(screen.getByTestId('invite-dialog')).toBeInTheDocument();

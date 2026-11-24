@@ -5,7 +5,6 @@ import type { STR } from '../../i18n/translations';
 import { theme } from '../../theme';
 import type { CantonalId } from '../../data/associations';
 import { REGIONAL_TINTS, tintOf } from '../../data/associationTints';
-import { isFeatureOn } from '../../lib/features';
 import { MarkerPopup } from './MarkerPopup';
 import type { Associations } from '../associations/useAssociations';
 import type { TipExtents } from './pinNames';
@@ -22,11 +21,11 @@ export interface PinIcon {
   popupAnchor: [number, number];
 }
 
-// A venue pin is a disc in its Teilverband's colour, or red with the verband flag off. The selected
-// pin is a teardrop in the same colour: its shape marks it whatever the colour, and no other marker
-// on the map has that shape. Each pin is one SVG, so its circles share one centre at any zoom.
+// A venue pin is a disc in its Teilverband's colour. The selected pin is a teardrop in the same
+// colour: its shape marks it whatever the colour, and no other marker on the map has that shape.
+// Each pin is one SVG, so its circles share one centre at any zoom.
 export const pinIcon = (selected: boolean, associationId: CantonalId): PinIcon => {
-  const fill = isFeatureOn('verband') ? tintOf(associationId) : theme.color.accent;
+  const fill = tintOf(associationId);
   if (!selected) {
     return {
       html: '<svg width="28" height="28" viewBox="0 0 28 28" style="display:block;overflow:visible;filter:' + theme.pinShadow.disc + '">'
@@ -111,9 +110,9 @@ export const clusterTipExtents = (count: number): TipExtents => {
   return { top: -r, bottom: r, left: -r, right: r, midY: 0 };
 };
 
-// With the verband flag off a cluster is a red disc. With it on it is drawn like a pin with a number:
-// a white edge, a ring showing which Teilverbände its venues belong to, and a white centre with the
-// count. The count takes the ring's colour when there is only one, and the ink colour otherwise.
+// A cluster is drawn like a pin with a number: a white edge, a ring showing which Teilverbände its
+// venues belong to, and a white centre with the count. The count takes the ring's colour when there
+// is only one, and the ink colour otherwise.
 // Oswald's line box reaches much further above the baseline than below, so centring it sets the
 // digits about 0.7px low. The count is trimmed to cap height and baseline, so the flex centres the
 // digits. Browsers without text-box leave them those 0.7px low.
@@ -122,9 +121,6 @@ export const clusterIcon =<I,>(L: { divIcon(options: DivIconOptions): I }) => (c
   const size = clusterSize(n);
   const fontSize = (n < 100 ? 14 : 12) + 'px';
   const count = '<span style="text-box:trim-both cap alphabetic;">' + n + '</span>';
-  if (!isFeatureOn('verband')) {
-    return L.divIcon({ className: '', iconSize: [size, size], html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + theme.color.accent + ';border:2.5px solid ' + theme.color.bg + ';box-shadow:' + theme.shadow + ';display:flex;align-items:center;justify-content:center;color:' + theme.color.accentInk + ';font-family:Oswald,sans-serif;font-weight:700;font-size:' + fontSize + ';">' + count + '</div>' });
-  }
   const ids = cluster.getAllChildMarkers().map((m) => m.options.associationId);
   const tints = new Set(ids.map(tintOf));
   const countColor = tints.size === 1 ? [...tints][0] : theme.color.ink;
