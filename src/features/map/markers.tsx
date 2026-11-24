@@ -111,7 +111,8 @@ export const clusterTipExtents = (count: number): TipExtents => {
 };
 
 // A cluster is drawn like a pin with a number: a white edge, a ring showing which Teilverbände its
-// venues belong to, and a white centre with the count. The count takes the ring's colour when there is only one, and the ink colour otherwise.
+// venues belong to, and a white centre with the count. The count takes the ring's colour when there
+// is only one, and the ink colour otherwise.
 // Oswald's line box reaches much further above the baseline than below, so centring it sets the
 // digits about 0.7px low. The count is trimmed to cap height and baseline, so the flex centres the
 // digits. Browsers without text-box leave them those 0.7px low.

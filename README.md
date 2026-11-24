@@ -6,7 +6,7 @@
 
 An interactive map of Swiss **Schwingkeller** — the training cellars and venues of Swiss wrestling
 (*Schwingen*). Browse venues clustered on a Leaflet map, search and sort them in a sidebar grouped by
-canton, read venue details, and — as an authenticated admin — add, edit and delete venues with photo
+Schwingerverband, read venue details, and — as an authenticated admin — add, edit and delete venues with photo
 galleries, address geocoding and pick-on-map coordinate entry. The app is a static single-page application backed by
 Supabase, available in German, French and Italian.
 
@@ -15,15 +15,18 @@ Supabase, available in German, French and Italian.
 ## Features
 
 - **Interactive clustered map** — Leaflet map with marker clustering that expands as you zoom in.
-- **Canton grouping** — the sidebar lists all 26 cantons with their venues. The map itself stays
-  plain, without canton borders ([ADR 0005](docs/adr/0005-plain-map-without-mask-or-borders.md)).
+- **Grouped by Verband** — the sidebar lists the five Teilverbände with their Verbände and venues,
+  and each pin takes its Teilverband's colour
+  ([ADR 0015](docs/adr/0015-organise-venues-by-schwingerverband.md)). The map itself stays plain,
+  without canton borders ([ADR 0005](docs/adr/0005-plain-map-without-mask-or-borders.md)).
 - **Trilingual UI (DE / FR / IT)** — full i18n with a language switcher.
-- **Search, filter and sort** — search by name, town or canton, show only indoor or outdoor venues,
-  and sort by canton, by name or by distance from you. Filters narrow the list; the map always shows
-  every venue.
-- **Shareable links** — `?venue=` opens a venue and `?ctn=` zooms to a canton.
+- **Search and sort** — search by name, town, canton or Verband, and sort by Verband, by name or by
+  distance from you. A search narrows the list; the map always shows every venue.
+- **Shareable links** — `?venue=` opens a venue and `?vb=` opens a Verband. Older `?ctn=` links,
+  such as the QR codes on printed posters, open the canton's Verband.
 - **Venue detail** — a detail view with a photo gallery, address, description and a directions link.
-- **Posters** — admins can export a canton map with its venues and a QR code as an image.
+- **Posters** — editors can export a poster of a Verband they manage, with its venues and a QR code
+  back to it, as an image.
 - **Admin CRUD** — authenticated users can add, edit and delete venues, including:
   - **Photo galleries** of up to 6 photos per venue, compressed in the browser and stored in the
     `venue-photos` Supabase Storage bucket.
@@ -65,7 +68,7 @@ src/
 ├── lib/
 │   ├── supabase.ts            # Supabase client (URL + publishable key)
 │   ├── sentry.ts              # Sentry initialization
-│   ├── permalink.ts           # ?venue= and ?ctn= links
+│   ├── permalink.ts           # ?venue=, ?vb= and ?ctn= links
 │   └── share.ts               # Web Share API with clipboard fallback
 ├── data/
 │   ├── cantons.ts             # Swiss canton metadata
@@ -223,11 +226,11 @@ deletes the local data; the next `docker compose up` rebuilds it from the migrat
 files in `e2e/features`, then Playwright runs them against the Compose stack. Playwright builds and
 serves two production bundles on each run, locally as in CI: one on <http://localhost:4173> with
 production's feature flag values, and one on <http://localhost:4174> built with
-`VITE_APP_ENV=stage`, which has the Verband view on. Every scenario runs against both, except those
-tagged `@canton-view` (only with the `verband` flag off) or `@verband-view` (only with it on).
+`VITE_APP_ENV=stage`, which has stage's values. Every scenario runs against both, except those
+tagged with one state of a flag, such as `@editors`.
 
 The dev server, from `docker compose up` or `npm run dev`, leaves `VITE_APP_ENV` unset, which reads
-as `development`, so it shows the flags that are on in development, such as the Verband view.
+as `development`, so it shows the flags that are on in development, such as sign-up by invitation.
 To see what visitors get, run `VITE_APP_ENV=production npm run dev`, or set it in `.env.local`. The
 flags and their values per environment are in `src/lib/features.ts`.
 
