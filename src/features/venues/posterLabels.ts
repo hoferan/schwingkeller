@@ -1,4 +1,4 @@
-// Venue-name pin labels for the canton poster: where each name sits relative to its pin, in
+// Venue-name pin labels for the poster: where each name sits relative to its pin, in
 // POSTER_SIZE (1080-space) px. The placement rule itself is shared with the map's names
 // (src/lib/labelPlacement.ts); this file gives it the poster's sizes. It is pure geometry, with no
 // canvas and no DOM, so the canvas exporter (posterCanvas.drawPinLabels) and the editor's live DOM

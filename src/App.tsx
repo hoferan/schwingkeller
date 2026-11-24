@@ -23,7 +23,7 @@ import {
 } from './lib/permalink';
 import { useVenuePermalink } from './features/venues/useVenuePermalink';
 import { PosterEditorModal } from './features/venues/PosterEditorModal';
-import { posterSubjectFor, type PosterTarget } from './features/venues/posterSubject';
+import { associationPosterSubject } from './features/venues/posterSubject';
 import { shareVenueUrl } from './lib/share';
 import { useGeolocation } from './features/geo/useGeolocation';
 import type { SortMode } from './features/venues/grouping';
@@ -123,7 +123,7 @@ function AppShell() {
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [posterTarget, setPosterTarget] = useState<PosterTarget | null>(null);
+  const [posterId, setPosterId] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
   const showFlash = (kind: 'ok' | 'err', text: string) => {
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
@@ -255,18 +255,18 @@ function AppShell() {
   // venues loaded opens once they have. The id is checked on click, where an unknown one can still
   // be reported.
   const posterSubject = useMemo(
-    () => (posterTarget && venuesLoaded ? posterSubjectFor(posterTarget, venues, associations) : null),
-    [posterTarget, venuesLoaded, venues, associations],
+    () => (posterId && venuesLoaded ? associationPosterSubject(posterId, venues, associations) : null),
+    [posterId, venuesLoaded, venues, associations],
   );
-  const openPosterEditor = (target: PosterTarget) => {
+  const openPosterEditor = (id: string) => {
     try {
-      posterSubjectFor(target, venues, associations);
-      setPosterTarget(target);
+      associationPosterSubject(id, venues, associations);
+      setPosterId(id);
     } catch (err) {
       showFlash('err', captureAndFormat(err, t.posterGenerateFailed));
     }
   };
-  const closePosterEditor = () => setPosterTarget(null);
+  const closePosterEditor = () => setPosterId(null);
   const savePoster = (blob: Blob, filename: string) => {
     downloadBlob(filename, blob);
     closePosterEditor();
@@ -370,7 +370,6 @@ function AppShell() {
         <PosterEditorModal
           subject={posterSubject}
           initialBaseKind={baseKind}
-          unitLabel={t.unitTotal}
           onClose={closePosterEditor}
           onSave={savePoster}
           onError={(err) => showFlash('err', captureAndFormat(err, t.posterGenerateFailed))}

@@ -13,7 +13,6 @@ import { I18nContext } from '../../i18n/useTranslation';
 import { STR, type Lang } from '../../i18n/translations';
 import { Sidebar } from './Sidebar';
 import type { Venue } from '../venues/types';
-import type { PosterTarget } from '../venues/posterSubject';
 import type { SortMode } from '../venues/grouping';
 import type { LatLng } from '../venues/distance';
 import type { GeoStatus } from '../geo/useGeolocation';
@@ -42,7 +41,7 @@ interface HarnessProps {
   geoStatus?: GeoStatus;
   onRequestLocation?: () => void;
   onAdd?: () => void;
-  onGeneratePoster?: (target: PosterTarget) => void;
+  onGeneratePoster?: (id: string) => void;
   onSelect?: (id: string) => void;
   expandedInit?: Record<string, boolean>;
 }
@@ -788,7 +787,7 @@ describe('Sidebar grouped by Verband', () => {
       venuesData: flagVenues, sortModeInit: 'association', expandedInit: REGIONAL_OPEN, onGeneratePoster,
     });
     await user.click(await screen.findByTestId('generate-poster-freiburg'));
-    expect(onGeneratePoster).toHaveBeenCalledWith({ kind: 'association', id: 'freiburg' });
+    expect(onGeneratePoster).toHaveBeenCalledWith('freiburg');
     expect(screen.queryByTestId('generate-poster-FR')).toBeNull();
   });
 

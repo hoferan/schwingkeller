@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Camera, ChevronRight } from 'lucide-react';
 import type { Venue } from '../venues/types';
-import type { PosterTarget } from '../venues/posterSubject';
 import { groupByAssociation } from '../associations/grouping';
 import { useAssociations } from '../associations/useAssociations';
 import { AssociationMark, RegionalBadge } from '../associations/AssociationMark';
@@ -22,7 +21,7 @@ interface AssociationGroupsProps {
   canPrintPoster: (associationId: string) => boolean;
   // Approved editors get a column for the poster button, filled or empty, so chevrons line up.
   reservePosterSpace: boolean;
-  onGeneratePoster: (target: PosterTarget) => void;
+  onGeneratePoster: (id: string) => void;
 }
 
 const posterButtonStyle: CSSProperties = {
@@ -180,7 +179,7 @@ export const AssociationGroups = ({
                     {canPrintPoster(a.id) ? (
                       <button
                         type="button"
-                        onClick={() => onGeneratePoster({ kind: 'association', id: a.id })}
+                        onClick={() => onGeneratePoster(a.id)}
                         aria-label={t.generatePoster}
                         title={t.generatePoster}
                         data-testid={`generate-poster-${a.id}`}

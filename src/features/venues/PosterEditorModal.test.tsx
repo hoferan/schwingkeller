@@ -11,14 +11,14 @@ import type { Venue } from './types';
 // the variable itself alongside the mock registration (same pattern as generatePoster.test.ts).
 const { generatePosterBlob } = vi.hoisted(() => ({
   generatePosterBlob: vi.fn().mockResolvedValue({
-    blob: new Blob(['x'], { type: 'image/png' }), filename: 'schwingkeller-be.png',
+    blob: new Blob(['x'], { type: 'image/png' }), filename: 'schwingkeller-emmental.png',
   }),
 }));
 vi.mock('./generatePoster', () => ({ generatePosterBlob }));
 
 // Mock QR hook so no real qrcode/canvas runs.
 vi.mock('./usePosterQr', () => ({
-  usePosterQr: () => ({ url: 'https://x.app/?ctn=BE', dataUrl: 'data:image/png;base64,QR' }),
+  usePosterQr: () => ({ url: 'https://x.app/?vb=emmental', dataUrl: 'data:image/png;base64,QR' }),
 }));
 
 // Mock Leaflet: a fake map that records center/zoom and supports the calls the editor makes.
@@ -50,7 +50,7 @@ vi.mock('leaflet', () => ({
     // which calls L.tileLayer(...).addTo(map) — stub it so that real wiring doesn't throw. We don't
     // assert anything about tile behavior here, only that the editor renders/downloads correctly.
     tileLayer: vi.fn(() => ({ addTo: vi.fn(), once: vi.fn() })),
-    // venueBoundsForCanton (posterFraming.ts, real/unmocked) calls L.latLngBounds — stub it so the
+    // The venue framing (posterFraming.ts, real/unmocked) calls L.latLngBounds — stub it so the
     // default-framing helper can run inside these tests. Bounds identity round-trips through the
     // points passed in, which is all the assertions below need.
     latLngBounds: vi.fn((points: [number, number][]) => ({ points })),
@@ -59,13 +59,12 @@ vi.mock('leaflet', () => ({
 
 import L from 'leaflet';
 import { PosterEditorModal } from './PosterEditorModal';
-import { boundsForCanton } from '../../data/cantonBounds';
 // Real (unmocked) modules — computeChromeLayout has no Leaflet dependency, so importing it
 // directly alongside this file's `leaflet` mock is safe.
 import { computeChromeLayout } from './posterCanvas';
 import { theme } from '../../theme';
 import { cqw, POSTER_SIZE } from './posterLayout';
-import { associationPosterSubject, cantonPosterSubject, type PosterSubject } from './posterSubject';
+import { associationPosterSubject, type PosterSubject } from './posterSubject';
 import { associationsFor } from '../associations/useAssociations';
 import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import type { Lang } from '../../i18n/translations';
@@ -77,17 +76,17 @@ const v = (over: Partial<Venue>): Venue => ({
 
 type EditorProps = Parameters<typeof PosterEditorModal>[0];
 
-// Most tests only vary the venues of the Bern canton poster, so `venues` builds that subject; a test
+// Most tests only vary the venues of the Emmental poster, so `venues` builds that subject; a test
 // about another poster passes its own `subject`.
+const emmental = (venues: Venue[]) => associationPosterSubject('emmental', venues, associationsFor('de'));
 const renderEditor = ({
   venues = [v({ id: '1' })], lang = 'de', ...props
 }: Partial<EditorProps> & { venues?: Venue[]; lang?: Lang } = {}) =>
   render(
     <I18nContext.Provider value={{ lang, t: STR[lang] as typeof STR.de, setLang: vi.fn() }}>
       <PosterEditorModal
-        subject={cantonPosterSubject('BE', venues)}
+        subject={emmental(venues)}
         initialBaseKind="map"
-        unitLabel="Schwingkeller"
         onClose={vi.fn()}
         onSave={vi.fn()}
         {...props}
@@ -108,7 +107,7 @@ describe('PosterEditorModal', () => {
 
   it('renders the controls and the QR image', () => {
     renderEditor();
-    expect(screen.getByLabelText(STR.de.posterTitleLabel)).toHaveValue('Bern');
+    expect(screen.getByLabelText(STR.de.posterTitleLabel)).toHaveValue('Emmental');
     expect(screen.getByRole('img', { name: /qr/i })).toBeInTheDocument();
   });
 
@@ -122,16 +121,15 @@ describe('PosterEditorModal', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     // jsdom's window is 1024px wide, so the preview locks to 540; the export zoom is the preview
     // zoom (11) bumped by log2(1080/540) = 1, i.e. an exact integer 12, framing the same area.
-    expect(generatePosterBlob).toHaveBeenCalledWith(expect.objectContaining({ id: 'BE' }), expect.objectContaining({
+    expect(generatePosterBlob).toHaveBeenCalledWith(expect.objectContaining({ id: 'emmental' }), expect.objectContaining({
       baseKind: 'map',
-      unitLabel: 'Schwingkeller',
       view: { center: [46.9, 7.4], zoom: 12 },
-      title: 'Bern',
+      title: 'Emmental',
       showHeader: true,
       showFooter: true,
       qrDataUrl: 'data:image/png;base64,QR',
     }));
-    expect(onSave).toHaveBeenCalledWith(expect.any(Blob), 'schwingkeller-be.png');
+    expect(onSave).toHaveBeenCalledWith(expect.any(Blob), 'schwingkeller-emmental.png');
   });
 
   it('omits qrDataUrl when the QR toggle is off', async () => {
@@ -165,7 +163,7 @@ describe('default framing', () => {
   // clears recorded calls only; the mock implementations (mockReturnValue etc.) stay intact.
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('frames the map with setView (not fitBounds) when the canton has exactly one venue', () => {
+  it('frames the map with setView (not fitBounds) when the subject has exactly one venue', () => {
     renderEditor(); // default: 1 venue at (46.9, 7.4)
     expect(fakeMap.setView).toHaveBeenCalledWith([46.9, 7.4], 14, { animate: false });
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
@@ -173,7 +171,7 @@ describe('default framing', () => {
 
   it('falls back to the home bounds fit when there are no venues', () => {
     renderEditor({ venues: [] });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [20, 20], animate: false });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS.emmental, { padding: [20, 20], animate: false });
     expect(fakeMap.setView).not.toHaveBeenCalled();
   });
 
@@ -544,21 +542,11 @@ describe('a Verband poster', () => {
     expect(screen.getByLabelText(STR.de.posterTitleLabel)).toHaveValue('Freiburg');
   });
 
-  it('shows the dot and the badge and no count in the preview header', () => {
+  it('shows the dot and the badge in the preview header', () => {
     renderEditor({ subject: freiburg() });
     const header = screen.getByTestId('poster-preview-header');
     expect(within(header).getByText('SWSV')).toBeInTheDocument();
     expect(within(header).getByTestId('poster-preview-mark')).toHaveStyle({ backgroundColor: '#5D6B80' });
-    expect(within(header).queryByText(/Schwingkeller/)).toBeNull();
-    expect(header.querySelector('img')).toBeNull();
-  });
-
-  it('still shows the arms and the count for a canton poster', () => {
-    renderEditor();
-    const header = screen.getByTestId('poster-preview-header');
-    expect(header.querySelector('img')).not.toBeNull();
-    expect(within(header).getByText('1 Schwingkeller')).toBeInTheDocument();
-    expect(within(header).queryByTestId('poster-preview-mark')).toBeNull();
   });
 
   it('shows the French name and the ARLS badge for a Verband opened in French', () => {
@@ -678,7 +666,6 @@ describe('venues that change while the editor is open', () => {
       <PosterEditorModal
         subject={subject}
         initialBaseKind="map"
-        unitLabel="Schwingkeller"
         onClose={vi.fn()}
         onSave={vi.fn()}
       />
@@ -688,12 +675,12 @@ describe('venues that change while the editor is open', () => {
   it('redraws the pins for the new venues and keeps the framing', () => {
     const first = [v({ id: '1', lat: 46.9, lng: 7.4 })];
     const both = [...first, v({ id: '2', lat: 46.95, lng: 7.45 })];
-    const { rerender } = render(editor(cantonPosterSubject('BE', first)));
+    const { rerender } = render(editor(emmental(first)));
     vi.mocked(L.marker).mockClear();
     fakeMap.setView.mockClear();
     fakeMap.fitBounds.mockClear();
 
-    rerender(editor(cantonPosterSubject('BE', both)));
+    rerender(editor(emmental(both)));
 
     expect(vi.mocked(L.marker).mock.calls.map(([ll]) => ll)).toEqual([[46.9, 7.4], [46.95, 7.45]]);
     expect(fakeMap.setView).not.toHaveBeenCalled();
@@ -722,7 +709,7 @@ describe('default framing on a phone-width preview', () => {
 
   it('pads the home bounds fallback by a quarter of the poster padding', () => {
     renderEditor({ venues: [] });
-    expect(fakeMap.fitBounds).toHaveBeenCalledWith(boundsForCanton('BE'), { padding: [10, 10], animate: false });
+    expect(fakeMap.fitBounds).toHaveBeenCalledWith(ASSOCIATION_HOME_BOUNDS.emmental, { padding: [10, 10], animate: false });
   });
 
   it('pads the venue fit at the preview scale', () => {

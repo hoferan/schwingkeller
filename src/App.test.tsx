@@ -63,13 +63,13 @@ vi.mock('./features/map/MapView', () => ({
 }));
 vi.mock('./features/sidebar/Sidebar', () => ({
   Sidebar: ({ onGeneratePoster, expanded, sortMode }: {
-    onGeneratePoster: (target: { kind: 'canton'; code: string } | { kind: 'association'; id: string }) => void;
+    onGeneratePoster: (id: string) => void;
     expanded: Record<string, boolean>; sortMode: string;
   }) => (
     <div>
-      <button onClick={() => onGeneratePoster({ kind: 'canton', code: 'BE' })}>gen-poster</button>
-      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'freiburg' })}>gen-poster-vb</button>
-      <button onClick={() => onGeneratePoster({ kind: 'association', id: 'nope' })}>gen-poster-bad</button>
+      <button onClick={() => onGeneratePoster('emmental')}>gen-poster</button>
+      <button onClick={() => onGeneratePoster('freiburg')}>gen-poster-vb</button>
+      <button onClick={() => onGeneratePoster('nope')}>gen-poster-bad</button>
       <span data-testid="expanded-state">{JSON.stringify(expanded)}</span>
       <span data-testid="sort-mode">{sortMode}</span>
     </div>
@@ -224,7 +224,7 @@ describe('App — permalinks', () => {
 describe('App — poster editor wiring', () => {
   beforeEach(() => { localStorage.clear(); mocked.loaded = true; });
 
-  it('opens the poster editor for the canton the sidebar requests', async () => {
+  it('opens the poster editor for the Verband the sidebar requests', async () => {
     const user = userEvent.setup();
     render(<App />);
     expect(screen.queryByTestId('poster-editor')).not.toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('App — poster editor wiring', () => {
     await user.click(screen.getByText('gen-poster'));
 
     expect(await screen.findByTestId('poster-editor')).toBeInTheDocument();
-    expect(screen.getByText('editor:BE')).toBeInTheDocument();
+    expect(screen.getByText('editor:emmental')).toBeInTheDocument();
   });
 
   it('opens a poster asked for before the venues loaded once they have, with the venues in it', async () => {
@@ -252,7 +252,7 @@ describe('App — poster editor wiring', () => {
     mocked.venues = null;
   });
 
-  it('opens the poster editor for the Verband the sidebar requests', async () => {
+  it('opens the poster editor for another Verband', async () => {
     const user = userEvent.setup();
     render(<App />);
 

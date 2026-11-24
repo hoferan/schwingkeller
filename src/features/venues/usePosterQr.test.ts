@@ -12,8 +12,10 @@ vi.mock('qrcode', () => ({
 
 import { usePosterQr } from './usePosterQr';
 import { POSTER_QR_OPTIONS } from './posterLayout';
-import { associationPosterSubject, cantonPosterSubject } from './posterSubject';
+import { associationPosterSubject } from './posterSubject';
 import { associationsFor } from '../associations/useAssociations';
+
+const freiburg = () => associationPosterSubject('freiburg', [], associationsFor('de'));
 
 describe('usePosterQr', () => {
   beforeEach(() => {
@@ -21,29 +23,22 @@ describe('usePosterQr', () => {
     window.history.replaceState(null, '', '/?ctn=ZH');
   });
 
-  it('builds the absolute canton permalink and requests a QR for it', async () => {
-    const { result } = renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
-    expect(result.current.url).toBe('http://localhost:3000/?ctn=BE');
-    await waitFor(() => expect(result.current.dataUrl).toBe('data:image/png;base64,QR'));
-    expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?ctn=BE', expect.any(Object));
-  });
-
-  it('links a Verband poster to its Verband', async () => {
-    const subject = associationPosterSubject('freiburg', [], associationsFor('de'));
-    const { result } = renderHook(() => usePosterQr(subject));
+  it('builds the absolute Verband permalink and requests a QR for it', async () => {
+    const { result } = renderHook(() => usePosterQr(freiburg()));
     expect(result.current.url).toBe('http://localhost:3000/?vb=freiburg');
-    await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?vb=freiburg', expect.any(Object)));
+    await waitFor(() => expect(result.current.dataUrl).toBe('data:image/png;base64,QR'));
+    expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?vb=freiburg', expect.any(Object));
   });
 
   it('renders the QR with the options the e2e suite compares against', async () => {
-    renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
-    await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?ctn=BE', POSTER_QR_OPTIONS));
+    renderHook(() => usePosterQr(freiburg()));
+    await waitFor(() => expect(toDataURL).toHaveBeenCalledWith('http://localhost:3000/?vb=freiburg', POSTER_QR_OPTIONS));
     expect(POSTER_QR_OPTIONS).toEqual({ margin: 1, width: 240 });
   });
 
   it('leaves dataUrl null when QR generation rejects', async () => {
     toDataURL.mockRejectedValueOnce(new Error('boom'));
-    const { result } = renderHook(() => usePosterQr(cantonPosterSubject('BE', [])));
+    const { result } = renderHook(() => usePosterQr(freiburg()));
     await waitFor(() => expect(toDataURL).toHaveBeenCalled());
     expect(result.current.dataUrl).toBeNull();
   });

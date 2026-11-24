@@ -5,7 +5,6 @@ import {
   parseAssociationParam,
   associationForCanton,
   withVenueParam,
-  withCantonParam,
   withAssociationParam,
   parseInviteParam,
   withoutInviteParam,
@@ -87,17 +86,6 @@ describe('withVenueParam', () => {
   it('strips an existing vb param', () => {
     expect(withVenueParam('/?vb=emmental', 'v1')).toBe('/?venue=v1');
     expect(withVenueParam('/?vb=emmental&venue=v1', null)).toBe('/');
-  });
-});
-
-describe('withCantonParam', () => {
-  it('sets ctn (uppercased) and drops any venue param', () => {
-    expect(withCantonParam('https://x.app/', 'be')).toBe('https://x.app/?ctn=BE');
-    expect(withCantonParam('https://x.app/?venue=v1', 'BE')).toBe('https://x.app/?ctn=BE');
-  });
-
-  it('drops any vb param', () => {
-    expect(withCantonParam('https://x.app/?vb=emmental', 'BE')).toBe('https://x.app/?ctn=BE');
   });
 });
 

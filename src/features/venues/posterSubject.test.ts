@@ -1,12 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { Venue } from './types';
-import { boundsForCanton } from '../../data/cantonBounds';
-import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { ASSOCIATION_HOME_BOUNDS } from '../../data/associationBounds';
 import { associationsFor } from '../associations/useAssociations';
-import {
-  PosterGenerationError, associationPosterSubject, cantonPosterSubject, posterSubjectFor,
-} from './posterSubject';
+import { PosterGenerationError, associationPosterSubject } from './posterSubject';
 
 const v = (over: Partial<Venue>): Venue => ({
   id: '1', name: 'A', canton: 'FR', address: '', lat: 46.8, lng: 7.1,
@@ -20,31 +16,12 @@ const venues = [
   v({ id: 'esch', name: 'Schwingkeller Escholzmatt', canton: 'LU', association_id: 'emmental' }),
 ];
 
-describe('cantonPosterSubject', () => {
-  it('describes a canton poster for FR', () => {
-    const s = cantonPosterSubject('FR', venues);
-    expect(s.id).toBe('FR');
-    expect(s.name).toBe(cantonByCode('FR')?.name);
-    expect(s.venues.map((x) => x.id)).toEqual(['fr1', 'fr2']);
-    expect(s.count).toBe(2);
-    expect(s.mark).toEqual({ kind: 'arms', url: wappenUrl('FR') });
-    expect(s.homeBounds).toEqual(boundsForCanton('FR'));
-    expect(s.permalink('https://x.app/?vb=luzern&venue=9')).toBe('https://x.app/?ctn=FR');
-  });
-
-  it('rejects an unknown canton with [UNKNOWN_CANTON]', () => {
-    expect(() => cantonPosterSubject('XX', [])).toThrow(PosterGenerationError);
-    expect(() => cantonPosterSubject('XX', [])).toThrow('[UNKNOWN_CANTON]');
-  });
-});
-
 describe('associationPosterSubject', () => {
   it('describes the Freiburg Verband in German', () => {
     const s = associationPosterSubject('freiburg', venues, associationsFor('de'));
     expect(s.id).toBe('freiburg');
     expect(s.name).toBe('Freiburg');
-    expect(s.count).toBeNull();
-    expect(s.mark).toEqual({ kind: 'association', tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } });
+    expect(s.mark).toEqual({ tint: '#5D6B80', badge: { text: 'SWSV', colour: '#5D6B80' } });
     expect(s.venues.map((x) => x.id)).toEqual(['fr1', 'fr2']);
     expect(s.permalink('https://x.app/?ctn=FR')).toBe('https://x.app/?vb=freiburg');
   });
@@ -70,13 +47,5 @@ describe('associationPosterSubject', () => {
   it.each(['nope', 'bksv', 'esv'])('rejects %s with [UNKNOWN_ASSOCIATION]', (id) => {
     expect(() => associationPosterSubject(id, venues, associationsFor('de'))).toThrow(PosterGenerationError);
     expect(() => associationPosterSubject(id, venues, associationsFor('de'))).toThrow('[UNKNOWN_ASSOCIATION]');
-  });
-});
-
-describe('posterSubjectFor', () => {
-  it('dispatches on the target kind', () => {
-    const de = associationsFor('de');
-    expect(posterSubjectFor({ kind: 'canton', code: 'FR' }, venues, de).id).toBe('FR');
-    expect(posterSubjectFor({ kind: 'association', id: 'emmental' }, venues, de).id).toBe('emmental');
   });
 });
