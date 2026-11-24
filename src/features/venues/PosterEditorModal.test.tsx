@@ -29,6 +29,7 @@ const { fakeMap } = vi.hoisted(() => ({
     getCenter: vi.fn().mockReturnValue({ lat: 46.9, lng: 7.4 }),
     getZoom: vi.fn().mockReturnValue(11),
     latLngToContainerPoint: vi.fn().mockReturnValue({ x: 100, y: 100 }),
+    project: vi.fn().mockReturnValue({ x: 0, y: 0 }),
     setZoom: vi.fn(),
     setMaxZoom: vi.fn(),
     invalidateSize: vi.fn(),
@@ -93,6 +94,14 @@ const renderEditor = ({
       />
     </I18nContext.Provider>,
   );
+
+// The label effect reads the centre and zoom on every render, so a value one test gives the fake
+// map would leak into the next. Each test starts from the same view.
+beforeEach(() => {
+  fakeMap.getCenter.mockReturnValue({ lat: 46.9, lng: 7.4 });
+  fakeMap.getZoom.mockReturnValue(11);
+  fakeMap.project.mockReturnValue({ x: 0, y: 0 });
+});
 
 describe('PosterEditorModal', () => {
   beforeEach(() => { generatePosterBlob.mockClear(); });
@@ -365,7 +374,7 @@ describe('soft zoom', () => {
 
   it('exports the exact fractional framing without rounding the zoom', async () => {
     const user = userEvent.setup();
-    fakeMap.getZoom.mockReturnValueOnce(11.25);
+    fakeMap.getZoom.mockReturnValue(11.25);
     renderEditor();
     await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
     await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
@@ -426,9 +435,55 @@ describe('venue name labels', () => {
       font: '',
       measureText: (text: string) => ({ width: text.length * 10 }),
     } as unknown as CanvasRenderingContext2D);
-    fakeMap.latLngToContainerPoint.mockImplementation((ll: [number, number]) => ({
-      x: 200, y: ll[0] === 46.9 ? 100 : 400,
-    }));
+    // Projected around a centre at (0, 0), so the pins land at poster (400, 200) and (400, 800).
+    // The container points sit both pins on one spot, where the slots below would come out
+    // differently, so a label placed from them fails these tests.
+    fakeMap.getCenter.mockReturnValue({ lat: 0, lng: 0 });
+    fakeMap.project.mockImplementation((ll: [number, number]) =>
+      ll[0] === 0 ? { x: 0, y: 0 } : { x: -140, y: ll[0] === 46.9 ? -340 : 260 });
+    fakeMap.latLngToContainerPoint.mockReturnValue({ x: 0, y: 0 });
+  });
+
+  it('projects the pins at the preview zoom plus one, fraction kept', () => {
+    fakeMap.getZoom.mockReturnValue(11.25);
+    renderEditor({ venues: labelled });
+
+    expect(fakeMap.project).toHaveBeenCalledWith([46.9, 7.4], 12.25);
+    fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(12.25));
+  });
+
+  it('projects the pins two levels up on a phone-width preview', () => {
+    const desktopWidth = window.innerWidth;
+    window.innerWidth = 412;
+    try {
+      renderEditor({ venues: labelled });
+    } finally {
+      window.innerWidth = desktopWidth;
+    }
+
+    expect(fakeMap.project).toHaveBeenCalledWith([46.9, 7.4], 13);
+    fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(13));
+  });
+
+  it('places the labels around the middle of a portrait poster', async () => {
+    const user = userEvent.setup();
+    renderEditor({ venues: labelled });
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterFormatPortrait }));
+
+    // The portrait poster is 1620 tall, so the first pin moves from y=200 to y=470, clear of the
+    // header, and its name goes beside it instead of beneath.
+    expect(screen.getAllByTestId('poster-preview-label')[0]).toHaveAttribute('data-slot', 'right');
+  });
+
+  it('sends the export the view the labels were placed from', async () => {
+    const user = userEvent.setup();
+    renderEditor({ venues: labelled });
+
+    await user.click(screen.getByRole('button', { name: STR.de.posterDownload }));
+    await waitFor(() => expect(generatePosterBlob).toHaveBeenCalled());
+    expect(fakeMap.project).toHaveBeenCalledWith([0, 0], 12);
+    expect(generatePosterBlob.mock.calls[0][1].view).toEqual({ center: [0, 0], zoom: 12 });
   });
 
   it('labels the preview pins with their venue names as stored, on by default', () => {

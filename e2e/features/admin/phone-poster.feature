@@ -1,9 +1,9 @@
 @phone @verband-view
 Feature: Poster for a Verband on a phone
   Below 700px the poster editor previews the poster at 270px instead of 540px, so the export is
-  drawn two zoom levels above the preview instead of one. The preview places the names from pin
-  positions rounded to its own pixels, so its count can differ from the poster's (#155). For
-  Freiburg the phone preview shows 10 names like the downloaded poster, and the 540px preview 11.
+  drawn two zoom levels above the preview instead of one. The preview places the names from the
+  same pin positions as the export, so Freiburg shows the same 10 names at either preview size and
+  on the downloaded poster.
 
   Background:
     Given I am signed in as the admin

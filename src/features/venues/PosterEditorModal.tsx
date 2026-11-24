@@ -11,7 +11,9 @@ import {
   type ChromeLayoutResult,
 } from './posterCanvas';
 import { layoutPinLabels, LABEL_FONT, type LabelRect, type PlacedLabel } from './posterLabels';
-import { venueBounds, POSTER_FIT_PADDING, POSTER_MAX_EXPORT_ZOOM } from './posterFraming';
+import {
+  venueBounds, posterPinPoints, POSTER_FIT_PADDING, POSTER_MAX_EXPORT_ZOOM, type PosterView,
+} from './posterFraming';
 import {
   POSTER_SIZE, POSTER_LAYOUT as PL, cqw, previewPin, posterHeightFor, chromeLayoutFor,
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
@@ -27,11 +29,8 @@ interface PosterEditorModalProps {
   onError?: (err: unknown) => void;
 }
 
-// The live preview map is locked to a power-of-2 fraction of POSTER_SIZE (1080): 540 on wider
-// screens, 270 on small ones. That makes the export zoom exactly previewZoom + log2(1080/size)
-// — an INTEGER (1 or 2) — so the off-screen capture uses whole-number Leaflet zoom levels. Whole
-// zooms are what the tile-capture assumes; a fractional zoom makes Leaflet CSS-scale the tile pane,
-// which the capture can't reproduce (misframed export + missing-tile black bars).
+// The live preview map is half or a quarter of POSTER_SIZE (1080): 540 from a 700px screen up, 270
+// below. The export then draws log2(1080/size) zoom levels above the preview, 1 or 2 (exportView).
 const previewSizeFor = (w: number): number => (w >= 700 ? 540 : 270);
 
 // Default framing for the live editor map: fit tightly to the subject's venues (not its whole home
@@ -99,6 +98,14 @@ const applyDefaultFraming = (
   const side = pad + (onRight ? POSTER_SIZE - qrBox.x : qrBox.x + qrBox.w) * scale;
   if (onRight) fit(pad, side);
   else fit(side, pad);
+};
+
+// The view the export draws: the preview's centre, deltaZoom levels closer. The preview zoom may
+// be fractional (quarter-step soft zoom) and is kept as it is. The capture map runs with
+// zoomSnap: 0 and the tile capture is scale-aware, so nothing needs rounding.
+const exportView = (map: L.Map, deltaZoom: number): PosterView => {
+  const c = map.getCenter();
+  return { center: [c.lat, c.lng], zoom: map.getZoom() + deltaZoom };
 };
 
 // One preview label pill, in the same fill and ink drawPinLabels paints on the canvas, and sized
@@ -262,9 +269,10 @@ export const PosterEditorModal = ({
   }, [aspectRatio]);
 
   // Venue-name labels for the preview, placed in 1080-space by the same helper and font the
-  // exporter uses, so a name lands where the preview shows it in the PNG too. Pin positions come
-  // from the map, so this re-runs on every pan and zoom. The pills are written straight into the
-  // DOM instead of held in React state, which keeps a drag from re-rendering the whole editor.
+  // exporter uses, from the pin positions the export computes for this view, so a name lands
+  // where the preview shows it in the PNG too. The view changes with every pan and zoom, so this
+  // re-runs on each. The pills are written straight into the DOM instead of held in React state,
+  // which keeps a drag from re-rendering the whole editor.
   useEffect(() => {
     const host = labelsElRef.current;
     if (!host) return;
@@ -287,14 +295,8 @@ export const PosterEditorModal = ({
       posterHeight,
       showQr && qrDataUrl ? qrRect(qrCorner, chrome, CL, posterHeight) : null,
     );
-    // Preview container points are previewSize-wide; scale them up to the poster's 1080.
-    const k = POSTER_SIZE / previewSize;
-
     const render = () => {
-      const pins = venues.map((venue) => {
-        const point = map.latLngToContainerPoint([venue.lat, venue.lng]);
-        return { x: point.x * k, y: point.y * k, text: venue.name };
-      });
+      const pins = posterPinPoints((ll, z) => map.project(ll, z), venues, exportView(map, deltaZoom), posterHeight);
       const placed = layoutPinLabels(pins, measure, { posterHeight, obstacles });
       host.replaceChildren(...placed.map(labelElement));
     };
@@ -305,7 +307,7 @@ export const PosterEditorModal = ({
       map.off('move zoom', render);
       host.replaceChildren();
     };
-  }, [venues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, previewSize]);
+  }, [venues, chrome, CL, showLabels, showQr, qrDataUrl, qrCorner, aspectRatio, deltaZoom]);
 
   const resetFraming = () => {
     const map = mapRef.current;
@@ -325,15 +327,9 @@ export const PosterEditorModal = ({
       onError?.(new Error('[NO_MAP] Poster editor map is not ready.'));
       return;
     }
-    // Frame the export on exactly the area the (power-of-2-sized) preview shows: the canvas is
-    // POSTER_SIZE/previewSize× wider, so bump the zoom by that log2 (an integer). The preview zoom
-    // itself may be fractional (quarter-step soft zoom) and is forwarded exactly — the capture map
-    // runs with zoomSnap: 0 and the tile capture is scale-aware, so no rounding is needed.
-    const c = map.getCenter();
-    const view = {
-      center: [c.lat, c.lng] as [number, number],
-      zoom: map.getZoom() + deltaZoom,
-    };
+    // The export frames exactly the area the preview shows, and the labels were placed from the
+    // same view.
+    const view = exportView(map, deltaZoom);
     setBusy(true);
     try {
       const { blob, filename } = await generatePosterBlob(subject, {
