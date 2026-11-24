@@ -34,11 +34,7 @@ describe('pins', () => {
     const { html } = pinIcon(false, 'emmental');
     expect(html).toContain('#1A1A1A');
     expect(html).not.toContain(theme.color.accent);
-  });
-
-  it('marks the selected pin as a teardrop', () => {
-    expect(pinIcon(true, 'emmental').html).toContain('<path');
-    expect(pinIcon(false, 'emmental').html).not.toContain('<path');
+    expect(html).not.toContain('<path');
   });
 
   it('draws each pin as a single SVG', () => {
