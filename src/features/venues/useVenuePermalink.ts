@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { withVenueParam } from '../../lib/permalink';
-import { isFeatureOn } from '../../lib/features';
 import { useAssociations } from '../associations/useAssociations';
 import type { Venue } from './types';
 
@@ -28,11 +27,12 @@ export function useVenuePermalink({
     const match = venues.find((v) => v.id === venueParam);
     if (match) {
       openDetail(match.id);
-      // With the verband flag on, the venue's row sits under its Teilverband and Verband, and with it
-      // off under its canton.
-      const node = isFeatureOn('verband') ? byId.get(match.association_id) : undefined;
-      const keys = node?.level === 'cantonal' ? [node.parentId, node.id] : [match.canton];
-      setExpanded((e) => ({ ...e, ...Object.fromEntries(keys.map((key) => [key, true])) }));
+      // The venue's row sits under its Teilverband and Verband.
+      const node = byId.get(match.association_id);
+      if (node?.level === 'cantonal') {
+        const { parentId, id } = node;
+        setExpanded((e) => ({ ...e, [parentId]: true, [id]: true }));
+      }
     }
   }, [venueParam, venues, venuesLoaded, openDetail, setExpanded, byId]);
 

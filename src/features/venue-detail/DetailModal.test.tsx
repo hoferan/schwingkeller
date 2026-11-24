@@ -16,7 +16,6 @@ import { STR } from '../../i18n/translations';
 import type { Venue } from '../venues/types';
 import { DetailModal } from './DetailModal';
 import { theme } from '../../theme';
-import { setFeature } from '../../test/features';
 
 const venue: Venue = {
   id: 'v1',
@@ -128,15 +127,9 @@ describe('DetailModal', () => {
 });
 
 describe('DetailModal association', () => {
-  it('shows the association with the flag on', () => {
+  it('shows the association', () => {
     renderModal({ venue: { ...venue, association_id: 'emmental' } });
     expect(screen.getByTestId('venue-association')).toHaveTextContent('Emmental');
-  });
-
-  it('shows nothing with the flag off', () => {
-    setFeature('verband', false);
-    renderModal({ venue: { ...venue, association_id: 'emmental' } });
-    expect(screen.queryByTestId('venue-association')).toBeNull();
   });
 });
 
@@ -178,7 +171,6 @@ describe('DetailModal layout', () => {
     }
   });
 
-  // VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
   it('leads the Verband line with the Teilverband badge, with the full name on hover', () => {
     renderModal({ venue: { ...venue, association_id: 'freiburg' } });
     const line = screen.getByTestId('venue-association');

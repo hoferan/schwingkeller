@@ -5,7 +5,6 @@ import { useVenuePermalink } from './useVenuePermalink';
 import { I18nContext } from '../../i18n/useTranslation';
 import { STR } from '../../i18n/translations';
 import type { Venue } from './types';
-import { setFeature } from '../../test/features';
 
 const venue = (over: Partial<Venue> = {}): Venue => ({
   id: 'v1',
@@ -44,9 +43,6 @@ beforeEach(() => {
 });
 
 describe('useVenuePermalink — matching', () => {
-  // The canton view, which stays until #72 removes it with the verband flag.
-  beforeEach(() => { setFeature('verband', false); });
-
   it('does nothing when venueParam is null', () => {
     const openDetail = vi.fn();
     const setExpanded = vi.fn();
@@ -64,17 +60,6 @@ describe('useVenuePermalink — matching', () => {
     expect(openDetail).not.toHaveBeenCalled();
     rerender({ venueParam: 'v1', venues: [venue()], venuesLoaded: true, detailId: null, openDetail, setExpanded });
     expect(openDetail).toHaveBeenCalledWith('v1');
-  });
-
-  it("expands the matched venue's canton", () => {
-    const openDetail = vi.fn();
-    const setExpanded = vi.fn();
-    renderPermalink({
-      venueParam: 'v1', venues: [venue({ canton: 'FR' })], venuesLoaded: true, detailId: null, openDetail, setExpanded,
-    });
-    expect(setExpanded).toHaveBeenCalledTimes(1);
-    const updater = setExpanded.mock.calls[0][0] as (e: Record<string, boolean>) => Record<string, boolean>;
-    expect(updater({ BE: true })).toEqual({ BE: true, FR: true });
   });
 
   it('does not call openDetail when no venue matches', () => {
@@ -127,8 +112,7 @@ describe('useVenuePermalink — URL sync', () => {
   });
 });
 
-// VITE_APP_ENV is unset here, which reads as development, where the verband flag is on.
-describe('useVenuePermalink — with the verband flag', () => {
+describe('useVenuePermalink — groups', () => {
   const expandedBy = (v: Venue) => {
     const setExpanded = vi.fn();
     renderPermalink({ venueParam: v.id, venues: [v], venuesLoaded: true, detailId: null, openDetail: vi.fn(), setExpanded });

@@ -5,7 +5,6 @@ import type { STR } from '../../i18n/translations';
 import { cantonByCode, wappenUrl } from '../../data/cantons';
 import { coverPhotoUrl } from '../venues/photos';
 import { theme } from '../../theme';
-import { isFeatureOn } from '../../lib/features';
 import type { Associations } from '../associations/useAssociations';
 import { regionalBadgeStyle } from '../associations/regionalBadgeStyle';
 
@@ -56,9 +55,8 @@ const detailBtnStyle: CSSProperties = {
 export function MarkerPopup({ venue, t, associations }: MarkerPopupProps) {
   const c = cantonByCode(venue.canton);
   const photo = coverPhotoUrl(venue);
-  // With the verband flag on, the Teilverband's badge, in the pin's colour, says what the colour means.
-  const regional = isFeatureOn('verband') ? associations.regionalOf(venue.association_id) : null;
-  const regionalId = regional?.id;
+  // The Teilverband's badge, in the pin's colour, says what the colour means.
+  const regionalId = associations.regionalOf(venue.association_id)?.id;
   return (
     <div style={wrapStyle}>
       {photo && <div data-popup-photo="" style={photoStyle(photo)} />}

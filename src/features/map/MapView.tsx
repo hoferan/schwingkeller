@@ -15,7 +15,6 @@ import { theme } from '../../theme';
 import { createTileLayer } from './tileLayers';
 import { MapLegend } from './MapLegend';
 import { popupShift } from './popupShift';
-import { isFeatureOn } from '../../lib/features';
 import { canHover, clusterTipHtml, escapeHtml, measureName, NAME_FONT, NAME_ZOOM, placeNames, placeTip, TIP_FADE_MS, TIP_SHOW_DELAY_MS, type NamePin, type TipExtents } from './pinNames';
 import type { LabelRect } from '../../lib/labelPlacement';
 
@@ -617,7 +616,7 @@ export function MapView({
             {t.satView}
           </button>
         </div>
-        {isFeatureOn('verband') && <MapLegend isMobile={isMobile} />}
+        <MapLegend isMobile={isMobile} />
       </div>
       <div ref={fitAllRef} style={fitAllWrapStyle(fitAllTop, fitAllSize, fitAllBorder, fitAllBgClip)}>
         <button
