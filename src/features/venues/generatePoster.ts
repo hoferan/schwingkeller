@@ -10,7 +10,7 @@ import {
   type PosterAspectRatio, type ChromePosition, type ChromeStyle, type ChromeSize, type QrCorner,
 } from './posterLayout';
 import { PosterGenerationError, type PosterSubject } from './posterSubject';
-import type { PosterView } from './posterFraming';
+import { posterPinPoints, type PosterView } from './posterFraming';
 
 export { PosterGenerationError };
 
@@ -104,10 +104,11 @@ export const generatePosterBlob = async (
     const tilePane = map.getPane('tilePane');
     if (tilePane) drawTiles(ctx, extractTileDraws(tilePane));
 
-    const pins = subject.venues.map((v) => {
-      const point = map.latLngToContainerPoint([v.lat, v.lng]);
-      return { x: point.x, y: point.y, text: v.name };
-    });
+    // The same points the editor placed its preview names from, so the PNG shows the same names.
+    // Without a view from the editor, the capture map's own fit gives the centre and zoom.
+    const c = map.getCenter();
+    const pinView: PosterView = view ?? { center: [c.lat, c.lng], zoom: map.getZoom() };
+    const pins = posterPinPoints((ll, z) => map.project(ll, z), subject.venues, pinView, posterHeight);
     pins.forEach((pin) => drawPin(ctx, pin.x, pin.y));
 
     if (showLabels) {

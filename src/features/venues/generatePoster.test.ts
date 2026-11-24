@@ -11,7 +11,9 @@ const { tileLayerOnceMock, createTileLayerMock, fakeMap } = vi.hoisted(() => {
       fitBounds: vi.fn(),
       setView: vi.fn(),
       getPane: vi.fn(),
-      latLngToContainerPoint: vi.fn().mockReturnValue({ x: 10, y: 20 }),
+      project: vi.fn().mockReturnValue({ x: 10, y: 20 }),
+      getCenter: vi.fn().mockReturnValue({ lat: 46.9, lng: 7.4 }),
+      getZoom: vi.fn().mockReturnValue(10),
       remove: vi.fn(),
     },
   };
@@ -96,7 +98,7 @@ describe('generatePosterBlob', () => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
     fakeMap.getPane.mockReturnValue(document.createElement('div'));
-    fakeMap.latLngToContainerPoint.mockReturnValue({ x: 10, y: 20 });
+    fakeMap.project.mockReturnValue({ x: 10, y: 20 });
     tileLayerOnceMock.mockImplementation((evt: string, cb: () => void) => { if (evt === 'load') cb(); });
     extractTileDrawsMock.mockReturnValue([]);
     loadImageMock.mockResolvedValue(null);
@@ -121,8 +123,9 @@ describe('generatePosterBlob', () => {
   it("plots a pin for each of the canton's venues and none from other cantons", async () => {
     await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
 
-    // Fixture has 2 BE venues and 1 LU venue — only the 2 BE ones should be projected/drawn.
-    expect(fakeMap.latLngToContainerPoint).toHaveBeenCalledTimes(2);
+    // Fixture has 2 BE venues and 1 LU venue — only the 2 BE ones should be projected/drawn,
+    // plus the view centre they are placed around.
+    expect(fakeMap.project).toHaveBeenCalledTimes(3);
     expect(drawPinMock).toHaveBeenCalledTimes(2);
     expect(drawTilesMock).toHaveBeenCalledTimes(1);
   });
@@ -279,9 +282,44 @@ describe('generatePosterBlob', () => {
 
     expect(drawPinLabelsMock).toHaveBeenCalledWith(
       expect.anything(),
-      [{ x: 10, y: 20, text: 'Bern Ost' }, { x: 10, y: 20, text: 'Thun' }],
+      // Every point projects to the same pixel as the centre, so both pins sit mid-poster.
+      [{ x: 540, y: 540, text: 'Bern Ost' }, { x: 540, y: 540, text: 'Thun' }],
       expect.objectContaining({ posterHeight: POSTER_SIZE }),
     );
+  });
+
+  it("projects pins at the editor's view", async () => {
+    // One degree is 2^zoom px, so the venues' offsets from the centre survive unrounded.
+    fakeMap.project.mockImplementation(([lat, lng]: [number, number], z: number) => ({ x: lng * 2 ** z, y: -lat * 2 ** z }));
+    const view = { center: [46.8, 7.3] as [number, number], zoom: 12.25 };
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller', view });
+
+    const scale = 2 ** 12.25;
+    const expected = { x: 540 + 0.1 * scale, y: 540 - 0.1 * scale };
+    expect(drawPinMock).toHaveBeenCalledTimes(2);
+    drawPinMock.mock.calls.forEach(([, x, y]) => {
+      expect(x).toBeCloseTo(expected.x);
+      expect(y).toBeCloseTo(expected.y);
+    });
+    fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(12.25));
+  });
+
+  it("projects from the capture map's own centre and zoom when no view is given", async () => {
+    await generatePosterBlob(cantonPosterSubject('BE', venues), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+
+    expect(fakeMap.project).toHaveBeenCalledWith([46.9, 7.4], 10);
+    fakeMap.project.mock.calls.forEach(([, zoom]) => expect(zoom).toBe(10));
+  });
+
+  it('hands the label layout the same points it drew', async () => {
+    fakeMap.project.mockImplementation(([lat, lng]: [number, number]) => ({ x: lng * 100, y: -lat * 100 }));
+    const spread = [v({ id: '1', name: 'Bern Ost', lat: 46.95 }), v({ id: '2', name: 'Thun', lat: 46.75, lng: 7.6 })];
+    await generatePosterBlob(cantonPosterSubject('BE', spread), { baseKind: 'map', unitLabel: 'Schwingkeller' });
+
+    const drawn = drawPinMock.mock.calls.map(([, x, y]) => [x, y]);
+    const labelled = drawPinLabelsMock.mock.calls[0][1].map((p: { x: number; y: number }) => [p.x, p.y]);
+    expect(labelled).toEqual(drawn);
+    expect(drawn[0]).not.toEqual(drawn[1]);
   });
 
   it('keeps the labels clear of the chrome bands and the QR code', async () => {
